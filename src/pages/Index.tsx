@@ -1,12 +1,31 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { Navigation } from "@/components/Navigation";
+import { CustomerPanel } from "@/components/CustomerPanel";
+import { DriverPanel } from "@/components/DriverPanel";
+import { AdminPanel } from "@/components/AdminPanel";
+
+type Panel = 'customer' | 'driver' | 'admin';
 
 const Index = () => {
+  const [activePanel, setActivePanel] = useState<Panel>('customer');
+
+  const renderActivePanel = () => {
+    switch (activePanel) {
+      case 'customer':
+        return <CustomerPanel />;
+      case 'driver':
+        return <DriverPanel />;
+      case 'admin':
+        return <AdminPanel />;
+      default:
+        return <CustomerPanel />;
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Navigation activePanel={activePanel} onPanelChange={setActivePanel} />
+      {renderActivePanel()}
     </div>
   );
 };
