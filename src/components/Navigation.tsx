@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { User, Truck, Settings } from "lucide-react";
+import { User, Truck, Settings, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface NavigationProps {
   activePanel: 'customer' | 'driver' | 'admin';
@@ -7,43 +8,52 @@ interface NavigationProps {
 }
 
 export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
+  const { userRole, signOut } = useAuth();
+  
+  const panels = [
+    { id: "customer" as const, label: "Asiakas", icon: User, roles: ["customer", "admin"] },
+    { id: "driver" as const, label: "Kuljettaja", icon: Truck, roles: ["driver", "admin"] },
+    { id: "admin" as const, label: "Ylläpito", icon: Settings, roles: ["admin"] },
+  ];
+
+  const availablePanels = panels.filter(panel => 
+    panel.roles.includes(userRole as string || "customer")
+  );
+
   return (
     <nav className="bg-card border-b border-border shadow-sm">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-4">
             <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              PesulaPalvelu
+              Vaatepesupalvelu
             </h1>
           </div>
           
           <div className="flex items-center space-x-2">
+            {availablePanels.map((panel) => {
+              const Icon = panel.icon;
+              return (
+                <Button
+                  key={panel.id}
+                  variant={activePanel === panel.id ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => onPanelChange(panel.id as 'customer' | 'driver' | 'admin')}
+                  className="flex items-center gap-2"
+                >
+                  <Icon className="h-4 w-4" />
+                  {panel.label}
+                </Button>
+              );
+            })}
             <Button
-              variant={activePanel === 'customer' ? 'default' : 'ghost'}
+              variant="ghost"
               size="sm"
-              onClick={() => onPanelChange('customer')}
-              className="flex items-center gap-2"
+              onClick={signOut}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
             >
-              <User className="h-4 w-4" />
-              Asiakas
-            </Button>
-            <Button
-              variant={activePanel === 'driver' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => onPanelChange('driver')}
-              className="flex items-center gap-2"
-            >
-              <Truck className="h-4 w-4" />
-              Kuljettaja
-            </Button>
-            <Button
-              variant={activePanel === 'admin' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => onPanelChange('admin')}
-              className="flex items-center gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              Ylläpito
+              <LogOut className="h-4 w-4" />
+              Kirjaudu ulos
             </Button>
           </div>
         </div>

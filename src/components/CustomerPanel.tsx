@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, Shirt, Sparkles, Zap, Star, CheckCircle, Package, Truck } from "lucide-react";
+import { CheckoutForm } from "./CheckoutForm";
 
 interface Service {
   id: string;
@@ -23,25 +24,25 @@ const services: Service[] = [
     duration: '24-48h'
   },
   {
-    id: 'sports',
-    name: 'Urheiluvaatteet',
-    description: 'Erikoispesu teknisille materiaaleille',
+    id: 'shoes',
+    name: 'Kenkäpesu',
+    description: 'Erikoispesu kengille ja urheilujalkineille',
     price: 20,
     icon: Sparkles,
     duration: '48h'
   },
   {
-    id: 'ironing',
-    name: 'Pesu + mankelointi',
+    id: 'sheets',
+    name: 'Lakanapyykki',
     description: 'Pesu, kuivaus ja huolellinen silitys',
     price: 25,
     icon: Zap,
     duration: '48-72h'
   },
   {
-    id: 'premium',
-    name: 'Premium-palvelu',
-    description: 'Käsinpesu, pehmeät kemikaalit, luovutus kotiin',
+    id: 'carpets',
+    name: 'Mattopesu',
+    description: 'Ammattimainen mattojen pesu ja kuivaus',
     price: 35,
     icon: Star,
     duration: '72h'
@@ -58,14 +59,14 @@ const mockOrders = [
   },
   {
     id: '002',
-    service: 'Urheiluvaatteet',
+    service: 'Kenkäpesu',
     status: 'washing',
     date: '2024-01-18',
     price: 20
   },
   {
     id: '003',
-    service: 'Pesu + mankelointi',
+    service: 'Lakanapyykki',
     status: 'ready',
     date: '2024-01-20',
     price: 25
@@ -233,7 +234,12 @@ export const CustomerPanel = () => {
                       <span className="text-lg font-semibold">Arvioitu kokonaishinta:</span>
                       <span className="text-2xl font-bold text-primary">{selectedService.price}€</span>
                     </div>
-                    <Button variant="hero" size="lg" className="w-full">
+                    <Button 
+                      variant="hero" 
+                      size="lg" 
+                      className="w-full"
+                      onClick={() => setCurrentView('booking')}
+                    >
                       Jatka tilaukseen
                     </Button>
                   </div>
@@ -241,6 +247,14 @@ export const CustomerPanel = () => {
               </Card>
             )}
           </div>
+        )}
+
+        {/* Booking/Checkout View */}
+        {currentView === 'booking' && selectedService && (
+          <CheckoutForm 
+            selectedService={selectedService}
+            onBack={() => setCurrentView('services')}
+          />
         )}
 
         {/* Orders View */}
