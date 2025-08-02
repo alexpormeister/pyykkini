@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserManagement } from "@/components/UserManagement";
+import { Reports } from "@/components/Reports";
 import { 
   Users, 
   Package, 
@@ -479,33 +480,7 @@ export const AdminPanel = () => {
 
           {/* Reports Tab */}
           <TabsContent value="reports" className="animate-fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
-                    Myyntiraportit
-                  </CardTitle>
-                  <CardDescription>Myynti- ja tulosanalyysi</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">Myyntiraportit tulossa pian...</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Suorituskykyraportit
-                  </CardTitle>
-                  <CardDescription>Käsittelyajat ja tehokkuus</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">Suorituskykyraportit tulossa piin...</p>
-                </CardContent>
-              </Card>
-            </div>
+            <Reports />
           </TabsContent>
         </Tabs>
 
