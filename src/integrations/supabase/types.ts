@@ -29,10 +29,12 @@ export type Database = {
           last_name: string
           phone: string
           pickup_date: string
+          pickup_option: string | null
           pickup_time: string
           price: number
           rejected_at: string | null
           return_date: string
+          return_option: string | null
           return_time: string
           service_name: string
           service_type: string
@@ -55,10 +57,12 @@ export type Database = {
           last_name: string
           phone: string
           pickup_date: string
+          pickup_option?: string | null
           pickup_time: string
           price: number
           rejected_at?: string | null
           return_date: string
+          return_option?: string | null
           return_time: string
           service_name: string
           service_type: string
@@ -81,10 +85,12 @@ export type Database = {
           last_name?: string
           phone?: string
           pickup_date?: string
+          pickup_option?: string | null
           pickup_time?: string
           price?: number
           rejected_at?: string | null
           return_date?: string
+          return_option?: string | null
           return_time?: string
           service_name?: string
           service_type?: string

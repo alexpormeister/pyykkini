@@ -64,6 +64,7 @@ export const Landing = () => {
 
   const handleOrderNow = (service: Service) => {
     if (user) {
+      // Automatically redirect to app if logged in
       navigate('/app');
     } else {
       setSelectedService(service);
@@ -89,21 +90,12 @@ export const Landing = () => {
                 className="h-10 w-10 object-contain"
               />
               <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Vaatepesupalvelu
+                Pesuni
               </h1>
             </div>
             
             <div className="flex items-center space-x-4">
-              {user ? (
-                <Button 
-                  variant="hero" 
-                  onClick={() => navigate('/app')}
-                  className="flex items-center gap-2"
-                >
-                  Avaa sovellus
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              ) : (
+              {!user && (
                 <>
                   <Button variant="ghost" onClick={() => navigate('/auth')}>
                     Kirjaudu sisään
@@ -298,7 +290,7 @@ export const Landing = () => {
                   alt="Maskotti" 
                   className="h-8 w-8 object-contain brightness-0 invert"
                 />
-                <h3 className="text-lg font-bold">Vaatepesupalvelu</h3>
+                <h3 className="text-lg font-bold">Pesuni</h3>
               </div>
               <p className="text-background/80">
                 Ammattimasta pesupalvelu kotiin. Nouto ja palautus sisältyy hintaan.
@@ -318,23 +310,22 @@ export const Landing = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
-                  <span>Helsinki, Espoo, Vantaa</span>
+                  <span>Vantaa</span>
                 </div>
               </div>
             </div>
             
             <div className="space-y-4">
-              <h4 className="font-semibold">Aukioloajat</h4>
+              <h4 className="font-semibold">Palvelu</h4>
               <div className="text-background/80">
-                <p>Ma-Pe: 8:00-18:00</p>
-                <p>La: 9:00-15:00</p>
-                <p>Su: Suljettu</p>
+                <p>Ammattimasta pesupalvelu kotiin.</p>
+                <p>Nouto ja palautus sisältyy hintaan.</p>
               </div>
             </div>
           </div>
           
           <div className="border-t border-background/20 mt-8 pt-8 text-center text-background/60">
-            <p>&copy; 2024 Vaatepesupalvelu. Kaikki oikeudet pidätetään.</p>
+            <p>&copy; 2024 Pesuni. Kaikki oikeudet pidätetään.</p>
           </div>
         </div>
       </footer>

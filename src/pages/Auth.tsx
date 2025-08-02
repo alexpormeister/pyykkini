@@ -26,7 +26,7 @@ export const Auth = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      navigate('/');
+      navigate('/app');
     }
   }, [user, navigate]);
 
@@ -50,7 +50,7 @@ export const Auth = () => {
           title: "Tervetuloa takaisin!",
           description: "Kirjautuminen onnistui"
         });
-        navigate('/');
+        navigate('/app');
       }
     } catch (error) {
       toast({
@@ -111,7 +111,7 @@ export const Auth = () => {
         <Card className="shadow-elegant">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold bg-gradient-hero bg-clip-text text-transparent">
-              Vaatepesupalvelu
+              Pesuni
             </CardTitle>
             <CardDescription>
               Kirjaudu sisään tai luo uusi asiakastili
