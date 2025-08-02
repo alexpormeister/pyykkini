@@ -358,6 +358,7 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
                           onChange={(e) => handleInputChange('pickupDate', e.target.value)}
                           min={new Date().toISOString().split('T')[0]}
                           max={new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                          className="rounded-xl border-2 focus:border-primary/50 transition-colors"
                           required
                         />
                       </div>
@@ -370,6 +371,7 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
                           onChange={(e) => handleInputChange('pickupTime', e.target.value)}
                           min="08:00"
                           max="20:00"
+                          className="rounded-xl border-2 focus:border-primary/50 transition-colors"
                           required
                         />
                       </div>
@@ -460,30 +462,32 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
                     
                     {formData.returnOption === 'choose_time' && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                        <div>
-                          <Label htmlFor="returnDate">Palautuspäivä *</Label>
-                          <Input
-                            id="returnDate"
-                            type="date"
-                            value={formData.returnDate}
-                            onChange={(e) => handleInputChange('returnDate', e.target.value)}
-                            min={formData.pickupDate || new Date().toISOString().split('T')[0]}
-                            max={new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="returnTime">Palautusaika *</Label>
-                          <Input
-                            id="returnTime"
-                            type="time"
-                            value={formData.returnTime}
-                            onChange={(e) => handleInputChange('returnTime', e.target.value)}
-                            min="08:00"
-                            max="20:00"
-                            required
-                          />
-                        </div>
+                         <div>
+                           <Label htmlFor="returnDate">Palautuspäivä *</Label>
+                           <Input
+                             id="returnDate"
+                             type="date"
+                             value={formData.returnDate}
+                             onChange={(e) => handleInputChange('returnDate', e.target.value)}
+                             min={formData.pickupDate || new Date().toISOString().split('T')[0]}
+                             max={new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                             className="rounded-xl border-2 focus:border-primary/50 transition-colors"
+                             required
+                           />
+                         </div>
+                         <div>
+                           <Label htmlFor="returnTime">Palautusaika *</Label>
+                           <Input
+                             id="returnTime"
+                             type="time"
+                             value={formData.returnTime}
+                             onChange={(e) => handleInputChange('returnTime', e.target.value)}
+                             min="08:00"
+                             max="20:00"
+                             className="rounded-xl border-2 focus:border-primary/50 transition-colors"
+                             required
+                           />
+                         </div>
                       </div>
                     )}
                   </div>

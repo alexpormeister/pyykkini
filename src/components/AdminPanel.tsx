@@ -270,10 +270,10 @@ export const AdminPanel = () => {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Yleiskatsaus</TabsTrigger>
             <TabsTrigger value="orders">Tilaukset</TabsTrigger>
-            <TabsTrigger value="customers">Asiakkaat</TabsTrigger>
+            <TabsTrigger value="customers">Käyttäjät</TabsTrigger>
             <TabsTrigger value="reports">Raportit</TabsTrigger>
           </TabsList>
 
@@ -472,7 +472,7 @@ export const AdminPanel = () => {
             </div>
           </TabsContent>
 
-          {/* Customers Tab */}
+          {/* Users Tab */}
           <TabsContent value="customers" className="animate-fade-in">
             <UserManagement />
           </TabsContent>

@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { User, Mail, Phone, Trash2, Package, Hash } from 'lucide-react';
+import { User, Mail, Phone, Trash2, Package, Hash, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Import profile images
@@ -205,6 +205,38 @@ export const Profile = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      {/* Navigation */}
+      <nav className="bg-card border-b border-border shadow-sm">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <img src={profileImages[0].src} alt="Pesuni" className="h-8" />
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/app')}
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <Package className="h-4 w-4" />
+                <span className="hidden md:inline">Takaisin</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={signOut}
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden md:inline">Kirjaudu ulos</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Profile Card */}
@@ -317,22 +349,31 @@ export const Profile = () => {
 
                 <Separator className="my-6" />
 
-                {/* Delete Account */}
-                <Alert className="border-destructive/20">
-                  <Trash2 className="h-4 w-4" />
-                  <AlertDescription>
-                    Poista tilisi pysyvästi. Tätä toimintoa ei voi peruuttaa.
-                  </AlertDescription>
-                </Alert>
-                
-                <Button 
-                  variant="destructive" 
-                  className="w-full mt-4"
-                  onClick={handleDeleteUser}
-                  disabled={deleteLoading}
-                >
-                  {deleteLoading ? 'Poistetaan...' : 'Poista tili'}
-                </Button>
+                {/* Delete Account - Less Prominent */}
+                <details className="group">
+                  <summary className="cursor-pointer text-sm text-muted-foreground hover:text-destructive transition-colors flex items-center gap-2">
+                    <Trash2 className="h-3 w-3" />
+                    Vaaralliset toiminnot
+                  </summary>
+                  <div className="mt-4 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
+                    <Alert className="border-destructive/20 bg-transparent">
+                      <Trash2 className="h-4 w-4" />
+                      <AlertDescription>
+                        Poista tilisi pysyvästi. Tätä toimintoa ei voi peruuttaa.
+                      </AlertDescription>
+                    </Alert>
+                    
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      className="w-full mt-4"
+                      onClick={handleDeleteUser}
+                      disabled={deleteLoading}
+                    >
+                      {deleteLoading ? 'Poistetaan...' : 'Poista tili'}
+                    </Button>
+                  </div>
+                </details>
               </CardContent>
             </Card>
           </div>

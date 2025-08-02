@@ -4,9 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, User, Mail, Shield } from 'lucide-react';
+import { Search, User, Mail, Shield, Edit, UserPlus, Phone } from 'lucide-react';
+import { CreateUserDialog } from './CreateUserDialog';
 
 interface UserWithRole {
   id: string;
@@ -26,6 +29,14 @@ export const UserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    full_name: '',
+    email: '',
+    phone: ''
+  });
 
   useEffect(() => {
     fetchUsers();
@@ -113,6 +124,48 @@ export const UserManagement = () => {
     }
   };
 
+  const openEditDialog = (user: UserWithRole) => {
+    setEditingUser(user);
+    setEditFormData({
+      full_name: user.profiles?.full_name || '',
+      email: user.email,
+      phone: user.profiles?.phone || ''
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: editFormData.full_name,
+          email: editFormData.email,
+          phone: editFormData.phone
+        })
+        .eq('user_id', editingUser.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Käyttäjä päivitetty',
+        description: 'Käyttäjän tiedot on päivitetty onnistuneesti'
+      });
+
+      setShowEditDialog(false);
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Virhe',
+        description: error.message || 'Käyttäjän päivittäminen epäonnistui'
+      });
+    }
+  };
+
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'admin': return 'bg-red-100 text-red-800';
@@ -149,28 +202,37 @@ export const UserManagement = () => {
         <CardDescription>Hallitse käyttäjien rooleja ja tietoja</CardDescription>
       </CardHeader>
       <CardContent>
-        {/* Search */}
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Hae käyttäjiä (sähköposti, nimi...)"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        {/* Search and Create User */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Hae käyttäjiä (sähköposti, nimi...)"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            className="flex items-center gap-2 bg-gradient-primary hover:opacity-90 transition-opacity"
+          >
+            <UserPlus className="h-4 w-4" />
+            Luo käyttäjä
+          </Button>
         </div>
 
         {/* Users List */}
         <div className="space-y-4">
           {filteredUsers.map((user) => (
-            <div key={user.id} className="border rounded-lg p-4 hover:shadow-sm transition-shadow">
+            <div key={user.id} className="border rounded-xl p-6 hover:shadow-elegant transition-all duration-300 bg-card">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
-                    <User className="h-5 w-5 text-primary" />
+                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-primary">
+                    <User className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h4 className="font-semibold">
+                    <h4 className="font-semibold text-lg">
                       {user.profiles?.full_name || user.email}
                     </h4>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -178,19 +240,29 @@ export const UserManagement = () => {
                       {user.email}
                     </div>
                     {user.profiles?.phone && (
-                      <p className="text-xs text-muted-foreground">
-                        Puh: {user.profiles.phone}
-                      </p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Phone className="h-3 w-3" />
+                        {user.profiles.phone}
+                      </div>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <Badge className={getRoleColor(user.user_roles?.[0]?.role || 'customer')}>
+                    <Badge className={getRoleColor(user.user_roles?.[0]?.role || 'customer')} variant="secondary">
                       <Shield className="h-3 w-3 mr-1" />
                       {user.user_roles?.[0]?.role || 'customer'}
                     </Badge>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEditDialog(user)}
+                    className="flex items-center gap-2"
+                  >
+                    <Edit className="h-3 w-3" />
+                    Muokkaa
+                  </Button>
                   <Select
                     value={user.user_roles?.[0]?.role || 'customer'}
                     onValueChange={(newRole) => updateUserRole(user.id, newRole)}
@@ -217,6 +289,91 @@ export const UserManagement = () => {
             <p>Ei käyttäjiä löytynyt</p>
           </div>
         )}
+
+        {/* Edit User Dialog */}
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Edit className="h-5 w-5" />
+                Muokkaa käyttäjää
+              </DialogTitle>
+              <DialogDescription>
+                Päivitä käyttäjän tietoja
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="edit_full_name">Koko nimi</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="edit_full_name"
+                    value={editFormData.full_name}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                    className="pl-10"
+                    placeholder="Koko nimi"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="edit_email">Sähköposti</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="edit_email"
+                    type="email"
+                    value={editFormData.email}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, email: e.target.value }))}
+                    className="pl-10"
+                    placeholder="sähköposti@example.com"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="edit_phone">Puhelinnumero</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="edit_phone"
+                    type="tel"
+                    value={editFormData.phone}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="pl-10"
+                    placeholder="+358 40 123 4567"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowEditDialog(false)}
+                  className="flex-1"
+                >
+                  Peruuta
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1"
+                >
+                  Tallenna
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Create User Dialog */}
+        <CreateUserDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          onUserCreated={fetchUsers}
+        />
       </CardContent>
     </Card>
   );
