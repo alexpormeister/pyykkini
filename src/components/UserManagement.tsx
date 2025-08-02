@@ -181,23 +181,22 @@ export const UserManagement = () => {
 
     setDeletingUser(userId);
     try {
-      // Delete user roles first
-      await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
+      // Call the edge function to delete the user completely
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { userId }
+      });
 
-      // Delete profile
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('user_id', userId);
+      if (error) {
+        throw error;
+      }
 
-      if (error) throw error;
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       toast({
         title: 'Käyttäjä poistettu',
-        description: 'Käyttäjä on poistettu onnistuneesti'
+        description: 'Käyttäjä on poistettu kokonaan järjestelmästä'
       });
 
       fetchUsers();
