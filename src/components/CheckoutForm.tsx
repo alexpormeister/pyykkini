@@ -62,6 +62,33 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
       return;
     }
 
+    if (!formData.pickupOption || !formData.returnOption) {
+      toast({
+        variant: "destructive", 
+        title: "Puuttuvia tietoja",
+        description: "Valitse sekä nouto- että palautustapa."
+      });
+      return;
+    }
+
+    if (formData.pickupOption === 'choose_time' && (!formData.pickupDate || !formData.pickupTime)) {
+      toast({
+        variant: "destructive",
+        title: "Puuttuvia tietoja", 
+        description: "Valitse noutopäivä ja -aika."
+      });
+      return;
+    }
+
+    if (formData.returnOption === 'choose_time' && (!formData.returnDate || !formData.returnTime)) {
+      toast({
+        variant: "destructive",
+        title: "Puuttuvia tietoja",
+        description: "Valitse palautuspäivä ja -aika."
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {

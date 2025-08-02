@@ -1,9 +1,12 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   Users, 
   Package, 
@@ -11,23 +14,39 @@ import {
   Euro, 
   Clock, 
   CheckCircle, 
-  AlertTriangle, 
   Search,
-  Filter,
+  Eye,
   BarChart3,
   Calendar
 } from "lucide-react";
 
 interface Order {
   id: string;
-  customerName: string;
-  service: string;
-  status: 'pending' | 'washing' | 'ready' | 'delivered';
-  orderDate: string;
-  pickupDate?: string;
-  deliveryDate?: string;
+  user_id: string;
+  driver_id?: string;
+  service_type: string;
+  service_name: string;
+  status: string;
+  created_at: string;
+  accepted_at?: string;
+  actual_pickup_time?: string;
+  actual_return_time?: string;
   price: number;
-  driverName?: string;
+  final_price: number;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  address: string;
+  pickup_option?: string;
+  return_option?: string;
+  pickup_date?: string;
+  pickup_time?: string;
+  return_date?: string;
+  return_time?: string;
+  special_instructions?: string;
+  // Join data
+  customer_email?: string;
+  driver_name?: string;
 }
 
 interface Stats {
@@ -35,95 +54,180 @@ interface Stats {
   activeOrders: number;
   completedToday: number;
   revenue: number;
-  avgProcessingTime: number;
 }
 
-const mockOrders: Order[] = [
-  {
-    id: '001',
-    customerName: 'Matti Virtanen',
-    service: 'Normaali pesu',
-    status: 'pending',
-    orderDate: '2024-01-20',
-    price: 15,
-    driverName: 'Jukka Kuljettaja'
-  },
-  {
-    id: '002',
-    customerName: 'Anna Korhonen',
-    service: 'Urheiluvaatteet',
-    status: 'washing',
-    orderDate: '2024-01-19',
-    pickupDate: '2024-01-19',
-    price: 20
-  },
-  {
-    id: '003',
-    customerName: 'Pekka Nieminen',
-    service: 'Premium-palvelu',
-    status: 'ready',
-    orderDate: '2024-01-18',
-    pickupDate: '2024-01-18',
-    price: 35,
-    driverName: 'Marja Kuljettaja'
-  },
-  {
-    id: '004',
-    customerName: 'Liisa Järvinen',
-    service: 'Pesu + mankelointi',
-    status: 'delivered',
-    orderDate: '2024-01-17',
-    pickupDate: '2024-01-17',
-    deliveryDate: '2024-01-19',
-    price: 25,
-    driverName: 'Jukka Kuljettaja'
-  }
-];
-
-const mockStats: Stats = {
-  totalOrders: 127,
-  activeOrders: 23,
-  completedToday: 8,
-  revenue: 2450,
-  avgProcessingTime: 36
-};
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'pending': return 'bg-yellow-100 text-yellow-800';
-    case 'washing': return 'bg-blue-100 text-blue-800';
-    case 'ready': return 'bg-green-100 text-green-800';
-    case 'delivered': return 'bg-gray-100 text-gray-800';
-    default: return 'bg-gray-100 text-gray-800';
-  }
-};
-
-const getStatusText = (status: string) => {
-  switch (status) {
-    case 'pending': return 'Odottaa noutoa';
-    case 'washing': return 'Pesussa';
-    case 'ready': return 'Valmis';
-    case 'delivered': return 'Toimitettu';
-    default: return status;
-  }
-};
-
 export const AdminPanel = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const { user } = useAuth();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [stats, setStats] = useState<Stats>({
+    totalOrders: 0,
+    activeOrders: 0,
+    completedToday: 0,
+    revenue: 0
+  });
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const filteredOrders = mockOrders.filter(order => {
-    const matchesSearch = order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.id.includes(searchTerm) ||
-                         order.service.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+  useEffect(() => {
+    fetchOrders();
+    fetchStats();
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      // Total orders
+      const { count: totalOrders } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true });
+
+      // Active orders (not delivered, rejected or cancelled)
+      const { count: activeOrders } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .not('status', 'in', '(delivered,rejected,cancelled)');
+
+      // Completed today
+      const today = new Date().toISOString().split('T')[0];
+      const { count: completedToday } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'delivered')
+        .gte('updated_at', today);
+
+      const { data: revenueData } = await supabase
+        .from('orders')
+        .select('final_price')
+        .eq('status', 'delivered');
+
+      const revenue = revenueData?.reduce((sum, order) => sum + (order.final_price || 0), 0) || 0;
+
+      setStats({
+        totalOrders: totalOrders || 0,
+        activeOrders: activeOrders || 0,
+        completedToday: completedToday || 0,
+        revenue
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = 
+      `${order.first_name} ${order.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.service_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.id.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+    
     return matchesSearch && matchesStatus;
   });
 
-  const updateOrderStatus = (orderId: string, newStatus: string) => {
-    console.log(`Updating order ${orderId} to status ${newStatus}`);
-    // Here would be the API call to update order status
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      const updateData: any = { status: newStatus };
+      
+      // Add timestamp for specific status changes
+      if (newStatus === 'accepted') {
+        updateData.accepted_at = new Date().toISOString();
+      } else if (newStatus === 'picking_up') {
+        updateData.actual_pickup_time = new Date().toISOString();
+      } else if (newStatus === 'delivered') {
+        updateData.actual_return_time = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update(updateData)
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      // Refresh data
+      fetchOrders();
+      fetchStats();
+    } catch (error) {
+      console.error('Error updating order status:', error);
+    }
   };
+
+  const getStatusColor = (status: string): string => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'accepted':
+        return 'bg-blue-100 text-blue-800';
+      case 'picking_up':
+        return 'bg-purple-100 text-purple-800';
+      case 'washing':
+        return 'bg-orange-100 text-orange-800';
+      case 'returning':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'delivered':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusText = (status: string): string => {
+    switch (status) {
+      case 'pending':
+        return 'Odottaa';
+      case 'accepted':
+        return 'Hyväksytty';
+      case 'picking_up':
+        return 'Haetaan';
+      case 'washing':
+        return 'Pesussa';
+      case 'returning':
+        return 'Palautetaan';
+      case 'delivered':
+        return 'Toimitettu';
+      case 'rejected':
+        return 'Hylätty';
+      default:
+        return status;
+    }
+  };
+
+  const openOrderDetails = (order: Order) => {
+    setSelectedOrder(order);
+    setShowOrderDetails(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Ladataan tilauksia...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -149,15 +253,15 @@ export const AdminPanel = () => {
           {/* Overview Tab */}
           <TabsContent value="overview" className="animate-fade-in">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Tilaukset yhteensä</CardTitle>
                   <Package className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{mockStats.totalOrders}</div>
-                  <p className="text-xs text-muted-foreground">+12% edellisestä kuukaudesta</p>
+                  <div className="text-2xl font-bold">{stats.totalOrders}</div>
+                  <p className="text-xs text-muted-foreground">Kaikki tilaukset</p>
                 </CardContent>
               </Card>
               
@@ -167,7 +271,7 @@ export const AdminPanel = () => {
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{mockStats.activeOrders}</div>
+                  <div className="text-2xl font-bold">{stats.activeOrders}</div>
                   <p className="text-xs text-muted-foreground">Käsittelyssä tällä hetkellä</p>
                 </CardContent>
               </Card>
@@ -178,30 +282,19 @@ export const AdminPanel = () => {
                   <CheckCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{mockStats.completedToday}</div>
-                  <p className="text-xs text-muted-foreground">+2 eilisestä</p>
+                  <div className="text-2xl font-bold">{stats.completedToday}</div>
+                  <p className="text-xs text-muted-foreground">Päivän suoritukset</p>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Kuukauden liikevaihto</CardTitle>
+                  <CardTitle className="text-sm font-medium">Kokonaistulot</CardTitle>
                   <Euro className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{mockStats.revenue}€</div>
-                  <p className="text-xs text-muted-foreground">+8% edellisestä kuukaudesta</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Keskim. käsittelyaika</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{mockStats.avgProcessingTime}h</div>
-                  <p className="text-xs text-muted-foreground">-4h parannusta</p>
+                  <div className="text-2xl font-bold">{stats.revenue}€</div>
+                  <p className="text-xs text-muted-foreground">Valmiit tilaukset</p>
                 </CardContent>
               </Card>
             </div>
@@ -214,22 +307,22 @@ export const AdminPanel = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {mockOrders.slice(0, 5).map((order) => (
+                  {orders.slice(0, 5).map((order) => (
                     <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-4">
                         <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
                           <Package className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <h4 className="font-semibold">{order.customerName}</h4>
-                          <p className="text-sm text-muted-foreground">#{order.id} - {order.service}</p>
+                          <h4 className="font-semibold">{order.first_name} {order.last_name}</h4>
+                          <p className="text-sm text-muted-foreground">#{order.id.slice(0, 8)} - {order.service_name}</p>
                         </div>
                       </div>
                       <div className="text-right">
                         <Badge className={getStatusColor(order.status)}>
                           {getStatusText(order.status)}
                         </Badge>
-                        <p className="text-sm text-muted-foreground mt-1">{order.price}€</p>
+                        <p className="text-sm text-muted-foreground mt-1">{order.final_price}€</p>
                       </div>
                     </div>
                   ))}
@@ -267,16 +360,16 @@ export const AdminPanel = () => {
                       Odottaa
                     </Button>
                     <Button
-                      variant={statusFilter === 'washing' ? 'default' : 'outline'}
-                      onClick={() => setStatusFilter('washing')}
+                      variant={statusFilter === 'accepted' ? 'default' : 'outline'}
+                      onClick={() => setStatusFilter('accepted')}
                     >
-                      Pesussa
+                      Hyväksytty
                     </Button>
                     <Button
-                      variant={statusFilter === 'ready' ? 'default' : 'outline'}
-                      onClick={() => setStatusFilter('ready')}
+                      variant={statusFilter === 'delivered' ? 'default' : 'outline'}
+                      onClick={() => setStatusFilter('delivered')}
                     >
-                      Valmis
+                      Toimitettu
                     </Button>
                   </div>
                 </div>
@@ -294,11 +387,11 @@ export const AdminPanel = () => {
                           <Package className="h-6 w-6 text-primary" />
                         </div>
                         <div>
-                          <h3 className="font-semibold">{order.customerName}</h3>
-                          <p className="text-sm text-muted-foreground">#{order.id} - {order.service}</p>
-                          <p className="text-sm text-muted-foreground">Tilattu: {order.orderDate}</p>
-                          {order.driverName && (
-                            <p className="text-sm text-muted-foreground">Kuljettaja: {order.driverName}</p>
+                          <h3 className="font-semibold">{order.first_name} {order.last_name}</h3>
+                          <p className="text-sm text-muted-foreground">#{order.id.slice(0, 8)} - {order.service_name}</p>
+                          <p className="text-sm text-muted-foreground">Tilattu: {new Date(order.created_at).toLocaleDateString('fi-FI')}</p>
+                          {order.driver_name && (
+                            <p className="text-sm text-muted-foreground">Kuljettaja: {order.driver_name}</p>
                           )}
                         </div>
                       </div>
@@ -307,22 +400,36 @@ export const AdminPanel = () => {
                           <Badge className={getStatusColor(order.status)}>
                             {getStatusText(order.status)}
                           </Badge>
-                          <p className="text-lg font-semibold mt-1">{order.price}€</p>
+                          <p className="text-lg font-semibold mt-1">{order.final_price}€</p>
                         </div>
                         <div className="flex flex-col gap-2">
-                          {order.status !== 'delivered' && (
+                          <Button size="sm" variant="outline" onClick={() => openOrderDetails(order)}>
+                            <Eye className="h-4 w-4 mr-1" />
+                            Avaa
+                          </Button>
+                          {order.status !== 'delivered' && order.status !== 'rejected' && (
                             <>
                               {order.status === 'pending' && (
+                                <Button size="sm" onClick={() => updateOrderStatus(order.id, 'accepted')}>
+                                  Hyväksy
+                                </Button>
+                              )}
+                              {order.status === 'accepted' && (
+                                <Button size="sm" onClick={() => updateOrderStatus(order.id, 'picking_up')}>
+                                  Merkitse haettavaksi
+                                </Button>
+                              )}
+                              {order.status === 'picking_up' && (
                                 <Button size="sm" onClick={() => updateOrderStatus(order.id, 'washing')}>
                                   Aloita pesu
                                 </Button>
                               )}
                               {order.status === 'washing' && (
-                                <Button size="sm" onClick={() => updateOrderStatus(order.id, 'ready')}>
-                                  Merkitse valmiiksi
+                                <Button size="sm" onClick={() => updateOrderStatus(order.id, 'returning')}>
+                                  Aloita palautus
                                 </Button>
                               )}
-                              {order.status === 'ready' && (
+                              {order.status === 'returning' && (
                                 <Button size="sm" onClick={() => updateOrderStatus(order.id, 'delivered')}>
                                   Merkitse toimitetuksi
                                 </Button>
@@ -376,12 +483,136 @@ export const AdminPanel = () => {
                   <CardDescription>Käsittelyajat ja tehokkuus</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">Suorituskykyraportit tulossa pian...</p>
+                  <p className="text-muted-foreground">Suorituskykyraportit tulossa piin...</p>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Order Details Dialog */}
+        <Dialog open={showOrderDetails} onOpenChange={setShowOrderDetails}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Tilauksen tiedot</DialogTitle>
+              <DialogDescription>
+                Tilauksen #{selectedOrder?.id.slice(0, 8)} yksityiskohtaiset tiedot
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedOrder && (
+              <div className="space-y-6">
+                {/* Customer Info */}
+                <div>
+                  <h3 className="font-semibold mb-2">Asiakastiedot</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Nimi:</span>
+                      <p className="font-medium">{selectedOrder.first_name} {selectedOrder.last_name}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Sähköposti:</span>
+                      <p className="font-medium">{selectedOrder.customer_email || 'Ei saatavilla'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Puhelin:</span>
+                      <p className="font-medium">{selectedOrder.phone}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Osoite:</span>
+                      <p className="font-medium">{selectedOrder.address}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Order Info */}
+                <div>
+                  <h3 className="font-semibold mb-2">Tilauksen tiedot</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Palvelu:</span>
+                      <p className="font-medium">{selectedOrder.service_name}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Hinta:</span>
+                      <p className="font-medium">{selectedOrder.final_price}€</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Tila:</span>
+                      <Badge className={getStatusColor(selectedOrder.status)}>
+                        {getStatusText(selectedOrder.status)}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Kuljettaja:</span>
+                      <p className="font-medium">{selectedOrder.driver_name || 'Ei määritetty'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pickup/Return Options */}
+                <div>
+                  <h3 className="font-semibold mb-2">Nouto ja palautus</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Noutovaihtoehto:</span>
+                      <p className="font-medium">
+                        {selectedOrder.pickup_option === 'immediate' ? 'Heti' : 
+                         selectedOrder.pickup_option === 'choose_time' ? 'Valittu aika' : 
+                         selectedOrder.pickup_option === 'no_preference' ? 'Ei väliä' : 'Ei määritetty'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Palautusvaihtoehto:</span>
+                      <p className="font-medium">
+                        {selectedOrder.return_option === 'immediate' ? 'Heti' : 
+                         selectedOrder.return_option === 'choose_time' ? 'Valittu aika' : 
+                         selectedOrder.return_option === 'no_preference' ? 'Ei väliä' : 'Ei määritetty'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Timestamps */}
+                <div>
+                  <h3 className="font-semibold mb-2">Aikaleimoja</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tilaus luotu:</span>
+                      <span>{new Date(selectedOrder.created_at).toLocaleString('fi-FI')}</span>
+                    </div>
+                    {selectedOrder.accepted_at && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Hyväksytty:</span>
+                        <span>{new Date(selectedOrder.accepted_at).toLocaleString('fi-FI')}</span>
+                      </div>
+                    )}
+                    {selectedOrder.actual_pickup_time && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Noudettu:</span>
+                        <span>{new Date(selectedOrder.actual_pickup_time).toLocaleString('fi-FI')}</span>
+                      </div>
+                    )}
+                    {selectedOrder.actual_return_time && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Palautettu:</span>
+                        <span>{new Date(selectedOrder.actual_return_time).toLocaleString('fi-FI')}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Special Instructions */}
+                {selectedOrder.special_instructions && (
+                  <div>
+                    <h3 className="font-semibold mb-2">Erityisohjeet</h3>
+                    <p className="text-sm bg-muted p-3 rounded">{selectedOrder.special_instructions}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

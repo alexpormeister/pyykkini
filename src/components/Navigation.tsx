@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { User, Truck, Settings, LogOut } from "lucide-react";
+import { User, Truck, Settings, LogOut, UserCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface NavigationProps {
@@ -48,6 +48,15 @@ export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
                 </Button>
               );
             })}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.location.href = '/profile'}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <UserCircle className="h-4 w-4" />
+              <span className="hidden md:inline">Profiili</span>
+            </Button>
             <Button
               variant="ghost"
               size="sm"
