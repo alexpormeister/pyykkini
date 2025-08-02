@@ -11,17 +11,33 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SimpleMap } from './SimpleMap';
 
 interface CheckoutFormProps {
-  selectedService: {
+  cartItems: Array<{
     id: string;
+    type: 'service' | 'addon' | 'bundle';
+    serviceId: string;
     name: string;
-    price: number;
     description: string;
-  };
+    price: number;
+    quantity: number;
+    metadata?: {
+      rugDimensions?: {
+        length: number;
+        width: number;
+      };
+      sockColor?: string;
+      sockPairs?: number;
+    };
+  }>;
+  appliedCoupon?: {
+    code: string;
+    discount_type: string;
+    discount_value: number;
+  } | null;
   onBack: () => void;
   onSuccess: () => void;
 }
 
-export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFormProps) => {
+export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: CheckoutFormProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -29,8 +45,6 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
   const [isAddressEditable, setIsAddressEditable] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
     phone: '',
     address: '',
     specialInstructions: '',
@@ -39,8 +53,7 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
     pickupTime: '',
     returnOption: '', // 'immediate', 'choose_time', 'no_preference'
     returnDate: '',
-    returnTime: '',
-    discountCode: ''
+    returnTime: ''
   });
 
   // Fetch user profile data and populate form
@@ -59,11 +72,8 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
 
         if (profile) {
           setUserProfile(profile);
-          const names = profile.full_name?.split(' ') || ['', ''];
           setFormData(prev => ({
             ...prev,
-            firstName: names[0] || '',
-            lastName: names.slice(1).join(' ') || '',
             phone: profile.phone || '',
             address: profile.address || ''
           }));
@@ -97,11 +107,25 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const calculateFinalPrice = () => {
-    if (formData.discountCode.toUpperCase() === 'ILMAINEN') {
-      return 0;
+  const calculateSubtotal = () => {
+    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  const calculateDiscount = () => {
+    if (!appliedCoupon) return 0;
+    
+    const subtotal = calculateSubtotal();
+    if (appliedCoupon.discount_type === 'percentage') {
+      return subtotal * (appliedCoupon.discount_value / 100);
+    } else {
+      return Math.min(appliedCoupon.discount_value, subtotal);
     }
-    return selectedService.price;
+  };
+
+  const calculateFinalPrice = () => {
+    const subtotal = calculateSubtotal();
+    const discount = calculateDiscount();
+    return Math.max(0, subtotal - discount);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -157,21 +181,22 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
 
     try {
       const finalPrice = calculateFinalPrice();
+      const subtotal = calculateSubtotal();
       const now = new Date();
       const currentDate = now.toISOString().split('T')[0];
       const currentTime = now.toTimeString().slice(0, 5);
       
-      const { error } = await supabase
+      // Create the main order first
+      const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
           user_id: user.id,
-          service_type: selectedService.id,
-          service_name: selectedService.name,
-          price: selectedService.price,
-          discount_code: formData.discountCode.toUpperCase() || null,
+          service_type: 'multiple', // Indicate this is a multi-item order
+          service_name: cartItems.length === 1 ? cartItems[0].name : `${cartItems.length} palvelua`,
+          price: subtotal,
           final_price: finalPrice,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
+          first_name: 'Asiakas', // Default value since we removed name fields
+          last_name: 'Asiakas', // Default value since we removed name fields
           phone: formData.phone,
           address: formData.address,
           special_instructions: formData.specialInstructions || null,
@@ -182,10 +207,29 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
           return_date: formData.returnOption === 'choose_time' ? formData.returnDate : currentDate,
           return_time: formData.returnOption === 'choose_time' ? formData.returnTime : currentTime,
           status: 'pending'
-        });
+        })
+        .select()
+        .single();
 
-      if (error) {
-        throw error;
+      if (orderError) throw orderError;
+
+      // Create order items
+      const orderItems = cartItems.map(item => ({
+        order_id: orderData.id,
+        service_type: item.serviceId,
+        service_name: item.name,
+        quantity: item.quantity,
+        unit_price: item.price,
+        total_price: item.price * item.quantity,
+        metadata: item.metadata || null
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        throw itemsError;
       }
 
       // Update user's profile with phone and address if they were changed
@@ -201,12 +245,10 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
       
       toast({
         title: "Tilaus vastaanotettu!",
-        description: `${selectedService.name} tilaus on käsittelyssä. Saat vahvistuksen pian.`
+        description: `Tilauksesi ${cartItems.length} tuotetta on käsittelyssä. Saat vahvistuksen pian.`
       });
       
       setFormData({
-        firstName: '',
-        lastName: '',
         phone: '',
         address: '',
         specialInstructions: '',
@@ -215,8 +257,7 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
         pickupTime: '',
         returnOption: '',
         returnDate: '',
-        returnTime: '',
-        discountCode: ''
+        returnTime: ''
       });
       
       onSuccess();
@@ -236,7 +277,7 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
       <div className="mb-6">
         <Button variant="outline" onClick={onBack} className="mb-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Takaisin palveluihin
+          Takaisin ostoskoriin
         </Button>
         <h2 className="text-2xl font-fredoka text-center">Tilauksen tiedot</h2>
       </div>
@@ -253,23 +294,35 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
           <CardContent>
             <div className="space-y-4">
               <div>
-                <h4 className="font-semibold">{selectedService.name}</h4>
-                <p className="text-sm text-muted-foreground">{selectedService.description}</p>
+                <h4 className="font-semibold">Ostoskori ({cartItems.length})</h4>
+                <div className="space-y-2 mt-3">
+                  {cartItems.map((item) => (
+                    <div key={item.id} className="flex justify-between items-center">
+                      <div>
+                        <p className="text-sm font-medium">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.quantity}x {item.price}€
+                        </p>
+                      </div>
+                      <p className="text-sm font-bold">{(item.price * item.quantity).toFixed(2)}€</p>
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="border-t pt-4">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="font-semibold">Alkuperäinen hinta:</span>
-                  <span className="text-lg font-bold">{selectedService.price}€</span>
+                  <span className="font-semibold">Välisumma:</span>
+                  <span className="text-lg font-bold">{calculateSubtotal().toFixed(2)}€</span>
                 </div>
-                {formData.discountCode.toUpperCase() === 'ILMAINEN' && (
+                {appliedCoupon && (
                   <div className="flex justify-between items-center mb-2 text-green-600">
-                    <span className="font-semibold">Alennus:</span>
-                    <span className="text-lg font-bold">-{selectedService.price}€</span>
+                    <span className="font-semibold">Alennus ({appliedCoupon.code}):</span>
+                    <span className="text-lg font-bold">-{calculateDiscount().toFixed(2)}€</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center border-t pt-2">
                   <span className="text-lg font-semibold">Yhteensä:</span>
-                  <span className="text-2xl font-bold text-primary">{calculateFinalPrice()}€</span>
+                  <span className="text-2xl font-bold text-primary">{calculateFinalPrice().toFixed(2)}€</span>
                 </div>
               </div>
             </div>
@@ -296,49 +349,30 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
 
               {!profileLoading && (
                 <>
-                  {/* Customer Information */}
-                  <div className="space-y-4">
-                    <h4 className="font-semibold flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      Yhteystiedot
-                      <span className="text-sm text-muted-foreground font-normal">(Profiilista)</span>
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="firstName">Etunimi *</Label>
-                        <Input
-                          id="firstName"
-                          value={formData.firstName}
-                          onChange={(e) => handleInputChange('firstName', e.target.value)}
-                          required
-                          className="bg-muted/30"
-                          disabled
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="lastName">Sukunimi *</Label>
-                        <Input
-                          id="lastName"
-                          value={formData.lastName}
-                          onChange={(e) => handleInputChange('lastName', e.target.value)}
-                          required
-                          className="bg-muted/30"
-                          disabled
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="phone">Puhelinnumero *</Label>
-                        <Input
-                          id="phone"
-                          type="tel"
-                          value={formData.phone}
-                          onChange={(e) => handleInputChange('phone', e.target.value)}
-                          required
-                          className="bg-muted/30"
-                          disabled
-                        />
-                      </div>
-                    </div>
+                   {/* Customer Information */}
+                   <div className="space-y-4">
+                     <h4 className="font-semibold flex items-center gap-2">
+                       <User className="h-4 w-4" />
+                       Yhteystiedot
+                       <span className="text-sm text-muted-foreground font-normal">(Profiilista)</span>
+                     </h4>
+                     <div className="grid grid-cols-1 gap-4">
+                       <div>
+                         <Label htmlFor="phone">Puhelinnumero *</Label>
+                         <Input
+                           id="phone"
+                           type="tel"
+                           value={formData.phone}
+                           onChange={(e) => handleInputChange('phone', e.target.value)}
+                           required
+                           className="bg-muted/30"
+                           placeholder="+358 40 123 4567"
+                         />
+                         <p className="text-xs text-muted-foreground mt-1">
+                           Puhelinnumero haettu profiilista. Voit muokata sitä tarvittaessa.
+                         </p>
+                       </div>
+                     </div>
                     <div>
                       <Label htmlFor="address" className="flex items-center justify-between">
                         <span>Noutoosoite *</span>
@@ -657,23 +691,21 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
                   rows={3}
                 />
               </div>
-              {/* Discount Code */}
-              <div>
-                <Label htmlFor="discountCode">Alennuskoodi</Label>
-                <div className="relative">
-                  <Tag className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="discountCode"
-                    className="pl-10"
-                    value={formData.discountCode}
-                    onChange={(e) => handleInputChange('discountCode', e.target.value)}
-                    placeholder="Syötä alennuskoodi"
-                  />
+              {/* Applied Coupon Display */}
+              {appliedCoupon && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-green-800">
+                    <Tag className="h-4 w-4" />
+                    <span className="font-semibold">Käytetty kuponki: {appliedCoupon.code}</span>
+                  </div>
+                  <p className="text-sm text-green-600 mt-1">
+                    Saat {appliedCoupon.discount_type === 'percentage' 
+                      ? `${appliedCoupon.discount_value}% alennuksen`
+                      : `${appliedCoupon.discount_value}€ alennuksen`
+                    }
+                  </p>
                 </div>
-                {formData.discountCode.toUpperCase() === 'ILMAINEN' && (
-                  <p className="text-sm text-green-600 mt-1">✅ Alennuskoodi hyväksytty! Tilaus on ilmainen.</p>
-                )}
-              </div>
+              )}
 
               {/* Payment Methods */}
               <div className="space-y-4">

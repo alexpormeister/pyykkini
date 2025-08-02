@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, Clock, Shirt, Sparkles, Zap, Star, CheckCircle, Package, Truck, ArrowRight } from "lucide-react";
+import { Calendar, Clock, Shirt, Sparkles, Zap, Star, CheckCircle, Package, Truck, ArrowRight, ShoppingCart as CartIcon } from "lucide-react";
 import { CheckoutForm } from "./CheckoutForm";
+import { ShoppingCart, CartItem } from "./ShoppingCart";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -95,10 +96,12 @@ export const CustomerPanel = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [currentView, setCurrentView] = useState<'services' | 'booking' | 'orders'>('services');
+  const [currentView, setCurrentView] = useState<'services' | 'cart' | 'booking' | 'orders'>('services');
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
 
   useEffect(() => {
     if (currentView === 'orders' && user) {
@@ -137,6 +140,31 @@ export const CustomerPanel = () => {
 
   const handleOrderNow = () => {
     setShowServiceModal(false);
+    setCurrentView('cart');
+  };
+
+  const handleAddToCart = (service: Service) => {
+    const newItem: CartItem = {
+      id: `${service.id}-${Date.now()}`,
+      type: 'service',
+      serviceId: service.id,
+      name: service.name,
+      description: service.description,
+      price: service.price,
+      quantity: 1
+    };
+    
+    setCartItems(prev => [...prev, newItem]);
+    setShowServiceModal(false);
+    setCurrentView('cart');
+    
+    toast({
+      title: "Palvelu lisätty",
+      description: `${service.name} lisätty ostoskoriin`
+    });
+  };
+
+  const handleProceedToCheckout = (items: CartItem[], total: number) => {
     setCurrentView('booking');
   };
 
@@ -162,6 +190,20 @@ export const CustomerPanel = () => {
             >
               <Shirt className="h-5 w-5" />
               Tilaa palvelu
+            </Button>
+            <Button 
+              variant={currentView === 'cart' ? 'hero' : 'outline'} 
+              size="lg"
+              onClick={() => setCurrentView('cart')}
+              className="flex items-center gap-2 relative"
+            >
+              <CartIcon className="h-5 w-5" />
+              Ostoskori
+              {cartItems.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-primary text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {cartItems.length}
+                </span>
+              )}
             </Button>
             <Button 
               variant={currentView === 'orders' ? 'hero' : 'outline'} 
@@ -287,16 +329,29 @@ export const CustomerPanel = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Shopping Cart View */}
+        {currentView === 'cart' && (
+          <div className="animate-fade-in">
+            <h2 className="text-2xl font-semibold mb-6 text-center">Ostoskori</h2>
+            <ShoppingCart
+              cartItems={cartItems}
+              onUpdateCart={setCartItems}
+              onProceedToCheckout={handleProceedToCheckout}
+              appliedCoupon={appliedCoupon}
+              onCouponApplied={setAppliedCoupon}
+            />
+          </div>
+        )}
+
         {/* Booking/Checkout View */}
-        {currentView === 'booking' && selectedService && (
+        {currentView === 'booking' && (
           <CheckoutForm 
-            selectedService={selectedService}
-            onBack={() => {
-              setCurrentView('services');
-              setShowServiceModal(false);
-            }}
+            cartItems={cartItems}
+            appliedCoupon={appliedCoupon}
+            onBack={() => setCurrentView('cart')}
             onSuccess={() => {
-              setSelectedService(null);
+              setCartItems([]);
+              setAppliedCoupon(null);
               setCurrentView('orders');
               fetchOrders();
             }}

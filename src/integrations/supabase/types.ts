@@ -14,12 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
+      coupons: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          discount_type: string
+          discount_value: number
+          id: string
+          updated_at: string
+          usage_count: number
+          usage_limit: number | null
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          discount_type: string
+          discount_value: number
+          id?: string
+          updated_at?: string
+          usage_count?: number
+          usage_limit?: number | null
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          updated_at?: string
+          usage_count?: number
+          usage_limit?: number | null
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      order_items: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json | null
+          order_id: string
+          quantity: number
+          service_name: string
+          service_type: string
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          order_id: string
+          quantity?: number
+          service_name: string
+          service_type: string
+          total_price: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          order_id?: string
+          quantity?: number
+          service_name?: string
+          service_type?: string
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           accepted_at: string | null
           actual_pickup_time: string | null
           actual_return_time: string | null
           address: string
+          coupon_id: string | null
           created_at: string
           discount_code: string | null
           driver_id: string | null
@@ -51,6 +138,7 @@ export type Database = {
           actual_pickup_time?: string | null
           actual_return_time?: string | null
           address: string
+          coupon_id?: string | null
           created_at?: string
           discount_code?: string | null
           driver_id?: string | null
@@ -82,6 +170,7 @@ export type Database = {
           actual_pickup_time?: string | null
           actual_return_time?: string | null
           address?: string
+          coupon_id?: string | null
           created_at?: string
           discount_code?: string | null
           driver_id?: string | null
@@ -108,7 +197,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orders_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
