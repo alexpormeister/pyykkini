@@ -76,10 +76,21 @@ export const AdminPanel = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     fetchOrders();
     fetchStats();
+    
+    // Check for tab preference from Profile navigation
+    const preferredTab = sessionStorage.getItem('adminTab');
+    if (preferredTab === 'users') {
+      setActiveTab('customers');
+      sessionStorage.removeItem('adminTab');
+    } else if (preferredTab === 'reports') {
+      setActiveTab('reports');
+      sessionStorage.removeItem('adminTab');
+    }
   }, []);
 
   const fetchOrders = async () => {
@@ -270,7 +281,7 @@ export const AdminPanel = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="overview" className="space-y-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
             <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Yleiskatsaus</TabsTrigger>
             <TabsTrigger value="orders">Tilaukset</TabsTrigger>

@@ -503,7 +503,11 @@ export const Profile = () => {
                       <Button 
                         variant="outline" 
                         className="h-20 flex flex-col items-center justify-center gap-2"
-                        disabled
+                        onClick={() => {
+                          navigate('/app');
+                          // Set a flag to show user management tab
+                          sessionStorage.setItem('adminTab', 'users');
+                        }}
                       >
                         <User className="h-6 w-6" />
                         <span>Käyttäjähallinta</span>
@@ -511,7 +515,11 @@ export const Profile = () => {
                       <Button 
                         variant="outline" 
                         className="h-20 flex flex-col items-center justify-center gap-2"
-                        disabled
+                        onClick={() => {
+                          navigate('/app');
+                          // Set a flag to show reports tab
+                          sessionStorage.setItem('adminTab', 'reports');
+                        }}
                       >
                         <Package className="h-6 w-6" />
                         <span>Raportit</span>

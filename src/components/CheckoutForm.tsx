@@ -27,6 +27,7 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
   const [loading, setLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
   const [isAddressEditable, setIsAddressEditable] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -57,6 +58,7 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
         if (error) throw error;
 
         if (profile) {
+          setUserProfile(profile);
           const names = profile.full_name?.split(' ') || ['', ''];
           setFormData(prev => ({
             ...prev,
@@ -110,6 +112,16 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
         variant: "destructive",
         title: "Virhe",
         description: "Sinun täytyy olla kirjautunut sisään tehdäksesi tilauksen."
+      });
+      return;
+    }
+
+    // Check if user has phone and address in profile
+    if (!formData.phone || !formData.address) {
+      toast({
+        variant: "destructive",
+        title: "Puuttuvat tiedot",
+        description: "Anna puhelinnumero ja osoite tehdäksesi tilauksen."
       });
       return;
     }
@@ -174,6 +186,17 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
 
       if (error) {
         throw error;
+      }
+
+      // Update user's profile with phone and address if they were changed
+      if (userProfile?.address !== formData.address || userProfile?.phone !== formData.phone) {
+        await supabase
+          .from('profiles')
+          .update({ 
+            address: formData.address,
+            phone: formData.phone 
+          })
+          .eq('user_id', user.id);
       }
       
       toast({

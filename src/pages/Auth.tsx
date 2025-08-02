@@ -7,8 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail, Lock, User } from 'lucide-react';
+import { Loader2, Mail, Lock, User, Phone, MapPin, ArrowLeft } from 'lucide-react';
 import { useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export const Auth = () => {
   const { signIn, signUp, user } = useAuth();
@@ -22,6 +23,9 @@ export const Auth = () => {
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
   const [signUpFullName, setSignUpFullName] = useState('');
+  const [signUpPhone, setSignUpPhone] = useState('');
+  const [signUpAddress, setSignUpAddress] = useState('');
+  const [showExtraFields, setShowExtraFields] = useState(false);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -63,8 +67,31 @@ export const Auth = () => {
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const handleInitialSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!signUpEmail || !signUpPassword || !signUpFullName) {
+      toast({
+        variant: "destructive",
+        title: "Täytä kaikki kentät",
+        description: "Sähköposti, salasana ja nimi ovat pakollisia."
+      });
+      return;
+    }
+    setShowExtraFields(true);
+  };
+
+  const handleCompleteSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!signUpPhone || !signUpAddress) {
+      toast({
+        variant: "destructive",
+        title: "Täytä kaikki kentät",
+        description: "Puhelinnumero ja osoite ovat pakollisia tilauksen tekemiseen."
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -85,14 +112,30 @@ export const Auth = () => {
           });
         }
       } else {
+        // Update profile with phone and address
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('profiles')
+            .update({
+              phone: signUpPhone,
+              address: signUpAddress
+            })
+            .eq('user_id', user.id);
+        }
+
         toast({
           title: "Rekisteröinti onnistui!",
           description: "Voit nyt kirjautua sisään."
         });
-        // Clear form and switch to sign in tab
+        
+        // Clear form and reset to first step
         setSignUpEmail('');
         setSignUpPassword('');
         setSignUpFullName('');
+        setSignUpPhone('');
+        setSignUpAddress('');
+        setShowExtraFields(false);
       }
     } catch (error) {
       toast({
@@ -169,63 +212,124 @@ export const Auth = () => {
               </TabsContent>
               
               <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">Koko nimi</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-name"
-                        type="text"
-                        value={signUpFullName}
-                        onChange={(e) => setSignUpFullName(e.target.value)}
-                        className="pl-10"
-                        placeholder="Anna Asiakas"
-                        required
-                      />
+                {!showExtraFields ? (
+                  <form onSubmit={handleInitialSignUp} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-name">Koko nimi</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signup-name"
+                          type="text"
+                          value={signUpFullName}
+                          onChange={(e) => setSignUpFullName(e.target.value)}
+                          className="pl-10"
+                          placeholder="Anna Asiakas"
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Sähköposti</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        value={signUpEmail}
-                        onChange={(e) => setSignUpEmail(e.target.value)}
-                        className="pl-10"
-                        placeholder="anna@example.com"
-                        required
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email">Sähköposti</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signup-email"
+                          type="email"
+                          value={signUpEmail}
+                          onChange={(e) => setSignUpEmail(e.target.value)}
+                          className="pl-10"
+                          placeholder="anna@example.com"
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Salasana</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-password"
-                        type="password"
-                        value={signUpPassword}
-                        onChange={(e) => setSignUpPassword(e.target.value)}
-                        className="pl-10"
-                        placeholder="••••••••"
-                        minLength={6}
-                        required
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-password">Salasana</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signup-password"
+                          type="password"
+                          value={signUpPassword}
+                          onChange={(e) => setSignUpPassword(e.target.value)}
+                          className="pl-10"
+                          placeholder="••••••••"
+                          minLength={6}
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <Button 
-                    type="submit" 
-                    variant="hero" 
-                    className="w-full" 
-                    disabled={loading}
-                  >
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Luo asiakastili
-                  </Button>
-                </form>
+                    <Button 
+                      type="submit" 
+                      variant="hero" 
+                      className="w-full"
+                    >
+                      Jatka
+                    </Button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleCompleteSignUp} className="space-y-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowExtraFields(false)}
+                        className="flex items-center gap-1"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        Takaisin
+                      </Button>
+                      <span className="text-sm text-muted-foreground">Vielä kaksi kenttää...</span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-phone">Puhelinnumero *</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signup-phone"
+                          type="tel"
+                          value={signUpPhone}
+                          onChange={(e) => setSignUpPhone(e.target.value)}
+                          className="pl-10"
+                          placeholder="+358 40 123 4567"
+                          required
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-address">Osoite *</Label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signup-address"
+                          value={signUpAddress}
+                          onChange={(e) => setSignUpAddress(e.target.value)}
+                          className="pl-10"
+                          placeholder="Katu 1, 00100 Helsinki"
+                          required
+                        />
+                      </div>
+                    </div>
+                    
+                    <p className="text-xs text-muted-foreground">
+                      * Tarvitsemme puhelinnumerosi ja osoitteesi tilausten toimittamiseen
+                    </p>
+                    
+                    <Button 
+                      type="submit" 
+                      variant="hero" 
+                      className="w-full" 
+                      disabled={loading}
+                    >
+                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Luo asiakastili
+                    </Button>
+                  </form>
+                )}
               </TabsContent>
             </Tabs>
           </CardContent>

@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, User, Mail, Shield, Edit, UserPlus, Phone, MapPin } from 'lucide-react';
+import { Search, User, Mail, Shield, Edit, UserPlus, Phone, MapPin, Trash2 } from 'lucide-react';
 import { CreateUserDialog } from './CreateUserDialog';
 
 interface UserWithRole {
@@ -33,6 +33,7 @@ export const UserManagement = () => {
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [deletingUser, setDeletingUser] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState({
     full_name: '',
     email: '',
@@ -173,6 +174,45 @@ export const UserManagement = () => {
     }
   };
 
+  const handleDeleteUser = async (userId: string, userEmail: string) => {
+    if (!confirm(`Oletko varma, että haluat poistaa käyttäjän ${userEmail}? Tätä toimintoa ei voi peruuttaa.`)) {
+      return;
+    }
+
+    setDeletingUser(userId);
+    try {
+      // Delete user roles first
+      await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      // Delete profile
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Käyttäjä poistettu',
+        description: 'Käyttäjä on poistettu onnistuneesti'
+      });
+
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Virhe',
+        description: error.message || 'Käyttäjän poistaminen epäonnistui'
+      });
+    } finally {
+      setDeletingUser(null);
+    }
+  };
+
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'admin': return 'bg-red-100 text-red-800';
@@ -269,6 +309,16 @@ export const UserManagement = () => {
                   >
                     <Edit className="h-3 w-3" />
                     Muokkaa
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteUser(user.id, user.email)}
+                    disabled={deletingUser === user.id}
+                    className="flex items-center gap-2 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    {deletingUser === user.id ? 'Poistetaan...' : 'Poista'}
                   </Button>
                   <Select
                     value={user.user_roles?.[0]?.role || 'customer'}
