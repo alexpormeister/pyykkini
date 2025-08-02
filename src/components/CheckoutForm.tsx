@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, CreditCard, MapPin, Phone, User, Tag } from 'lucide-react';
+import { ArrowLeft, CreditCard, MapPin, Phone, User, Tag, Edit } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { SimpleMap } from './SimpleMap';
 
 interface CheckoutFormProps {
   selectedService: {
@@ -24,6 +25,8 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
   const { toast } = useToast();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [isAddressEditable, setIsAddressEditable] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -38,6 +41,45 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
     returnTime: '',
     discountCode: ''
   });
+
+  // Fetch user profile data and populate form
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('full_name, phone, address, email')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) throw error;
+
+        if (profile) {
+          const names = profile.full_name?.split(' ') || ['', ''];
+          setFormData(prev => ({
+            ...prev,
+            firstName: names[0] || '',
+            lastName: names.slice(1).join(' ') || '',
+            phone: profile.phone || '',
+            address: profile.address || ''
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        toast({
+          variant: "destructive",
+          title: "Virhe",
+          description: "Profiilin tietojen lataaminen epäonnistui."
+        });
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [user, toast]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -211,57 +253,105 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Customer Information */}
-              <div className="space-y-4">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Yhteystiedot
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="firstName">Etunimi *</Label>
-                    <Input
-                      id="firstName"
-                      value={formData.firstName}
-                      onChange={(e) => handleInputChange('firstName', e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="lastName">Sukunimi *</Label>
-                    <Input
-                      id="lastName"
-                      value={formData.lastName}
-                      onChange={(e) => handleInputChange('lastName', e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Puhelinnumero *</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => handleInputChange('phone', e.target.value)}
-                      required
-                    />
-                  </div>
+              {/* Loading State */}
+              {profileLoading && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="ml-2">Ladataan profiilitietoja...</span>
                 </div>
-                <div>
-                  <Label htmlFor="address">Noutoosoite *</Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="address"
-                      className="pl-10"
-                      value={formData.address}
-                      onChange={(e) => handleInputChange('address', e.target.value)}
-                      placeholder="Katu 1, 00100 Helsinki"
-                      required
-                    />
+              )}
+
+              {!profileLoading && (
+                <>
+                  {/* Customer Information */}
+                  <div className="space-y-4">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Yhteystiedot
+                      <span className="text-sm text-muted-foreground font-normal">(Profiilista)</span>
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="firstName">Etunimi *</Label>
+                        <Input
+                          id="firstName"
+                          value={formData.firstName}
+                          onChange={(e) => handleInputChange('firstName', e.target.value)}
+                          required
+                          className="bg-muted/30"
+                          disabled
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="lastName">Sukunimi *</Label>
+                        <Input
+                          id="lastName"
+                          value={formData.lastName}
+                          onChange={(e) => handleInputChange('lastName', e.target.value)}
+                          required
+                          className="bg-muted/30"
+                          disabled
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="phone">Puhelinnumero *</Label>
+                        <Input
+                          id="phone"
+                          type="tel"
+                          value={formData.phone}
+                          onChange={(e) => handleInputChange('phone', e.target.value)}
+                          required
+                          className="bg-muted/30"
+                          disabled
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="address" className="flex items-center justify-between">
+                        <span>Noutoosoite *</span>
+                        {!isAddressEditable && (
+                          <Button 
+                            type="button"
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setIsAddressEditable(true)}
+                            className="text-xs"
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Muokkaa
+                          </Button>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="address"
+                          className={`pl-10 ${!isAddressEditable ? 'bg-muted/30' : ''}`}
+                          value={formData.address}
+                          onChange={(e) => handleInputChange('address', e.target.value)}
+                          placeholder="Katu 1, 00100 Helsinki"
+                          required
+                          disabled={!isAddressEditable}
+                        />
+                        {isAddressEditable && (
+                          <Button 
+                            type="button"
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setIsAddressEditable(false)}
+                            className="absolute right-1 top-1 h-8 text-xs"
+                          >
+                            Tallenna
+                          </Button>
+                        )}
+                      </div>
+                      {!isAddressEditable && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Osoite haettu profiilista. Klikkaa "Muokkaa" muuttaaksesi tämän tilauksen osoitetta.
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
 
               {/* Pickup and Return Times */}
               <div className="space-y-6">
@@ -544,14 +634,23 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
                 variant="hero" 
                 size="lg" 
                 className="w-full"
-                disabled={loading}
-              >
-                {loading ? 'Käsitellään...' : `Vahvista tilaus (${calculateFinalPrice()}€)`}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-};
+                 disabled={loading}
+               >
+                 {loading ? 'Käsitellään...' : `Vahvista tilaus (${calculateFinalPrice()}€)`}
+               </Button>
+                 </>
+               )}
+             </form>
+           </CardContent>
+         </Card>
+
+         {/* Map */}
+         {!profileLoading && formData.address && (
+           <div className="lg:col-span-3">
+             <SimpleMap address={formData.address} />
+           </div>
+         )}
+       </div>
+     </div>
+   );
+ };
