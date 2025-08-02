@@ -47,7 +47,7 @@ interface Profile {
 }
 
 export const Profile = () => {
-  const { user, userRole, signOut } = useAuth();
+  const { user, userRole, signOut, deleteAccount } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -154,25 +154,27 @@ export const Profile = () => {
   const handleDeleteUser = async () => {
     if (!user) return;
     
-    if (!confirm('Oletko varma, että haluat poistaa tilisi? Tätä toimintoa ei voi peruuttaa.')) {
+    if (!confirm('Oletko varma, että haluat poistaa tilisi pysyvästi? Tätä toimintoa ei voi peruuttaa ja kaikki tietosi poistetaan.')) {
       return;
     }
 
     setDeleteLoading(true);
     try {
-      // For now, just sign out - full user deletion would need admin privileges
+      // Use the new deleteAccount function from AuthContext
+      await deleteAccount();
+      
       toast({
-        title: "Tili poistettu",
-        description: "Olet kirjautunut ulos."
+        title: "Tili poistettu onnistuneesti",
+        description: "Tilisi ja kaikki siihen liittyvät tiedot on poistettu pysyvästi."
       });
 
-      await signOut();
       navigate('/');
     } catch (error: any) {
+      console.error('Delete account error:', error);
       toast({
         variant: "destructive",
-        title: "Virhe",
-        description: error.message || "Tilin poistaminen epäonnistui."
+        title: "Tilin poistaminen epäonnistui",
+        description: error.message || "Tilin poistamisessa tapahtui virhe. Yritä uudelleen tai ota yhteyttä tukeen."
       });
     } finally {
       setDeleteLoading(false);

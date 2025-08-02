@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserManagement } from "@/components/UserManagement";
 import { Reports } from "@/components/Reports";
+import { CouponManagement } from "@/components/CouponManagement";
 import { 
   Users, 
   Package, 
@@ -282,10 +283,11 @@ export const AdminPanel = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Yleiskatsaus</TabsTrigger>
             <TabsTrigger value="orders">Tilaukset</TabsTrigger>
             <TabsTrigger value="customers">Käyttäjät</TabsTrigger>
+            <TabsTrigger value="coupons">Kupongit</TabsTrigger>
             <TabsTrigger value="reports">Raportit</TabsTrigger>
           </TabsList>
 
@@ -487,6 +489,11 @@ export const AdminPanel = () => {
           {/* Users Tab */}
           <TabsContent value="customers" className="animate-fade-in">
             <UserManagement />
+          </TabsContent>
+
+          {/* Coupons Tab */}
+          <TabsContent value="coupons" className="animate-fade-in">
+            <CouponManagement />
           </TabsContent>
 
           {/* Reports Tab */}

@@ -174,7 +174,7 @@ export const CustomerPanel = () => {
         {/* Hero Section */}
         <div className="text-center mb-12 animate-fade-in">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-hero bg-clip-text text-transparent">
-            Vaatepesupalvelu helposti
+            Pesupalvelu helposti
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             Tilaa pesupalvelu kotiin - me noudamme, pesemme ja tuomme takaisin puhtaana
@@ -189,7 +189,7 @@ export const CustomerPanel = () => {
               className="flex items-center gap-2"
             >
               <Shirt className="h-5 w-5" />
-              Tilaa palvelu
+              Tilaa pesu
             </Button>
             <Button 
               variant={currentView === 'cart' ? 'hero' : 'outline'} 
@@ -220,7 +220,79 @@ export const CustomerPanel = () => {
         {/* Services View */}
         {currentView === 'services' && (
           <div className="animate-fade-in">
-            <h2 className="text-2xl font-semibold mb-6 text-center">Valitse palvelu</h2>
+            <h2 className="text-2xl font-semibold mb-6 text-center">Valitse pesu</h2>
+            
+            {/* Bundle Offers - More Prominent */}
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold mb-4 text-center">🎉 Pakettitarjoukset - Säästä rahaa!</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto mb-8">
+                <Card className="border-2 border-primary bg-gradient-to-br from-primary/5 to-primary/10 hover:shadow-elegant transition-all duration-300">
+                  <CardContent className="p-6">
+                    <div className="text-center">
+                      <h4 className="text-lg font-bold mb-2">Lakanapyykki + Normaali pesu</h4>
+                      <p className="text-sm text-muted-foreground mb-3">Säästä 10€ ostamalla yhdessä</p>
+                      <div className="flex items-center justify-center gap-2 mb-4">
+                        <span className="text-sm text-muted-foreground line-through">50€</span>
+                        <span className="text-2xl font-bold text-primary">39.99€</span>
+                        <Badge className="bg-green-100 text-green-800">Säästä 10€</Badge>
+                      </div>
+                      <Button 
+                        onClick={() => {
+                          const bundleItem = {
+                            id: `sheet-normal-bundle-${Date.now()}`,
+                            type: 'bundle' as const,
+                            serviceId: 'sheet-normal-bundle',
+                            name: 'Lakanapyykki + Normaali pesu',
+                            description: 'Säästä 10€ ostamalla yhdessä',
+                            price: 39.99,
+                            quantity: 1
+                          };
+                          setCartItems(prev => [...prev, bundleItem]);
+                          setCurrentView('cart');
+                        }}
+                        className="w-full bg-gradient-primary hover:opacity-90"
+                      >
+                        Lisää koriin
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="border-2 border-primary bg-gradient-to-br from-primary/5 to-primary/10 hover:shadow-elegant transition-all duration-300">
+                  <CardContent className="p-6">
+                    <div className="text-center">
+                      <h4 className="text-lg font-bold mb-2">Kenkäpesu + Normaali pesu</h4>
+                      <p className="text-sm text-muted-foreground mb-3">Säästä 5€ ostamalla yhdessä</p>
+                      <div className="flex items-center justify-center gap-2 mb-4">
+                        <span className="text-sm text-muted-foreground line-through">45€</span>
+                        <span className="text-2xl font-bold text-primary">39.99€</span>
+                        <Badge className="bg-green-100 text-green-800">Säästä 5€</Badge>
+                      </div>
+                      <Button 
+                        onClick={() => {
+                          const bundleItem = {
+                            id: `shoes-normal-bundle-${Date.now()}`,
+                            type: 'bundle' as const,
+                            serviceId: 'shoes-normal-bundle',
+                            name: 'Kenkäpesu + Normaali pesu',
+                            description: 'Säästä 5€ ostamalla yhdessä',
+                            price: 39.99,
+                            quantity: 1
+                          };
+                          setCartItems(prev => [...prev, bundleItem]);
+                          setCurrentView('cart');
+                        }}
+                        className="w-full bg-gradient-primary hover:opacity-90"
+                      >
+                        Lisää koriin
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+            
+            <h3 className="text-lg font-semibold mb-4 text-center">Yksittäiset palvelut</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {services.map((service) => {
                 const Icon = service.icon;
@@ -228,7 +300,7 @@ export const CustomerPanel = () => {
                   <Card 
                     key={service.id} 
                     className="cursor-pointer transition-all duration-300 hover:shadow-elegant hover:scale-105 group"
-                    onClick={() => handleServiceSelect(service)}
+                    onClick={() => handleAddToCart(service)}
                   >
                     <CardHeader className="text-center">
                       <Icon className="h-12 w-12 mx-auto mb-4 text-primary group-hover:scale-110 transition-transform" />
@@ -248,10 +320,10 @@ export const CustomerPanel = () => {
                         className="w-full"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleServiceSelect(service);
+                          handleAddToCart(service);
                         }}
                       >
-                        Tilaa nyt
+                        Lisää koriin
                       </Button>
                     </CardContent>
                   </Card>
@@ -318,9 +390,9 @@ export const CustomerPanel = () => {
                   <Button 
                     variant="hero" 
                     className="flex-1"
-                    onClick={handleOrderNow}
+                    onClick={() => handleAddToCart(selectedService)}
                   >
-                    Jatka tilaukseen
+                    Lisää koriin
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </div>
