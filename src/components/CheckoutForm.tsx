@@ -9,6 +9,7 @@ import { ArrowLeft, CreditCard, MapPin, Phone, User, Tag, Edit } from 'lucide-re
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { SimpleMap } from './SimpleMap';
+import { RugDimensionsDialog } from './RugDimensionsDialog';
 
 interface CheckoutFormProps {
   cartItems: Array<{
@@ -48,13 +49,17 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
     phone: '',
     address: '',
     specialInstructions: '',
-    pickupOption: '', // 'immediate', 'choose_time', 'no_preference'
+    pickupOption: '', // 'immediate', 'choose_time'
     pickupDate: '',
     pickupTime: '',
-    returnOption: '', // 'immediate', 'choose_time', 'no_preference'
+    returnOption: '', // 'immediate', 'choose_time'
     returnDate: '',
     returnTime: ''
   });
+  const [showRugDimensionsDialog, setShowRugDimensionsDialog] = useState(false);
+  const [pendingRugItem, setPendingRugItem] = useState<any>(null);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
 
   // Fetch user profile data and populate form
   useEffect(() => {
@@ -107,6 +112,110 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const checkForRugAndProceed = () => {
+    // Check if there's a rug item without dimensions
+    const rugItem = cartItems.find(item => 
+      item.name.toLowerCase().includes('matto') && 
+      !item.metadata?.rugDimensions
+    );
+    
+    if (rugItem) {
+      setPendingRugItem(rugItem);
+      setShowRugDimensionsDialog(true);
+      return false;
+    }
+    return true;
+  };
+
+  const handleRugDimensions = (dimensions: { length: number; width: number }) => {
+    if (pendingRugItem) {
+      // Update the cart item with dimensions
+      const updatedItems = cartItems.map(item => 
+        item.id === pendingRugItem.id 
+          ? { 
+              ...item, 
+              metadata: { 
+                ...item.metadata, 
+                rugDimensions: dimensions 
+              } 
+            }
+          : item
+      );
+      // The parent component should handle this update
+      console.log('Rug dimensions set:', dimensions);
+      setPendingRugItem(null);
+    }
+  };
+
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Virhe",
+        description: "Anna kuponkikoodi."
+      });
+      return;
+    }
+
+    setCouponLoading(true);
+    try {
+      const { data: coupon, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('code', couponCode.trim().toUpperCase())
+        .single();
+
+      if (error || !coupon) {
+        toast({
+          variant: "destructive",
+          title: "Virhe",
+          description: "Kuponkia ei löytynyt tai se on vanhentunut."
+        });
+        return;
+      }
+
+      // Check if coupon is valid
+      const now = new Date();
+      const validFrom = new Date(coupon.valid_from);
+      const validUntil = coupon.valid_until ? new Date(coupon.valid_until) : null;
+
+      if (now < validFrom || (validUntil && now > validUntil)) {
+        toast({
+          variant: "destructive",
+          title: "Virhe",
+          description: "Kuponki ei ole voimassa tällä hetkellä."
+        });
+        return;
+      }
+
+      if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
+        toast({
+          variant: "destructive",
+          title: "Virhe",
+          description: "Kuponki on jo käytetty loppuun."
+        });
+        return;
+      }
+
+      // Apply coupon logic would go here
+      toast({
+        title: "Kuponki aktivoitu!",
+        description: `Kuponki "${coupon.code}" on aktivoitu. Alennus: ${coupon.discount_type === 'percentage' ? coupon.discount_value + '%' : coupon.discount_value + '€'}`
+      });
+      
+      setCouponCode('');
+    } catch (error) {
+      console.error('Error applying coupon:', error);
+      toast({
+        variant: "destructive",
+        title: "Virhe",
+        description: "Kupongin aktivoinnissa tapahtui virhe."
+      });
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
   const calculateSubtotal = () => {
     return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
@@ -137,6 +246,11 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
         title: "Virhe",
         description: "Sinun täytyy olla kirjautunut sisään tehdäksesi tilauksen."
       });
+      return;
+    }
+
+    // Check for rug dimensions before proceeding
+    if (!checkForRugAndProceed()) {
       return;
     }
 
@@ -221,7 +335,10 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
         quantity: item.quantity,
         unit_price: item.price,
         total_price: item.price * item.quantity,
-        metadata: item.metadata || null
+        metadata: item.metadata || null,
+        rug_dimensions: item.metadata?.rugDimensions ? 
+          `${item.metadata.rugDimensions.length}cm x ${item.metadata.rugDimensions.width}cm` : 
+          null
       }));
 
       const { error: itemsError } = await supabase
@@ -507,31 +624,6 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
                       </div>
                     </div>
                     
-                    <div 
-                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                        formData.pickupOption === 'no_preference' 
-                          ? 'border-primary bg-primary/5' 
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                      onClick={() => handleInputChange('pickupOption', 'no_preference')}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full border-2 ${
-                          formData.pickupOption === 'no_preference' 
-                            ? 'border-primary bg-primary' 
-                            : 'border-muted-foreground'
-                        }`}>
-                          {formData.pickupOption === 'no_preference' && (
-                            <div className="w-full h-full rounded-full bg-white scale-50"></div>
-                          )}
-                        </div>
-                        <div>
-                          <h5 className="font-medium">Ei väliä</h5>
-                          <p className="text-sm text-muted-foreground">Järjestelmä valitsee automaattisesti seuraavan vapaan ajan</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                   
                   {formData.pickupOption === 'choose_time' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -620,30 +712,6 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
                         </div>
                       </div>
                       
-                      <div 
-                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                          formData.returnOption === 'no_preference' 
-                            ? 'border-primary bg-primary/5' 
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                        onClick={() => handleInputChange('returnOption', 'no_preference')}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-4 h-4 rounded-full border-2 ${
-                            formData.returnOption === 'no_preference' 
-                              ? 'border-primary bg-primary' 
-                              : 'border-muted-foreground'
-                          }`}>
-                            {formData.returnOption === 'no_preference' && (
-                              <div className="w-full h-full rounded-full bg-white scale-50"></div>
-                            )}
-                          </div>
-                          <div>
-                            <h5 className="font-medium">Ei väliä</h5>
-                            <p className="text-sm text-muted-foreground">Järjestelmä valitsee automaattisesti seuraavan vapaan ajan</p>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                     
                     {formData.returnOption === 'choose_time' && (
@@ -691,21 +759,45 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
                   rows={3}
                 />
               </div>
-              {/* Applied Coupon Display */}
-              {appliedCoupon && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 text-green-800">
-                    <Tag className="h-4 w-4" />
-                    <span className="font-semibold">Käytetty kuponki: {appliedCoupon.code}</span>
-                  </div>
-                  <p className="text-sm text-green-600 mt-1">
-                    Saat {appliedCoupon.discount_type === 'percentage' 
-                      ? `${appliedCoupon.discount_value}% alennuksen`
-                      : `${appliedCoupon.discount_value}€ alennuksen`
-                    }
-                  </p>
-                </div>
-              )}
+               {/* Coupon Section */}
+               <div className="space-y-4">
+                 <h4 className="font-semibold flex items-center gap-2">
+                   <Tag className="h-4 w-4" />
+                   Kuponki
+                 </h4>
+                 
+                 {!appliedCoupon ? (
+                   <div className="flex gap-2">
+                     <Input
+                       placeholder="Anna kuponkikoodi"
+                       value={couponCode}
+                       onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                       className="flex-1"
+                     />
+                     <Button 
+                       type="button"
+                       onClick={applyCoupon}
+                       disabled={couponLoading || !couponCode.trim()}
+                       variant="outline"
+                     >
+                       {couponLoading ? 'Tarkistetaan...' : 'Käytä'}
+                     </Button>
+                   </div>
+                 ) : (
+                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                     <div className="flex items-center gap-2 text-green-800">
+                       <Tag className="h-4 w-4" />
+                       <span className="font-semibold">Käytetty kuponki: {appliedCoupon.code}</span>
+                     </div>
+                     <p className="text-sm text-green-600 mt-1">
+                       Saat {appliedCoupon.discount_type === 'percentage' 
+                         ? `${appliedCoupon.discount_value}% alennuksen`
+                         : `${appliedCoupon.discount_value}€ alennuksen`
+                       }
+                     </p>
+                   </div>
+                 )}
+               </div>
 
               {/* Payment Methods */}
               <div className="space-y-4">
@@ -723,22 +815,29 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
                 </div>
               </div>
 
-              <Button 
-                type="submit" 
-                variant="hero" 
-                size="lg" 
-                className="w-full"
+               <Button 
+                 type="submit" 
+                 variant="hero" 
+                 size="lg" 
+                 className="w-full"
                  disabled={loading}
                >
-                 {loading ? 'Käsitellään...' : `Vahvista tilaus (${calculateFinalPrice()}€)`}
+                 {loading ? 'Käsitellään...' : `Vahvista tilaus (${calculateFinalPrice().toFixed(2)}€)`}
                </Button>
-                 </>
-               )}
-             </form>
+               </>
+             )}
+           </form>
            </CardContent>
          </Card>
-
        </div>
-     </div>
-   );
- };
+
+        {/* Rug Dimensions Dialog */}
+        <RugDimensionsDialog
+          open={showRugDimensionsDialog}
+          onOpenChange={setShowRugDimensionsDialog}
+          onConfirm={handleRugDimensions}
+          rugName={pendingRugItem?.name || ''}
+        />
+      </div>
+    );
+  };

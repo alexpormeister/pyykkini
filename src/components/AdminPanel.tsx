@@ -178,7 +178,12 @@ export const AdminPanel = () => {
       order.service_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.id.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+    let matchesStatus = true;
+    if (statusFilter === 'active') {
+      matchesStatus = order.status === 'pending';
+    } else if (statusFilter !== 'all') {
+      matchesStatus = order.status === statusFilter;
+    }
     
     return matchesSearch && matchesStatus;
   });
@@ -387,30 +392,48 @@ export const AdminPanel = () => {
                       className="pl-10"
                     />
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Button
-                      variant={statusFilter === 'all' ? 'default' : 'outline'}
-                      onClick={() => setStatusFilter('all')}
+                      variant={statusFilter === 'active' ? 'default' : 'outline'}
+                      onClick={() => setStatusFilter('active')}
+                      size="sm"
                     >
-                      Kaikki
-                    </Button>
-                    <Button
-                      variant={statusFilter === 'pending' ? 'default' : 'outline'}
-                      onClick={() => setStatusFilter('pending')}
-                    >
-                      Odottaa
+                      Aktiiviset
                     </Button>
                     <Button
                       variant={statusFilter === 'accepted' ? 'default' : 'outline'}
                       onClick={() => setStatusFilter('accepted')}
+                      size="sm"
                     >
-                      Hyväksytty
+                      Hyväksytyt
+                    </Button>
+                    <Button
+                      variant={statusFilter === 'washing' ? 'default' : 'outline'}
+                      onClick={() => setStatusFilter('washing')}
+                      size="sm"
+                    >
+                      Pesussa olevat
+                    </Button>
+                    <Button
+                      variant={statusFilter === 'returning' ? 'default' : 'outline'}
+                      onClick={() => setStatusFilter('returning')}
+                      size="sm"
+                    >
+                      Palautuvat
                     </Button>
                     <Button
                       variant={statusFilter === 'delivered' ? 'default' : 'outline'}
                       onClick={() => setStatusFilter('delivered')}
+                      size="sm"
                     >
                       Toimitettu
+                    </Button>
+                    <Button
+                      variant={statusFilter === 'rejected' ? 'default' : 'outline'}
+                      onClick={() => setStatusFilter('rejected')}
+                      size="sm"
+                    >
+                      Hylätty
                     </Button>
                   </div>
                 </div>

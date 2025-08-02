@@ -56,6 +56,36 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_shifts: {
+        Row: {
+          created_at: string
+          driver_id: string
+          ended_at: string | null
+          id: string
+          is_active: boolean
+          started_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          ended_at?: string | null
+          id?: string
+          is_active?: boolean
+          started_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          ended_at?: string | null
+          id?: string
+          is_active?: boolean
+          started_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string
@@ -63,6 +93,7 @@ export type Database = {
           metadata: Json | null
           order_id: string
           quantity: number
+          rug_dimensions: string | null
           service_name: string
           service_type: string
           total_price: number
@@ -74,6 +105,7 @@ export type Database = {
           metadata?: Json | null
           order_id: string
           quantity?: number
+          rug_dimensions?: string | null
           service_name: string
           service_type: string
           total_price: number
@@ -85,6 +117,7 @@ export type Database = {
           metadata?: Json | null
           order_id?: string
           quantity?: number
+          rug_dimensions?: string | null
           service_name?: string
           service_type?: string
           total_price?: number
@@ -99,6 +132,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      order_rejections: {
+        Row: {
+          created_at: string
+          driver_id: string
+          id: string
+          order_id: string
+          rejected_at: string
+          rejection_reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          id?: string
+          order_id: string
+          rejected_at?: string
+          rejection_reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          id?: string
+          order_id?: string
+          rejected_at?: string
+          rejection_reason?: string | null
+        }
+        Relationships: []
       }
       orders: {
         Row: {

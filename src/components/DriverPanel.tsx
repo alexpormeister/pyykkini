@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw } from "lucide-react";
+import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -52,6 +52,8 @@ const getStatusColor = (status: string) => {
 export const DriverPanel = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [isOnShift, setIsOnShift] = useState(false);
+  const [shiftLoading, setShiftLoading] = useState(false);
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [myOrders, setMyOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,6 +67,12 @@ export const DriverPanel = () => {
 
   useEffect(() => {
     if (user) {
+      checkShiftStatus();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user && isOnShift) {
       fetchOrders();
       
       // Set up real-time subscription
@@ -85,18 +93,104 @@ export const DriverPanel = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [user]);
+  }, [user, isOnShift]);
+
+  const checkShiftStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const { data: activeShift } = await supabase
+        .from('driver_shifts')
+        .select('*')
+        .eq('driver_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      setIsOnShift(!!activeShift);
+    } catch (error) {
+      // No active shift found
+      setIsOnShift(false);
+    }
+  };
+
+  const toggleShift = async () => {
+    if (!user) return;
+    
+    setShiftLoading(true);
+    try {
+      if (isOnShift) {
+        // End shift
+        const { error } = await supabase
+          .from('driver_shifts')
+          .update({
+            is_active: false,
+            ended_at: new Date().toISOString()
+          })
+          .eq('driver_id', user.id)
+          .eq('is_active', true);
+
+        if (error) throw error;
+
+        setIsOnShift(false);
+        setPendingOrders([]);
+        setMyOrders([]);
+        
+        toast({
+          title: "Vuoro päättynyt",
+          description: "Olet kirjautunut ulos vuorosta."
+        });
+      } else {
+        // Start shift
+        const { error } = await supabase
+          .from('driver_shifts')
+          .insert({
+            driver_id: user.id,
+            is_active: true,
+            started_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+
+        setIsOnShift(true);
+        
+        toast({
+          title: "Vuoro aloitettu",
+          description: "Olet nyt vuorossa ja voit vastaanottaa tilauksia."
+        });
+        
+        fetchOrders();
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Virhe",
+        description: "Vuoron vaihtaminen epäonnistui."
+      });
+    } finally {
+      setShiftLoading(false);
+    }
+  };
 
   const fetchOrders = async () => {
-    if (!user) return;
+    if (!user || !isOnShift) return;
     
     setLoading(true);
     try {
-      // Fetch pending orders
+      // Fetch pending orders (only visible to drivers on shift)
       const { data: pending, error: pendingError } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          order_items (
+            id,
+            service_name,
+            quantity,
+            rug_dimensions,
+            metadata
+          )
+        `)
         .eq('status', 'pending')
+        .is('driver_id', null)
         .order('created_at', { ascending: true });
 
       if (pendingError) throw pendingError;
@@ -104,7 +198,16 @@ export const DriverPanel = () => {
       // Fetch driver's assigned orders
       const { data: assigned, error: assignedError } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          order_items (
+            id,
+            service_name,
+            quantity,
+            rug_dimensions,
+            metadata
+          )
+        `)
         .eq('driver_id', user.id)
         .neq('status', 'rejected')
         .order('created_at', { ascending: true });
@@ -134,7 +237,8 @@ export const DriverPanel = () => {
           accepted_at: new Date().toISOString()
         })
         .eq('id', orderId)
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .is('driver_id', null);
 
       if (error) throw error;
 
@@ -149,8 +253,9 @@ export const DriverPanel = () => {
       toast({
         variant: "destructive",
         title: "Virhe",
-        description: "Tilauksen hyväksyminen epäonnistui."
+        description: "Tilauksen hyväksyminen epäonnistui. Toinen kuljettaja on ehkä jo hyväksynyt sen."
       });
+      fetchOrders(); // Refresh to see current state
     }
   };
 
@@ -173,25 +278,31 @@ export const DriverPanel = () => {
         .single();
 
       const driverName = profile?.full_name || 'Tuntematon kuljettaja';
-      const timestamp = new Date().toLocaleString('fi-FI');
 
+      // Insert rejection record
+      const { error: rejectionError } = await supabase
+        .from('order_rejections')
+        .insert({
+          order_id: orderId,
+          driver_id: user?.id,
+          rejection_reason: rejectionReason
+        });
+
+      if (rejectionError) throw rejectionError;
+
+      // Update order with rejection info but keep status as pending for other drivers
       const { error } = await supabase
         .from('orders')
         .update({
-          status: 'rejected',
-          rejected_at: new Date().toISOString(),
-          rejected_by: user?.id,
-          rejection_reason: rejectionReason,
-          special_instructions: `HYLÄTTY: Kuljettaja ${driverName} hylkäsi tilauksen ${timestamp}. Perustelu: ${rejectionReason}`
+          special_instructions: `HYLKÄYS: Kuljettaja ${driverName} hylkäsi tilauksen ${new Date().toLocaleString('fi-FI')}. Perustelu: ${rejectionReason}`
         })
-        .eq('id', orderId)
-        .eq('status', 'pending');
+        .eq('id', orderId);
 
       if (error) throw error;
 
       toast({
         title: "Tilaus hylätty",
-        description: "Tilaus on siirretty toiselle kuljettajalle."
+        description: "Hylkäys on kirjattu. Tilaus pysyy näkyvissä muille kuljettajille."
       });
 
       setShowRejectDialog(null);
@@ -297,17 +408,83 @@ export const DriverPanel = () => {
     }
   };
 
+  const renderRugDimensions = (orderItems: any[]) => {
+    const rugItems = orderItems.filter(item => item.rug_dimensions);
+    if (rugItems.length === 0) return null;
+
+    return (
+      <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
+        <strong>Maton mitat:</strong>
+        {rugItems.map((item, index) => (
+          <div key={index}>
+            {item.service_name}: {item.rug_dimensions}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  if (!isOnShift) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle">
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-hero bg-clip-text text-transparent">
+              Kuljettajapaneeli
+            </h1>
+            <p className="text-lg text-muted-foreground mb-8">
+              Kirjaudu vuoroon nähdäksesi tilauksia
+            </p>
+            
+            <Card className="max-w-md mx-auto">
+              <CardContent className="p-8">
+                <LogIn className="h-16 w-16 mx-auto mb-4 text-primary" />
+                <h2 className="text-xl font-semibold mb-4">Aloita työpäivä</h2>
+                <p className="text-muted-foreground mb-6">
+                  Klikkaa alla olevaa painiketta aloittaaksesi vuoron ja nähdäksesi käytettävissä olevat tilaukset.
+                </p>
+                <Button
+                  onClick={toggleShift}
+                  disabled={shiftLoading}
+                  size="lg"
+                  className="w-full"
+                >
+                  {shiftLoading ? 'Kirjaudutaan...' : 'Kirjaudu vuoroon'}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in">
-          <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-hero bg-clip-text text-transparent">
-            Kuljettajapaneeli
-          </h1>
-          <p className="text-lg text-muted-foreground mb-6">
-            {pendingOrders.length} uutta tilausta odottaa hyväksyntää
-          </p>
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent">
+              Kuljettajapaneeli
+            </h1>
+            <Button
+              onClick={toggleShift}
+              disabled={shiftLoading}
+              variant="outline"
+              size="sm"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              {shiftLoading ? 'Lopetetaan...' : 'Lopeta vuoro'}
+            </Button>
+          </div>
+          
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-lg text-muted-foreground">
+              Vuorossa - {pendingOrders.length} uutta tilausta odottaa
+            </span>
+          </div>
           
           {/* Quick Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
@@ -344,6 +521,13 @@ export const DriverPanel = () => {
           </div>
         </div>
 
+        {loading && (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>Ladataan tilauksia...</p>
+          </div>
+        )}
+
         {/* Pending Orders */}
         {pendingOrders.length > 0 && (
           <div className="mb-8 animate-fade-in">
@@ -373,11 +557,14 @@ export const DriverPanel = () => {
                           <div className="text-sm text-muted-foreground mt-1">
                             Palautus: {new Date(order.return_date).toLocaleDateString('fi-FI')} klo {order.return_time}
                           </div>
+                          {order.special_instructions && (
+                            <div className="text-sm text-muted-foreground mt-1">
+                              <strong>Lisätiedot:</strong> {order.special_instructions}
+                            </div>
+                          )}
+                          {renderRugDimensions(order.order_items || [])}
                           <div className="text-lg font-semibold text-primary mt-2">
                             {order.final_price}€
-                            {order.discount_code && (
-                              <span className="text-sm text-green-600 ml-2">({order.discount_code})</span>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -449,6 +636,12 @@ export const DriverPanel = () => {
                             <div className="text-sm text-muted-foreground">
                               {order.service_name} - {order.final_price}€
                             </div>
+                            {order.special_instructions && (
+                              <div className="text-sm text-muted-foreground mt-1">
+                                <strong>Lisätiedot:</strong> {order.special_instructions}
+                              </div>
+                            )}
+                            {renderRugDimensions(order.order_items || [])}
                           </div>
                         </div>
                         
@@ -482,71 +675,32 @@ export const DriverPanel = () => {
                             className="w-36 text-xs"
                           >
                             <Phone className="h-4 w-4 mr-1" />
-                            Soita
+                            Soita asiakkaalle
                           </Button>
                         </div>
                       </div>
 
-                      {/* Time Setting Form */}
-                      {showTimeForm === order.id && (
-                        <div className="border-t pt-4 bg-accent/30 p-4 rounded-lg">
-                          <h4 className="font-semibold mb-4">Aseta nouto- ja palautusajat</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="pickupTime">Noutoaika</Label>
-                              <Input
-                                id="pickupTime"
-                                type="datetime-local"
-                                value={timeData.pickupTime}
-                                onChange={(e) => setTimeData(prev => ({ ...prev, pickupTime: e.target.value }))}
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="returnTime">Palautusaika</Label>
-                              <Input
-                                id="returnTime"
-                                type="datetime-local"
-                                value={timeData.returnTime}
-                                onChange={(e) => setTimeData(prev => ({ ...prev, returnTime: e.target.value }))}
-                              />
-                            </div>
-                          </div>
-                          <div className="flex gap-2 mt-4">
-                            <Button 
-                              variant="hero" 
-                              size="sm"
-                              onClick={() => handleSetTimes(order.id)}
-                            >
-                              Tallenna ajat
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setShowTimeForm(null)}
-                            >
-                              Peruuta
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
                       {/* Order Details */}
-                      {order.actual_pickup_time && (
-                        <div className="border-t pt-4 grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <p className="text-muted-foreground">Sovittu noutoaika:</p>
-                            <p className="font-medium">
-                              {new Date(order.actual_pickup_time).toLocaleString('fi-FI')}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Sovittu palautusaika:</p>
-                            <p className="font-medium">
-                              {new Date(order.actual_return_time).toLocaleString('fi-FI')}
-                            </p>
-                          </div>
+                      <div className="border-t pt-4 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <strong>Nouto:</strong><br />
+                          {new Date(order.pickup_date).toLocaleDateString('fi-FI')} klo {order.pickup_time}
+                          {order.actual_pickup_time && (
+                            <div className="text-green-600">
+                              Todellinen: {new Date(order.actual_pickup_time).toLocaleString('fi-FI')}
+                            </div>
+                          )}
                         </div>
-                      )}
+                        <div>
+                          <strong>Palautus:</strong><br />
+                          {new Date(order.return_date).toLocaleDateString('fi-FI')} klo {order.return_time}
+                          {order.actual_return_time && (
+                            <div className="text-green-600">
+                              Todellinen: {new Date(order.actual_return_time).toLocaleString('fi-FI')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 );
@@ -555,62 +709,79 @@ export const DriverPanel = () => {
           </div>
         )}
 
-        {/* Empty State */}
         {!loading && pendingOrders.length === 0 && myOrders.length === 0 && (
           <div className="text-center py-12">
-            <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Ei tilauksia</h3>
-            <p className="text-muted-foreground">Uusia tilauksia ei ole tällä hetkellä.</p>
+            <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-xl font-semibold mb-2">Ei tilauksia</h3>
+            <p className="text-muted-foreground">
+              Tällä hetkellä ei ole uusia tilauksia saatavilla.
+            </p>
           </div>
         )}
 
-        {loading && (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-4 text-muted-foreground">Ladataan tilauksia...</p>
-          </div>
-        )}
+        {/* Time Setting Dialog */}
+        <Dialog open={!!showTimeForm} onOpenChange={() => setShowTimeForm(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Aseta nouto- ja palautusajat</DialogTitle>
+              <DialogDescription>
+                Määritä tarkat ajat noudolle ja palautukselle
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="pickup-time">Noutamisaika</Label>
+                <Input
+                  id="pickup-time"
+                  type="datetime-local"
+                  value={timeData.pickupTime}
+                  onChange={(e) => setTimeData(prev => ({ ...prev, pickupTime: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="return-time">Palautusaika</Label>
+                <Input
+                  id="return-time"
+                  type="datetime-local"
+                  value={timeData.returnTime}
+                  onChange={(e) => setTimeData(prev => ({ ...prev, returnTime: e.target.value }))}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowTimeForm(null)}>
+                  Peruuta
+                </Button>
+                <Button onClick={() => handleSetTimes(showTimeForm!)}>
+                  Tallenna ajat
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Rejection Dialog */}
         <Dialog open={!!showRejectDialog} onOpenChange={() => setShowRejectDialog(null)}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <X className="h-5 w-5" />
-                Hylkää tilaus
-              </DialogTitle>
+              <DialogTitle>Hylkää tilaus</DialogTitle>
               <DialogDescription>
-                Anna perustelu tilauksen hylkäämiselle. Tämä tieto tallennetaan tilauksen lokiin.
+                Anna perustelu tilauksen hylkäämiselle
               </DialogDescription>
             </DialogHeader>
-
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="rejection_reason">Hylkäyksen perustelu *</Label>
-                <Textarea
-                  id="rejection_reason"
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Kerro miksi hylkäät tämän tilauksen..."
-                  className="min-h-[80px]"
-                  required
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowRejectDialog(null)}
-                  className="flex-1"
-                >
+              <Textarea
+                placeholder="Syy hylkäykselle..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={3}
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowRejectDialog(null)}>
                   Peruuta
                 </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => showRejectDialog && handleRejectOrder(showRejectDialog)}
-                  className="flex-1"
+                <Button 
+                  variant="destructive" 
+                  onClick={() => handleRejectOrder(showRejectDialog!)}
                   disabled={!rejectionReason.trim()}
                 >
                   Hylkää tilaus
