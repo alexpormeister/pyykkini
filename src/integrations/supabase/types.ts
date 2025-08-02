@@ -10,10 +10,91 @@ export type Database = {
   // Allows to automatically instanciate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.12 (cd3cf9e)"
+    PostgrestVersion: "13.0.4"
   }
   public: {
     Tables: {
+      orders: {
+        Row: {
+          accepted_at: string | null
+          actual_pickup_time: string | null
+          actual_return_time: string | null
+          address: string
+          created_at: string
+          discount_code: string | null
+          driver_id: string | null
+          final_price: number
+          first_name: string
+          id: string
+          last_name: string
+          phone: string
+          pickup_date: string
+          pickup_time: string
+          price: number
+          rejected_at: string | null
+          return_date: string
+          return_time: string
+          service_name: string
+          service_type: string
+          special_instructions: string | null
+          status: Database["public"]["Enums"]["order_status"] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          actual_pickup_time?: string | null
+          actual_return_time?: string | null
+          address: string
+          created_at?: string
+          discount_code?: string | null
+          driver_id?: string | null
+          final_price: number
+          first_name: string
+          id?: string
+          last_name: string
+          phone: string
+          pickup_date: string
+          pickup_time: string
+          price: number
+          rejected_at?: string | null
+          return_date: string
+          return_time: string
+          service_name: string
+          service_type: string
+          special_instructions?: string | null
+          status?: Database["public"]["Enums"]["order_status"] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          actual_pickup_time?: string | null
+          actual_return_time?: string | null
+          address?: string
+          created_at?: string
+          discount_code?: string | null
+          driver_id?: string | null
+          final_price?: number
+          first_name?: string
+          id?: string
+          last_name?: string
+          phone?: string
+          pickup_date?: string
+          pickup_time?: string
+          price?: number
+          rejected_at?: string | null
+          return_date?: string
+          return_time?: string
+          service_name?: string
+          service_type?: string
+          special_instructions?: string | null
+          status?: Database["public"]["Enums"]["order_status"] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           address: string | null
@@ -83,6 +164,14 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "driver" | "customer"
+      order_status:
+        | "pending"
+        | "accepted"
+        | "picking_up"
+        | "washing"
+        | "returning"
+        | "delivered"
+        | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -211,6 +300,15 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "driver", "customer"],
+      order_status: [
+        "pending",
+        "accepted",
+        "picking_up",
+        "washing",
+        "returning",
+        "delivered",
+        "rejected",
+      ],
     },
   },
 } as const

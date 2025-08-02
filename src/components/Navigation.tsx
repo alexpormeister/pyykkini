@@ -16,9 +16,11 @@ export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
     { id: "admin" as const, label: "Ylläpito", icon: Settings, roles: ["admin"] },
   ];
 
-  const availablePanels = panels.filter(panel => 
-    panel.roles.includes(userRole as string || "customer")
-  );
+  const availablePanels = panels.filter(panel => {
+    // Hide "Customer" option for customer role users on all screens
+    if (panel.id === "customer" && userRole === "customer") return false;
+    return panel.roles.includes(userRole as string || "customer");
+  });
 
   return (
     <nav className="bg-card border-b border-border shadow-sm">
@@ -39,10 +41,10 @@ export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
                   variant={activePanel === panel.id ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => onPanelChange(panel.id as 'customer' | 'driver' | 'admin')}
-                  className="flex items-center gap-2"
+                  className="hidden md:flex items-center gap-2"
                 >
                   <Icon className="h-4 w-4" />
-                  {panel.label}
+                  <span className="hidden lg:inline">{panel.label}</span>
                 </Button>
               );
             })}
@@ -53,7 +55,7 @@ export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
               className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
             >
               <LogOut className="h-4 w-4" />
-              Kirjaudu ulos
+              <span className="hidden md:inline">Kirjaudu ulos</span>
             </Button>
           </div>
         </div>

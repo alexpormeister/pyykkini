@@ -5,7 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, CreditCard, MapPin, Phone, User } from 'lucide-react';
+import { ArrowLeft, CreditCard, MapPin, Phone, User, Tag } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CheckoutFormProps {
   selectedService: {
@@ -15,56 +17,103 @@ interface CheckoutFormProps {
     description: string;
   };
   onBack: () => void;
+  onSuccess: () => void;
 }
 
-export const CheckoutForm = ({ selectedService, onBack }: CheckoutFormProps) => {
+export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFormProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: '',
+    firstName: '',
+    lastName: '',
     phone: '',
     address: '',
     specialInstructions: '',
     pickupDate: '',
     pickupTime: '',
     returnDate: '',
-    returnTime: ''
+    returnTime: '',
+    discountCode: ''
   });
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const calculateFinalPrice = () => {
+    if (formData.discountCode.toUpperCase() === 'ILMAINEN') {
+      return 0;
+    }
+    return selectedService.price;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Virhe",
+        description: "Sinun täytyy olla kirjautunut sisään tehdäksesi tilauksen."
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Simulate order processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const finalPrice = calculateFinalPrice();
+      
+      const { error } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user.id,
+          service_type: selectedService.id,
+          service_name: selectedService.name,
+          price: selectedService.price,
+          discount_code: formData.discountCode.toUpperCase() || null,
+          final_price: finalPrice,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone: formData.phone,
+          address: formData.address,
+          special_instructions: formData.specialInstructions || null,
+          pickup_date: formData.pickupDate,
+          pickup_time: formData.pickupTime,
+          return_date: formData.returnDate,
+          return_time: formData.returnTime,
+          status: 'pending'
+        });
+
+      if (error) {
+        throw error;
+      }
       
       toast({
         title: "Tilaus vastaanotettu!",
-        description: `${selectedService.name} tilaus on käsittelyssä. Saat vahvistuksen sähköpostitse.`
+        description: `${selectedService.name} tilaus on käsittelyssä. Saat vahvistuksen pian.`
       });
       
-      // Reset form and go back
       setFormData({
-        fullName: '',
+        firstName: '',
+        lastName: '',
         phone: '',
         address: '',
         specialInstructions: '',
         pickupDate: '',
         pickupTime: '',
         returnDate: '',
-        returnTime: ''
+        returnTime: '',
+        discountCode: ''
       });
-      onBack();
-    } catch (error) {
+      
+      onSuccess();
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Virhe",
-        description: "Tilauksen käsittelyssä tapahtui virhe. Yritä uudelleen."
+        description: error.message || "Tilauksen käsittelyssä tapahtui virhe. Yritä uudelleen."
       });
     } finally {
       setLoading(false);
@@ -97,9 +146,19 @@ export const CheckoutForm = ({ selectedService, onBack }: CheckoutFormProps) => 
                 <p className="text-sm text-muted-foreground">{selectedService.description}</p>
               </div>
               <div className="border-t pt-4">
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold">Yhteensä:</span>
-                  <span className="text-2xl font-bold text-primary">{selectedService.price}€</span>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold">Alkuperäinen hinta:</span>
+                  <span className="text-lg font-bold">{selectedService.price}€</span>
+                </div>
+                {formData.discountCode.toUpperCase() === 'ILMAINEN' && (
+                  <div className="flex justify-between items-center mb-2 text-green-600">
+                    <span className="font-semibold">Alennus:</span>
+                    <span className="text-lg font-bold">-{selectedService.price}€</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center border-t pt-2">
+                  <span className="text-lg font-semibold">Yhteensä:</span>
+                  <span className="text-2xl font-bold text-primary">{calculateFinalPrice()}€</span>
                 </div>
               </div>
             </div>
@@ -124,11 +183,20 @@ export const CheckoutForm = ({ selectedService, onBack }: CheckoutFormProps) => 
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="fullName">Koko nimi *</Label>
+                    <Label htmlFor="firstName">Etunimi *</Label>
                     <Input
-                      id="fullName"
-                      value={formData.fullName}
-                      onChange={(e) => handleInputChange('fullName', e.target.value)}
+                      id="firstName"
+                      value={formData.firstName}
+                      onChange={(e) => handleInputChange('firstName', e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lastName">Sukunimi *</Label>
+                    <Input
+                      id="lastName"
+                      value={formData.lastName}
+                      onChange={(e) => handleInputChange('lastName', e.target.value)}
                       required
                     />
                   </div>
@@ -217,6 +285,39 @@ export const CheckoutForm = ({ selectedService, onBack }: CheckoutFormProps) => 
                   rows={3}
                 />
               </div>
+              {/* Discount Code */}
+              <div>
+                <Label htmlFor="discountCode">Alennuskoodi</Label>
+                <div className="relative">
+                  <Tag className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="discountCode"
+                    className="pl-10"
+                    value={formData.discountCode}
+                    onChange={(e) => handleInputChange('discountCode', e.target.value)}
+                    placeholder="Syötä alennuskoodi"
+                  />
+                </div>
+                {formData.discountCode.toUpperCase() === 'ILMAINEN' && (
+                  <p className="text-sm text-green-600 mt-1">✅ Alennuskoodi hyväksytty! Tilaus on ilmainen.</p>
+                )}
+              </div>
+
+              {/* Payment Methods */}
+              <div className="space-y-4">
+                <h4 className="font-semibold">Maksutavat</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="border rounded-lg p-4 text-center hover:border-primary cursor-pointer transition-colors">
+                    <div className="font-semibold">MobilePay</div>
+                  </div>
+                  <div className="border rounded-lg p-4 text-center hover:border-primary cursor-pointer transition-colors">
+                    <div className="font-semibold">Visa</div>
+                  </div>
+                  <div className="border rounded-lg p-4 text-center hover:border-primary cursor-pointer transition-colors">
+                    <div className="font-semibold">Klarna</div>
+                  </div>
+                </div>
+              </div>
 
               <Button 
                 type="submit" 
@@ -225,7 +326,7 @@ export const CheckoutForm = ({ selectedService, onBack }: CheckoutFormProps) => 
                 className="w-full"
                 disabled={loading}
               >
-                {loading ? 'Käsitellään...' : `Vahvista tilaus (${selectedService.price}€)`}
+                {loading ? 'Käsitellään...' : `Vahvista tilaus (${calculateFinalPrice()}€)`}
               </Button>
             </form>
           </CardContent>
