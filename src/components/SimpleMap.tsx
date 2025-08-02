@@ -24,9 +24,9 @@ export const SimpleMap = ({ address }: SimpleMapProps) => {
         setLoading(true);
         setError(null);
         
-        // Use a simple geocoding service (Nominatim - free OpenStreetMap service)
+        // Use Google Maps Geocoding API
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=AIzaSyD6KSL2GOOBYu4FQF8il_PQrYRJ3j6jdq4`
         );
         
         if (!response.ok) {
@@ -35,10 +35,11 @@ export const SimpleMap = ({ address }: SimpleMapProps) => {
         
         const data = await response.json();
         
-        if (data && data.length > 0) {
+        if (data.status === 'OK' && data.results && data.results.length > 0) {
+          const location = data.results[0].geometry.location;
           setCoordinates({
-            lat: parseFloat(data[0].lat),
-            lng: parseFloat(data[0].lon)
+            lat: location.lat,
+            lng: location.lng
           });
         } else {
           setError('Osoitetta ei löytynyt');
@@ -93,7 +94,7 @@ export const SimpleMap = ({ address }: SimpleMapProps) => {
     );
   }
 
-  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${coordinates.lng - 0.01},${coordinates.lat - 0.01},${coordinates.lng + 0.01},${coordinates.lat + 0.01}&layer=mapnik&marker=${coordinates.lat},${coordinates.lng}`;
+  const mapUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyD6KSL2GOOBYu4FQF8il_PQrYRJ3j6jdq4&q=${encodeURIComponent(address)}&center=${coordinates.lat},${coordinates.lng}&zoom=15`;
 
   return (
     <Card>
