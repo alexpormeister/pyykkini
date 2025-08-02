@@ -62,10 +62,8 @@ export const Reports = () => {
         .from('profiles')
         .select(`
           user_id,
-          full_name,
-          user_roles!inner(role)
-        `)
-        .eq('user_roles.role', 'driver');
+          full_name
+        `);
 
       if (driversError) throw driversError;
 
@@ -92,27 +90,36 @@ export const Reports = () => {
       // Unique customers
       const uniqueCustomers = new Set(orders?.map(o => o.user_id)).size;
 
-      // Driver performance calculation
-      const driverStats: DriverPerformance[] = await Promise.all(
-        drivers?.map(async (driver) => {
-          const driverOrders = orders?.filter(o => o.driver_id === driver.user_id) || [];
-          const completed = driverOrders.filter(o => o.status === 'delivered').length;
-          const rejected = driverOrders.filter(o => o.status === 'rejected').length;
-          const total = driverOrders.length;
-          const revenue = driverOrders.reduce((sum, order) => sum + (order.final_price || 0), 0);
+      // Get drivers with role filter
+      const { data: driverRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'driver');
 
-          return {
-            driver_name: driver.full_name || 'Tuntematon',
-            driver_id: driver.user_id,
-            total_orders: total,
-            completed_orders: completed,
-            rejected_orders: rejected,
-            total_revenue: revenue,
-            completion_rate: total > 0 ? Math.round((completed / total) * 100) : 0,
-            rejection_rate: total > 0 ? Math.round((rejected / total) * 100) : 0,
-          };
-        }) || []
-      );
+      if (rolesError) throw rolesError;
+
+      const driverIds = driverRoles?.map(r => r.user_id) || [];
+      const driverProfiles = drivers?.filter(d => driverIds.includes(d.user_id)) || [];
+
+      // Driver performance calculation
+      const driverStats: DriverPerformance[] = driverProfiles.map((driver) => {
+        const driverOrders = orders?.filter(o => o.driver_id === driver.user_id) || [];
+        const completed = driverOrders.filter(o => o.status === 'delivered').length;
+        const rejected = driverOrders.filter(o => o.status === 'rejected').length;
+        const total = driverOrders.length;
+        const revenue = driverOrders.reduce((sum, order) => sum + (order.final_price || 0), 0);
+
+        return {
+          driver_name: driver.full_name || 'Tuntematon',
+          driver_id: driver.user_id,
+          total_orders: total,
+          completed_orders: completed,
+          rejected_orders: rejected,
+          total_revenue: revenue,
+          completion_rate: total > 0 ? Math.round((completed / total) * 100) : 0,
+          rejection_rate: total > 0 ? Math.round((rejected / total) * 100) : 0,
+        };
+      });
 
       // Revenue by service
       const revenueData = Object.keys(serviceRevenue).map(service => ({
@@ -130,7 +137,7 @@ export const Reports = () => {
         rejectedOrders,
         topService,
         totalCustomers: uniqueCustomers,
-        activeDrivers: drivers?.length || 0
+        activeDrivers: driverProfiles?.length || 0
       });
 
       setDriverPerformance(driverStats.sort((a, b) => b.total_revenue - a.total_revenue));
@@ -188,7 +195,7 @@ export const Reports = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold flex items-center gap-2">
+          <h2 className="text-2xl font-fredoka flex items-center gap-2">
             <BarChart3 className="h-6 w-6" />
             Raportit ja analytics
           </h2>

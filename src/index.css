@@ -123,4 +123,10 @@ All colors MUST be HSL.
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
+
+  /* Fredoka Bold font class for headings */
+  .font-fredoka {
+    font-family: 'Fredoka', cursive;
+    font-weight: 700;
+  }
 }

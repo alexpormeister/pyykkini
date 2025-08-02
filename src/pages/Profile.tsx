@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { User, Mail, Phone, Trash2, Package, Hash, LogOut } from 'lucide-react';
+import { User, Mail, Phone, Trash2, Package, Hash, LogOut, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Import profile images
@@ -43,6 +43,7 @@ interface Profile {
   email: string;
   phone?: string;
   profile_image?: number;
+  address?: string;
 }
 
 export const Profile = () => {
@@ -57,7 +58,8 @@ export const Profile = () => {
     full_name: '',
     email: '',
     phone: '',
-    profile_image: 1
+    profile_image: 1,
+    address: ''
   });
 
   useEffect(() => {
@@ -83,7 +85,8 @@ export const Profile = () => {
           full_name: data.full_name || '',
           email: data.email || '',
           phone: data.phone || '',
-          profile_image: data.profile_image || 1
+          profile_image: data.profile_image || 1,
+          address: data.address || ''
         });
       }
     } catch (error: any) {
@@ -124,7 +127,8 @@ export const Profile = () => {
           full_name: formData.full_name,
           email: formData.email,
           phone: formData.phone,
-          profile_image: formData.profile_image
+          profile_image: formData.profile_image,
+          address: formData.address
         })
         .eq('user_id', user.id);
 
@@ -321,21 +325,36 @@ export const Profile = () => {
                     </div>
                   </div>
 
-                  {/* Phone */}
-                  <div>
-                    <Label htmlFor="phone">Puhelinnumero</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="phone"
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => handleInputChange('phone', e.target.value)}
-                        className="pl-10"
-                        placeholder="+358 40 123 4567"
-                      />
-                    </div>
-                  </div>
+                   {/* Phone */}
+                   <div>
+                     <Label htmlFor="phone">Puhelinnumero</Label>
+                     <div className="relative">
+                       <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                       <Input
+                         id="phone"
+                         type="tel"
+                         value={formData.phone}
+                         onChange={(e) => handleInputChange('phone', e.target.value)}
+                         className="pl-10"
+                         placeholder="+358 40 123 4567"
+                       />
+                     </div>
+                   </div>
+
+                   {/* Address */}
+                   <div>
+                     <Label htmlFor="address">Osoite</Label>
+                     <div className="relative">
+                       <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                       <Input
+                         id="address"
+                         value={formData.address}
+                         onChange={(e) => handleInputChange('address', e.target.value)}
+                         className="pl-10"
+                         placeholder="Katu 1, 00100 Helsinki"
+                       />
+                     </div>
+                   </div>
 
                   <Button 
                     type="submit" 

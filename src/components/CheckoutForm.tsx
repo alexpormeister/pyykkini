@@ -65,6 +65,16 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
             phone: profile.phone || '',
             address: profile.address || ''
           }));
+
+          // If address is missing, prompt user to add it
+          if (!profile.address) {
+            toast({
+              title: "Osoite puuttuu",
+              description: "Anna osoitteesi jatkaaksesi tilauksen tekemistä. Osoite tallennetaan profiiliisi.",
+              duration: 5000,
+            });
+            setIsAddressEditable(true);
+          }
         }
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -205,7 +215,7 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
           <ArrowLeft className="h-4 w-4 mr-2" />
           Takaisin palveluihin
         </Button>
-        <h2 className="text-2xl font-semibold text-center">Tilauksen tiedot</h2>
+        <h2 className="text-2xl font-fredoka text-center">Tilauksen tiedot</h2>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -334,15 +344,37 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
                           disabled={!isAddressEditable}
                         />
                         {isAddressEditable && (
-                          <Button 
-                            type="button"
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => setIsAddressEditable(false)}
-                            className="absolute right-1 top-1 h-8 text-xs"
-                          >
-                            Tallenna
-                          </Button>
+                           <Button 
+                             type="button"
+                             variant="outline" 
+                             size="sm"
+                             onClick={async () => {
+                               // Update profile with new address
+                               try {
+                                 const { error } = await supabase
+                                   .from('profiles')
+                                   .update({ address: formData.address })
+                                   .eq('user_id', user.id);
+                                 
+                                 if (error) throw error;
+                                 
+                                 toast({
+                                   title: "Osoite päivitetty",
+                                   description: "Osoite on tallennettu profiiliisi."
+                                 });
+                                 setIsAddressEditable(false);
+                               } catch (error) {
+                                 toast({
+                                   variant: "destructive",
+                                   title: "Virhe",
+                                   description: "Osoitteen tallentaminen epäonnistui."
+                                 });
+                               }
+                             }}
+                             className="absolute right-1 top-1 h-8 text-xs"
+                           >
+                             Tallenna
+                           </Button>
                         )}
                       </div>
                       {!isAddressEditable && (
@@ -350,8 +382,15 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
                           Osoite haettu profiilista. Klikkaa "Muokkaa" muuttaaksesi tämän tilauksen osoitetta.
                         </p>
                       )}
-                    </div>
-                  </div>
+                     </div>
+
+                     {/* Map right below address */}
+                     {formData.address && (
+                       <div className="mt-4">
+                         <SimpleMap address={formData.address} />
+                       </div>
+                     )}
+                   </div>
 
               {/* Pickup and Return Times */}
               <div className="space-y-6">
@@ -644,12 +683,6 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
            </CardContent>
          </Card>
 
-         {/* Map */}
-         {!profileLoading && formData.address && (
-           <div className="lg:col-span-3">
-             <SimpleMap address={formData.address} />
-           </div>
-         )}
        </div>
      </div>
    );
