@@ -30,8 +30,10 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
     phone: '',
     address: '',
     specialInstructions: '',
+    pickupOption: '', // 'immediate', 'choose_time', 'no_preference'
     pickupDate: '',
     pickupTime: '',
+    returnOption: '', // 'immediate', 'choose_time', 'no_preference'
     returnDate: '',
     returnTime: '',
     discountCode: ''
@@ -79,10 +81,10 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
           phone: formData.phone,
           address: formData.address,
           special_instructions: formData.specialInstructions || null,
-          pickup_date: formData.pickupDate,
-          pickup_time: formData.pickupTime,
-          return_date: formData.returnDate,
-          return_time: formData.returnTime,
+          pickup_date: formData.pickupOption === 'choose_time' ? formData.pickupDate : null,
+          pickup_time: formData.pickupOption === 'choose_time' ? formData.pickupTime : null,
+          return_date: formData.returnOption === 'choose_time' ? formData.returnDate : null,
+          return_time: formData.returnOption === 'choose_time' ? formData.returnTime : null,
           status: 'pending'
         });
 
@@ -101,8 +103,10 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
         phone: '',
         address: '',
         specialInstructions: '',
+        pickupOption: '',
         pickupDate: '',
         pickupTime: '',
+        returnOption: '',
         returnDate: '',
         returnTime: '',
         discountCode: ''
@@ -228,50 +232,230 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
               </div>
 
               {/* Pickup and Return Times */}
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <h4 className="font-semibold">Nouto- ja palautusajat</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="pickupDate">Noutopäivä *</Label>
-                    <Input
-                      id="pickupDate"
-                      type="date"
-                      value={formData.pickupDate}
-                      onChange={(e) => handleInputChange('pickupDate', e.target.value)}
-                      required
-                    />
+                
+                {/* Pickup Options */}
+                <div className="space-y-4">
+                  <Label className="text-base font-medium">Noudon ajankohta *</Label>
+                  <div className="grid grid-cols-1 gap-3">
+                    <div 
+                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                        formData.pickupOption === 'immediate' 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => handleInputChange('pickupOption', 'immediate')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-4 h-4 rounded-full border-2 ${
+                          formData.pickupOption === 'immediate' 
+                            ? 'border-primary bg-primary' 
+                            : 'border-muted-foreground'
+                        }`}>
+                          {formData.pickupOption === 'immediate' && (
+                            <div className="w-full h-full rounded-full bg-white scale-50"></div>
+                          )}
+                        </div>
+                        <div>
+                          <h5 className="font-medium">HETI</h5>
+                          <p className="text-sm text-muted-foreground">Jos kuljettajia saatavilla</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div 
+                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                        formData.pickupOption === 'choose_time' 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => handleInputChange('pickupOption', 'choose_time')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-4 h-4 rounded-full border-2 ${
+                          formData.pickupOption === 'choose_time' 
+                            ? 'border-primary bg-primary' 
+                            : 'border-muted-foreground'
+                        }`}>
+                          {formData.pickupOption === 'choose_time' && (
+                            <div className="w-full h-full rounded-full bg-white scale-50"></div>
+                          )}
+                        </div>
+                        <div>
+                          <h5 className="font-medium">Valitse ajankohta</h5>
+                          <p className="text-sm text-muted-foreground">Kalenteri 2 viikoksi eteenpäin, 08:00-20:00</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div 
+                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                        formData.pickupOption === 'no_preference' 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => handleInputChange('pickupOption', 'no_preference')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-4 h-4 rounded-full border-2 ${
+                          formData.pickupOption === 'no_preference' 
+                            ? 'border-primary bg-primary' 
+                            : 'border-muted-foreground'
+                        }`}>
+                          {formData.pickupOption === 'no_preference' && (
+                            <div className="w-full h-full rounded-full bg-white scale-50"></div>
+                          )}
+                        </div>
+                        <div>
+                          <h5 className="font-medium">Ei väliä</h5>
+                          <p className="text-sm text-muted-foreground">Järjestelmä valitsee automaattisesti seuraavan vapaan ajan</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="pickupTime">Noutoaika *</Label>
-                    <Input
-                      id="pickupTime"
-                      type="time"
-                      value={formData.pickupTime}
-                      onChange={(e) => handleInputChange('pickupTime', e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="returnDate">Palautuspäivä *</Label>
-                    <Input
-                      id="returnDate"
-                      type="date"
-                      value={formData.returnDate}
-                      onChange={(e) => handleInputChange('returnDate', e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="returnTime">Palautusaika *</Label>
-                    <Input
-                      id="returnTime"
-                      type="time"
-                      value={formData.returnTime}
-                      onChange={(e) => handleInputChange('returnTime', e.target.value)}
-                      required
-                    />
-                  </div>
+                  
+                  {formData.pickupOption === 'choose_time' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <Label htmlFor="pickupDate">Noutopäivä *</Label>
+                        <Input
+                          id="pickupDate"
+                          type="date"
+                          value={formData.pickupDate}
+                          onChange={(e) => handleInputChange('pickupDate', e.target.value)}
+                          min={new Date().toISOString().split('T')[0]}
+                          max={new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="pickupTime">Noutoaika *</Label>
+                        <Input
+                          id="pickupTime"
+                          type="time"
+                          value={formData.pickupTime}
+                          onChange={(e) => handleInputChange('pickupTime', e.target.value)}
+                          min="08:00"
+                          max="20:00"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {/* Return Options */}
+                {formData.pickupOption && (
+                  <div className="space-y-4">
+                    <Label className="text-base font-medium">Palautuksen ajankohta *</Label>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div 
+                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                          formData.returnOption === 'immediate' 
+                            ? 'border-primary bg-primary/5' 
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => handleInputChange('returnOption', 'immediate')}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-4 h-4 rounded-full border-2 ${
+                            formData.returnOption === 'immediate' 
+                              ? 'border-primary bg-primary' 
+                              : 'border-muted-foreground'
+                          }`}>
+                            {formData.returnOption === 'immediate' && (
+                              <div className="w-full h-full rounded-full bg-white scale-50"></div>
+                            )}
+                          </div>
+                          <div>
+                            <h5 className="font-medium">HETI</h5>
+                            <p className="text-sm text-muted-foreground">Jos kuljettajia saatavilla</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div 
+                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                          formData.returnOption === 'choose_time' 
+                            ? 'border-primary bg-primary/5' 
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => handleInputChange('returnOption', 'choose_time')}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-4 h-4 rounded-full border-2 ${
+                            formData.returnOption === 'choose_time' 
+                              ? 'border-primary bg-primary' 
+                              : 'border-muted-foreground'
+                          }`}>
+                            {formData.returnOption === 'choose_time' && (
+                              <div className="w-full h-full rounded-full bg-white scale-50"></div>
+                            )}
+                          </div>
+                          <div>
+                            <h5 className="font-medium">Valitse ajankohta</h5>
+                            <p className="text-sm text-muted-foreground">Kalenteri 2 viikoksi eteenpäin, 08:00-20:00</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div 
+                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                          formData.returnOption === 'no_preference' 
+                            ? 'border-primary bg-primary/5' 
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => handleInputChange('returnOption', 'no_preference')}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-4 h-4 rounded-full border-2 ${
+                            formData.returnOption === 'no_preference' 
+                              ? 'border-primary bg-primary' 
+                              : 'border-muted-foreground'
+                          }`}>
+                            {formData.returnOption === 'no_preference' && (
+                              <div className="w-full h-full rounded-full bg-white scale-50"></div>
+                            )}
+                          </div>
+                          <div>
+                            <h5 className="font-medium">Ei väliä</h5>
+                            <p className="text-sm text-muted-foreground">Järjestelmä valitsee automaattisesti seuraavan vapaan ajan</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {formData.returnOption === 'choose_time' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <Label htmlFor="returnDate">Palautuspäivä *</Label>
+                          <Input
+                            id="returnDate"
+                            type="date"
+                            value={formData.returnDate}
+                            onChange={(e) => handleInputChange('returnDate', e.target.value)}
+                            min={formData.pickupDate || new Date().toISOString().split('T')[0]}
+                            max={new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="returnTime">Palautusaika *</Label>
+                          <Input
+                            id="returnTime"
+                            type="time"
+                            value={formData.returnTime}
+                            onChange={(e) => handleInputChange('returnTime', e.target.value)}
+                            min="08:00"
+                            max="20:00"
+                            required
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Special Instructions */}
