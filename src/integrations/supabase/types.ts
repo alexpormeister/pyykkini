@@ -33,6 +33,9 @@ export type Database = {
           pickup_time: string
           price: number
           rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          rejection_timestamp: string | null
           return_date: string
           return_option: string | null
           return_time: string
@@ -61,6 +64,9 @@ export type Database = {
           pickup_time: string
           price: number
           rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          rejection_timestamp?: string | null
           return_date: string
           return_option?: string | null
           return_time: string
@@ -89,6 +95,9 @@ export type Database = {
           pickup_time?: string
           price?: number
           rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          rejection_timestamp?: string | null
           return_date?: string
           return_option?: string | null
           return_time?: string
@@ -103,7 +112,7 @@ export type Database = {
       }
       profiles: {
         Row: {
-          address: string | null
+          address: string
           created_at: string
           email: string
           full_name: string | null
@@ -114,7 +123,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          address?: string | null
+          address: string
           created_at?: string
           email: string
           full_name?: string | null
@@ -125,7 +134,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          address?: string | null
+          address?: string
           created_at?: string
           email?: string
           full_name?: string | null

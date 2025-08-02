@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -58,6 +60,8 @@ export const DriverPanel = () => {
     pickupTime: '',
     returnTime: ''
   });
+  const [showRejectDialog, setShowRejectDialog] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -151,12 +155,34 @@ export const DriverPanel = () => {
   };
 
   const handleRejectOrder = async (orderId: string) => {
+    if (!rejectionReason.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Virhe",
+        description: "Anna hylkäyksen perustelu."
+      });
+      return;
+    }
+
     try {
+      // Get current user's profile for the name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user?.id)
+        .single();
+
+      const driverName = profile?.full_name || 'Tuntematon kuljettaja';
+      const timestamp = new Date().toLocaleString('fi-FI');
+
       const { error } = await supabase
         .from('orders')
         .update({
           status: 'rejected',
-          rejected_at: new Date().toISOString()
+          rejected_at: new Date().toISOString(),
+          rejected_by: user?.id,
+          rejection_reason: rejectionReason,
+          special_instructions: `HYLÄTTY: Kuljettaja ${driverName} hylkäsi tilauksen ${timestamp}. Perustelu: ${rejectionReason}`
         })
         .eq('id', orderId)
         .eq('status', 'pending');
@@ -168,6 +194,8 @@ export const DriverPanel = () => {
         description: "Tilaus on siirretty toiselle kuljettajalle."
       });
 
+      setShowRejectDialog(null);
+      setRejectionReason('');
       fetchOrders();
     } catch (error: any) {
       toast({
@@ -366,7 +394,7 @@ export const DriverPanel = () => {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => handleRejectOrder(order.id)}
+                          onClick={() => setShowRejectDialog(order.id)}
                           className="w-28"
                         >
                           <X className="h-4 w-4 mr-1" />
@@ -542,6 +570,55 @@ export const DriverPanel = () => {
             <p className="mt-4 text-muted-foreground">Ladataan tilauksia...</p>
           </div>
         )}
+
+        {/* Rejection Dialog */}
+        <Dialog open={!!showRejectDialog} onOpenChange={() => setShowRejectDialog(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <X className="h-5 w-5" />
+                Hylkää tilaus
+              </DialogTitle>
+              <DialogDescription>
+                Anna perustelu tilauksen hylkäämiselle. Tämä tieto tallennetaan tilauksen lokiin.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="rejection_reason">Hylkäyksen perustelu *</Label>
+                <Textarea
+                  id="rejection_reason"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Kerro miksi hylkäät tämän tilauksen..."
+                  className="min-h-[80px]"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowRejectDialog(null)}
+                  className="flex-1"
+                >
+                  Peruuta
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => showRejectDialog && handleRejectOrder(showRejectDialog)}
+                  className="flex-1"
+                  disabled={!rejectionReason.trim()}
+                >
+                  Hylkää tilaus
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

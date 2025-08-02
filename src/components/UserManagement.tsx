@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, User, Mail, Shield, Edit, UserPlus, Phone } from 'lucide-react';
+import { Search, User, Mail, Shield, Edit, UserPlus, Phone, MapPin } from 'lucide-react';
 import { CreateUserDialog } from './CreateUserDialog';
 
 interface UserWithRole {
@@ -17,6 +17,7 @@ interface UserWithRole {
   profiles?: {
     full_name?: string;
     phone?: string;
+    address?: string;
   };
   user_roles?: {
     role: string;
@@ -35,7 +36,8 @@ export const UserManagement = () => {
   const [editFormData, setEditFormData] = useState({
     full_name: '',
     email: '',
-    phone: ''
+    phone: '',
+    address: ''
   });
 
   useEffect(() => {
@@ -44,13 +46,15 @@ export const UserManagement = () => {
 
   const fetchUsers = async () => {
     try {
+      // Fetch all profiles including address
       const { data, error } = await supabase
         .from('profiles')
         .select(`
           user_id,
           email,
           full_name,
-          phone
+          phone,
+          address
         `);
 
       if (error) throw error;
@@ -68,7 +72,8 @@ export const UserManagement = () => {
         email: profile.email,
         profiles: {
           full_name: profile.full_name,
-          phone: profile.phone
+          phone: profile.phone,
+          address: profile.address
         },
         user_roles: rolesData?.filter(r => r.user_id === profile.user_id).map(r => ({ role: r.role })) || []
       })) || [];
@@ -129,7 +134,8 @@ export const UserManagement = () => {
     setEditFormData({
       full_name: user.profiles?.full_name || '',
       email: user.email,
-      phone: user.profiles?.phone || ''
+      phone: user.profiles?.phone || '',
+      address: user.profiles?.address || ''
     });
     setShowEditDialog(true);
   };
@@ -144,7 +150,8 @@ export const UserManagement = () => {
         .update({
           full_name: editFormData.full_name,
           email: editFormData.email,
-          phone: editFormData.phone
+          phone: editFormData.phone,
+          address: editFormData.address
         })
         .eq('user_id', editingUser.id);
 
@@ -344,6 +351,21 @@ export const UserManagement = () => {
                     onChange={(e) => setEditFormData(prev => ({ ...prev, phone: e.target.value }))}
                     className="pl-10"
                     placeholder="+358 40 123 4567"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="edit_address">Osoite</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="edit_address"
+                    value={editFormData.address}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, address: e.target.value }))}
+                    className="pl-10"
+                    placeholder="Osoite"
+                    required
                   />
                 </div>
               </div>
