@@ -827,9 +827,9 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
                </>
              )}
            </form>
-           </CardContent>
-         </Card>
-       </div>
+          </CardContent>
+        </Card>
+      </div>
 
         {/* Rug Dimensions Dialog */}
         <RugDimensionsDialog
