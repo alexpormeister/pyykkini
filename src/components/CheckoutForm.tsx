@@ -466,30 +466,30 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
 
               {!profileLoading && (
                 <>
-                   {/* Customer Information */}
-                   <div className="space-y-4">
-                     <h4 className="font-semibold flex items-center gap-2">
-                       <User className="h-4 w-4" />
-                       Yhteystiedot
-                       <span className="text-sm text-muted-foreground font-normal">(Profiilista)</span>
-                     </h4>
-                     <div className="grid grid-cols-1 gap-4">
-                       <div>
-                         <Label htmlFor="phone">Puhelinnumero *</Label>
-                         <Input
-                           id="phone"
-                           type="tel"
-                           value={formData.phone}
-                           onChange={(e) => handleInputChange('phone', e.target.value)}
-                           required
-                           className="bg-muted/30"
-                           placeholder="+358 40 123 4567"
-                         />
-                         <p className="text-xs text-muted-foreground mt-1">
-                           Puhelinnumero haettu profiilista. Voit muokata sitä tarvittaessa.
-                         </p>
-                       </div>
-                     </div>
+                  {/* Customer Information */}
+                  <div className="space-y-4">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Yhteystiedot
+                      <span className="text-sm text-muted-foreground font-normal">(Profiilista)</span>
+                    </h4>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <Label htmlFor="phone">Puhelinnumero *</Label>
+                        <Input
+                          id="phone"
+                          type="tel"
+                          value={formData.phone}
+                          onChange={(e) => handleInputChange('phone', e.target.value)}
+                          required
+                          className="bg-muted/30"
+                          placeholder="+358 40 123 4567"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Puhelinnumero haettu profiilista. Voit muokata sitä tarvittaessa.
+                        </p>
+                      </div>
+                    </div>
                     <div>
                       <Label htmlFor="address" className="flex items-center justify-between">
                         <span>Noutoosoite *</span>
@@ -518,37 +518,37 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
                           disabled={!isAddressEditable}
                         />
                         {isAddressEditable && (
-                           <Button 
-                             type="button"
-                             variant="outline" 
-                             size="sm"
-                             onClick={async () => {
-                               // Update profile with new address
-                               try {
-                                 const { error } = await supabase
-                                   .from('profiles')
-                                   .update({ address: formData.address })
-                                   .eq('user_id', user.id);
-                                 
-                                 if (error) throw error;
-                                 
-                                 toast({
-                                   title: "Osoite päivitetty",
-                                   description: "Osoite on tallennettu profiiliisi."
-                                 });
-                                 setIsAddressEditable(false);
-                               } catch (error) {
-                                 toast({
-                                   variant: "destructive",
-                                   title: "Virhe",
-                                   description: "Osoitteen tallentaminen epäonnistui."
-                                 });
-                               }
-                             }}
-                             className="absolute right-1 top-1 h-8 text-xs"
-                           >
-                             Tallenna
-                           </Button>
+                          <Button 
+                            type="button"
+                            variant="outline" 
+                            size="sm"
+                            onClick={async () => {
+                              // Update profile with new address
+                              try {
+                                const { error } = await supabase
+                                  .from('profiles')
+                                  .update({ address: formData.address })
+                                  .eq('user_id', user.id);
+                                
+                                if (error) throw error;
+                                
+                                toast({
+                                  title: "Osoite päivitetty",
+                                  description: "Osoite on tallennettu profiiliisi."
+                                });
+                                setIsAddressEditable(false);
+                              } catch (error) {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Virhe",
+                                  description: "Osoitteen tallentaminen epäonnistui."
+                                });
+                              }
+                            }}
+                            className="absolute right-1 top-1 h-8 text-xs"
+                          >
+                            Tallenna
+                          </Button>
                         )}
                       </div>
                       {!isAddressEditable && (
@@ -556,288 +556,277 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
                           Osoite haettu profiilista. Klikkaa "Muokkaa" muuttaaksesi tämän tilauksen osoitetta.
                         </p>
                       )}
-                     </div>
+                    </div>
 
-                     {/* Map right below address */}
-                     {formData.address && (
-                       <div className="mt-4">
-                         <SimpleMap address={formData.address} />
-                       </div>
-                     )}
-                   </div>
-
-              {/* Pickup and Return Times */}
-              <div className="space-y-6">
-                <h4 className="font-semibold">Nouto- ja palautusajat</h4>
-                
-                {/* Pickup Options */}
-                <div className="space-y-4">
-                  <Label className="text-base font-medium">Noudon ajankohta *</Label>
-                  <div className="grid grid-cols-1 gap-3">
-                    <div 
-                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                        formData.pickupOption === 'immediate' 
-                          ? 'border-primary bg-primary/5' 
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                      onClick={() => handleInputChange('pickupOption', 'immediate')}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full border-2 ${
-                          formData.pickupOption === 'immediate' 
-                            ? 'border-primary bg-primary' 
-                            : 'border-muted-foreground'
-                        }`}>
-                          {formData.pickupOption === 'immediate' && (
-                            <div className="w-full h-full rounded-full bg-white scale-50"></div>
-                          )}
-                        </div>
-                        <div>
-                          <h5 className="font-medium">HETI</h5>
-                          <p className="text-sm text-muted-foreground">Jos kuljettajia saatavilla</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div 
-                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                        formData.pickupOption === 'choose_time' 
-                          ? 'border-primary bg-primary/5' 
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                      onClick={() => handleInputChange('pickupOption', 'choose_time')}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full border-2 ${
-                          formData.pickupOption === 'choose_time' 
-                            ? 'border-primary bg-primary' 
-                            : 'border-muted-foreground'
-                        }`}>
-                          {formData.pickupOption === 'choose_time' && (
-                            <div className="w-full h-full rounded-full bg-white scale-50"></div>
-                          )}
-                        </div>
-                        <div>
-                          <h5 className="font-medium">Valitse ajankohta</h5>
-                          <p className="text-sm text-muted-foreground">Kalenteri 2 viikoksi eteenpäin, 08:00-20:00</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                  
-                  {formData.pickupOption === 'choose_time' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                      <div>
-                        <Label htmlFor="pickupDate">Noutopäivä *</Label>
-                        <Input
-                          id="pickupDate"
-                          type="date"
-                          value={formData.pickupDate}
-                          onChange={(e) => handleInputChange('pickupDate', e.target.value)}
-                          min={new Date().toISOString().split('T')[0]}
-                          max={new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                          className="rounded-xl border-2 focus:border-primary/50 transition-colors"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="pickupTime">Noutoaika *</Label>
-                        <Input
-                          id="pickupTime"
-                          type="time"
-                          value={formData.pickupTime}
-                          onChange={(e) => handleInputChange('pickupTime', e.target.value)}
-                          min="08:00"
-                          max="20:00"
-                          className="rounded-xl border-2 focus:border-primary/50 transition-colors"
-                          required
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Return Options */}
-                {formData.pickupOption && (
-                  <div className="space-y-4">
-                    <Label className="text-base font-medium">Palautuksen ajankohta *</Label>
-                    <div className="grid grid-cols-1 gap-3">
-                      <div 
-                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                          formData.returnOption === 'immediate' 
-                            ? 'border-primary bg-primary/5' 
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                        onClick={() => handleInputChange('returnOption', 'immediate')}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-4 h-4 rounded-full border-2 ${
-                            formData.returnOption === 'immediate' 
-                              ? 'border-primary bg-primary' 
-                              : 'border-muted-foreground'
-                          }`}>
-                            {formData.returnOption === 'immediate' && (
-                              <div className="w-full h-full rounded-full bg-white scale-50"></div>
-                            )}
-                          </div>
-                          <div>
-                            <h5 className="font-medium">HETI</h5>
-                            <p className="text-sm text-muted-foreground">Jos kuljettajia saatavilla</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div 
-                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                          formData.returnOption === 'choose_time' 
-                            ? 'border-primary bg-primary/5' 
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                        onClick={() => handleInputChange('returnOption', 'choose_time')}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-4 h-4 rounded-full border-2 ${
-                            formData.returnOption === 'choose_time' 
-                              ? 'border-primary bg-primary' 
-                              : 'border-muted-foreground'
-                          }`}>
-                            {formData.returnOption === 'choose_time' && (
-                              <div className="w-full h-full rounded-full bg-white scale-50"></div>
-                            )}
-                          </div>
-                          <div>
-                            <h5 className="font-medium">Valitse ajankohta</h5>
-                            <p className="text-sm text-muted-foreground">Kalenteri 2 viikoksi eteenpäin, 08:00-20:00</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                    </div>
-                    
-                    {formData.returnOption === 'choose_time' && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                         <div>
-                           <Label htmlFor="returnDate">Palautuspäivä *</Label>
-                           <Input
-                             id="returnDate"
-                             type="date"
-                             value={formData.returnDate}
-                             onChange={(e) => handleInputChange('returnDate', e.target.value)}
-                             min={formData.pickupDate || new Date().toISOString().split('T')[0]}
-                             max={new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                             className="rounded-xl border-2 focus:border-primary/50 transition-colors"
-                             required
-                           />
-                         </div>
-                         <div>
-                           <Label htmlFor="returnTime">Palautusaika *</Label>
-                           <Input
-                             id="returnTime"
-                             type="time"
-                             value={formData.returnTime}
-                             onChange={(e) => handleInputChange('returnTime', e.target.value)}
-                             min="08:00"
-                             max="20:00"
-                             className="rounded-xl border-2 focus:border-primary/50 transition-colors"
-                             required
-                           />
-                         </div>
+                    {/* Map right below address */}
+                    {formData.address && (
+                      <div className="mt-4">
+                        <SimpleMap address={formData.address} />
                       </div>
                     )}
                   </div>
-                )}
-              </div>
 
-              {/* Special Instructions */}
-              <div>
-                <Label htmlFor="specialInstructions">Erityisohjeet</Label>
-                <Textarea
-                  id="specialInstructions"
-                  value={formData.specialInstructions}
-                  onChange={(e) => handleInputChange('specialInstructions', e.target.value)}
-                  placeholder="Lisätietoja noudosta, erityistoiveet jne..."
-                  rows={3}
-                />
-              </div>
-               {/* Coupon Section */}
-               <div className="space-y-4">
-                 <h4 className="font-semibold flex items-center gap-2">
-                   <Tag className="h-4 w-4" />
-                   Kuponki
-                 </h4>
-                 
-                 {!appliedCoupon ? (
-                   <div className="flex gap-2">
-                     <Input
-                       placeholder="Anna kuponkikoodi"
-                       value={couponCode}
-                       onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                       className="flex-1"
-                     />
-                     <Button 
-                       type="button"
-                       onClick={applyCoupon}
-                       disabled={couponLoading || !couponCode.trim()}
-                       variant="outline"
-                     >
-                       {couponLoading ? 'Tarkistetaan...' : 'Käytä'}
-                     </Button>
-                   </div>
-                 ) : (
-                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                     <div className="flex items-center gap-2 text-green-800">
-                       <Tag className="h-4 w-4" />
-                       <span className="font-semibold">Käytetty kuponki: {appliedCoupon.code}</span>
-                     </div>
-                     <p className="text-sm text-green-600 mt-1">
-                       Saat {appliedCoupon.discount_type === 'percentage' 
-                         ? `${appliedCoupon.discount_value}% alennuksen`
-                         : `${appliedCoupon.discount_value}€ alennuksen`
-                       }
-                     </p>
-                   </div>
-                 )}
-               </div>
+                  {/* Pickup and Return Times */}
+                  <div className="space-y-6">
+                    <h4 className="font-semibold">Nouto- ja palautusajat</h4>
+                    
+                    {/* Pickup Options */}
+                    <div className="space-y-4">
+                      <Label className="text-base font-medium">Noudon ajankohta *</Label>
+                      <div className="grid grid-cols-1 gap-3">
+                        <div 
+                          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                            formData.pickupOption === 'immediate' 
+                              ? 'border-primary bg-primary/5' 
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                          onClick={() => handleInputChange('pickupOption', 'immediate')}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-4 h-4 rounded-full border-2 ${
+                              formData.pickupOption === 'immediate' 
+                                ? 'border-primary bg-primary' 
+                                : 'border-muted-foreground'
+                            }`}>
+                              {formData.pickupOption === 'immediate' && (
+                                <div className="w-full h-full rounded-full bg-white scale-50"></div>
+                              )}
+                            </div>
+                            <div>
+                              <h5 className="font-medium">Heti kun mahdollista</h5>
+                              <p className="text-sm text-muted-foreground">Nouto järjestetään seuraavana työpäivänä</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div 
+                          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                            formData.pickupOption === 'choose_time' 
+                              ? 'border-primary bg-primary/5' 
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                          onClick={() => handleInputChange('pickupOption', 'choose_time')}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-4 h-4 rounded-full border-2 ${
+                              formData.pickupOption === 'choose_time' 
+                                ? 'border-primary bg-primary' 
+                                : 'border-muted-foreground'
+                            }`}>
+                              {formData.pickupOption === 'choose_time' && (
+                                <div className="w-full h-full rounded-full bg-white scale-50"></div>
+                              )}
+                            </div>
+                            <div>
+                              <h5 className="font-medium">Valitse aika</h5>
+                              <p className="text-sm text-muted-foreground">Määritä tarkka noutopäivä ja -aika</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
 
-              {/* Payment Methods */}
-              <div className="space-y-4">
-                <h4 className="font-semibold">Maksutavat</h4>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="border rounded-lg p-4 text-center hover:border-primary cursor-pointer transition-colors">
-                    <div className="font-semibold">MobilePay</div>
-                  </div>
-                  <div className="border rounded-lg p-4 text-center hover:border-primary cursor-pointer transition-colors">
-                    <div className="font-semibold">Visa</div>
-                  </div>
-                  <div className="border rounded-lg p-4 text-center hover:border-primary cursor-pointer transition-colors">
-                    <div className="font-semibold">Klarna</div>
-                  </div>
-                </div>
-              </div>
+                      {/* Date and Time Inputs for Pickup */}
+                      {formData.pickupOption === 'choose_time' && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="pickup-date">Noutopäivä</Label>
+                            <Input
+                              id="pickup-date"
+                              type="date"
+                              value={formData.pickupDate}
+                              onChange={(e) => handleInputChange('pickupDate', e.target.value)}
+                              min={new Date().toISOString().split('T')[0]}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="pickup-time">Noutoaika</Label>
+                            <Input
+                              id="pickup-time"
+                              type="time"
+                              value={formData.pickupTime}
+                              onChange={(e) => handleInputChange('pickupTime', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
-               <Button 
-                 type="submit" 
-                 variant="hero" 
-                 size="lg" 
-                 className="w-full"
-                 disabled={loading}
-               >
-                 {loading ? 'Käsitellään...' : `Vahvista tilaus (${calculateFinalPrice().toFixed(2)}€)`}
-               </Button>
-               </>
-             )}
-           </form>
+                    {/* Return Options */}
+                    <div className="space-y-4">
+                      <Label className="text-base font-medium">Palautuksen ajankohta *</Label>
+                      <div className="grid grid-cols-1 gap-3">
+                        <div 
+                          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                            formData.returnOption === 'immediate' 
+                              ? 'border-primary bg-primary/5' 
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                          onClick={() => handleInputChange('returnOption', 'immediate')}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-4 h-4 rounded-full border-2 ${
+                              formData.returnOption === 'immediate' 
+                                ? 'border-primary bg-primary' 
+                                : 'border-muted-foreground'
+                            }`}>
+                              {formData.returnOption === 'immediate' && (
+                                <div className="w-full h-full rounded-full bg-white scale-50"></div>
+                              )}
+                            </div>
+                            <div>
+                              <h5 className="font-medium">Heti kun valmis</h5>
+                              <p className="text-sm text-muted-foreground">Palautus heti kun pesu on valmis</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div 
+                          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                            formData.returnOption === 'choose_time' 
+                              ? 'border-primary bg-primary/5' 
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                          onClick={() => handleInputChange('returnOption', 'choose_time')}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-4 h-4 rounded-full border-2 ${
+                              formData.returnOption === 'choose_time' 
+                                ? 'border-primary bg-primary' 
+                                : 'border-muted-foreground'
+                            }`}>
+                              {formData.returnOption === 'choose_time' && (
+                                <div className="w-full h-full rounded-full bg-white scale-50"></div>
+                              )}
+                            </div>
+                            <div>
+                              <h5 className="font-medium">Valitse aika</h5>
+                              <p className="text-sm text-muted-foreground">Määritä tarkka palautuspäivä ja -aika</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Date and Time Inputs for Return */}
+                      {formData.returnOption === 'choose_time' && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="return-date">Palautuspäivä</Label>
+                            <Input
+                              id="return-date"
+                              type="date"
+                              value={formData.returnDate}
+                              onChange={(e) => handleInputChange('returnDate', e.target.value)}
+                              min={new Date().toISOString().split('T')[0]}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="return-time">Palautusaika</Label>
+                            <Input
+                              id="return-time"
+                              type="time"
+                              value={formData.returnTime}
+                              onChange={(e) => handleInputChange('returnTime', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Special Instructions */}
+                  <div className="space-y-4">
+                    <h4 className="font-semibold">Lisätiedot</h4>
+                    <div>
+                      <Label htmlFor="instructions">Erityisohjeet (valinnainen)</Label>
+                      <Textarea
+                        id="instructions"
+                        placeholder="Kerro meille lisätietoja tilauksestasi..."
+                        value={formData.specialInstructions}
+                        onChange={(e) => handleInputChange('specialInstructions', e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Coupon Section */}
+                  <div className="space-y-4">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Tag className="h-4 w-4" />
+                      Kuponki
+                    </h4>
+                    
+                    {!appliedCoupon ? (
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Anna kuponkikoodi"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                          className="flex-1"
+                        />
+                        <Button 
+                          type="button"
+                          onClick={applyCoupon}
+                          disabled={couponLoading || !couponCode.trim()}
+                          variant="outline"
+                        >
+                          {couponLoading ? 'Tarkistetaan...' : 'Käytä'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2 text-green-800">
+                          <Tag className="h-4 w-4" />
+                          <span className="font-semibold">Käytetty kuponki: {appliedCoupon.code}</span>
+                        </div>
+                        <p className="text-sm text-green-600 mt-1">
+                          Saat {appliedCoupon.discount_type === 'percentage' 
+                            ? `${appliedCoupon.discount_value}% alennuksen`
+                            : `${appliedCoupon.discount_value}€ alennuksen`
+                          }
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Payment Methods */}
+                  <div className="space-y-4">
+                    <h4 className="font-semibold">Maksutavat</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="border rounded-lg p-4 text-center hover:border-primary cursor-pointer transition-colors">
+                        <div className="font-semibold">MobilePay</div>
+                      </div>
+                      <div className="border rounded-lg p-4 text-center hover:border-primary cursor-pointer transition-colors">
+                        <div className="font-semibold">Visa</div>
+                      </div>
+                      <div className="border rounded-lg p-4 text-center hover:border-primary cursor-pointer transition-colors">
+                        <div className="font-semibold">Klarna</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    variant="hero" 
+                    size="lg" 
+                    className="w-full"
+                    disabled={loading}
+                  >
+                    {loading ? 'Käsitellään...' : `Vahvista tilaus (${calculateFinalPrice().toFixed(2)}€)`}
+                  </Button>
+                </>
+              )}
+            </form>
           </CardContent>
         </Card>
       </div>
 
-        {/* Rug Dimensions Dialog */}
-        <RugDimensionsDialog
-          open={showRugDimensionsDialog}
-          onOpenChange={setShowRugDimensionsDialog}
-          onConfirm={handleRugDimensions}
-          rugName={pendingRugItem?.name || ''}
-        />
-      </div>
-    );
-  };
+      {/* Rug Dimensions Dialog */}
+      <RugDimensionsDialog
+        open={showRugDimensionsDialog}
+        onOpenChange={setShowRugDimensionsDialog}
+        onConfirm={handleRugDimensions}
+        rugName={pendingRugItem?.name || ''}
+      />
+    </div>
+  );
+};
