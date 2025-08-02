@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { User, Truck, Settings, LogOut, UserCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import pesuniLogo from "@/assets/pesuni-logo.png";
 
 interface NavigationProps {
   activePanel: 'customer' | 'driver' | 'admin';
@@ -27,9 +28,7 @@ export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Pesuni
-            </h1>
+            <img src={pesuniLogo} alt="Pesuni" className="h-8" />
           </div>
           
           <div className="flex items-center space-x-2">

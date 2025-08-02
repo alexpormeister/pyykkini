@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { UserManagement } from "@/components/UserManagement";
 import { 
   Users, 
   Package, 
@@ -47,6 +48,10 @@ interface Order {
   // Join data
   customer_email?: string;
   driver_name?: string;
+  profiles?: {
+    full_name?: string;
+    phone?: string;
+  };
 }
 
 interface Stats {
@@ -78,14 +83,36 @@ export const AdminPanel = () => {
 
   const fetchOrders = async () => {
     try {
-      const { data, error } = await supabase
+      // First fetch orders
+      const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (ordersError) throw ordersError;
 
-      setOrders(data || []);
+      // Then fetch driver profiles for orders that have drivers
+      const driverIds = ordersData?.filter(o => o.driver_id).map(o => o.driver_id) || [];
+      let driverProfiles: any[] = [];
+      
+      if (driverIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, phone')
+          .in('user_id', driverIds);
+        
+        driverProfiles = profilesData || [];
+      }
+
+      // Combine orders with driver profiles
+      const ordersWithDrivers = ordersData?.map(order => ({
+        ...order,
+        profiles: order.driver_id 
+          ? driverProfiles.find(p => p.user_id === order.driver_id)
+          : null
+      })) || [];
+
+      setOrders(ordersWithDrivers);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -447,15 +474,7 @@ export const AdminPanel = () => {
 
           {/* Customers Tab */}
           <TabsContent value="customers" className="animate-fade-in">
-            <Card>
-              <CardHeader>
-                <CardTitle>Asiakashallinta</CardTitle>
-                <CardDescription>Hallitse asiakkaita ja katso tilaushistoria</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Asiakashallinta tulossa pian...</p>
-              </CardContent>
-            </Card>
+            <UserManagement />
           </TabsContent>
 
           {/* Reports Tab */}
@@ -543,10 +562,17 @@ export const AdminPanel = () => {
                         {getStatusText(selectedOrder.status)}
                       </Badge>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Kuljettaja:</span>
-                      <p className="font-medium">{selectedOrder.driver_name || 'Ei määritetty'}</p>
-                    </div>
+                     <div>
+                       <span className="text-muted-foreground">Kuljettaja:</span>
+                       <p className="font-medium">
+                         {selectedOrder.profiles?.full_name || 'Ei määritetty'}
+                       </p>
+                       {selectedOrder.profiles?.phone && (
+                         <p className="text-xs text-muted-foreground">
+                           Puh: {selectedOrder.profiles.phone}
+                         </p>
+                       )}
+                     </div>
                   </div>
                 </div>
 

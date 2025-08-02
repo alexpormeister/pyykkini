@@ -218,9 +218,18 @@ export const DriverPanel = () => {
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     try {
+      const updateData: any = { status: newStatus };
+      
+      // Add timestamps for specific status changes
+      if (newStatus === 'picking_up') {
+        updateData.actual_pickup_time = new Date().toISOString();
+      } else if (newStatus === 'delivered') {
+        updateData.actual_return_time = new Date().toISOString();
+      }
+
       const { error } = await supabase
         .from('orders')
-        .update({ status: newStatus as any })
+        .update(updateData)
         .eq('id', orderId);
 
       if (error) throw error;

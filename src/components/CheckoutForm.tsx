@@ -93,6 +93,9 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
 
     try {
       const finalPrice = calculateFinalPrice();
+      const now = new Date();
+      const currentDate = now.toISOString().split('T')[0];
+      const currentTime = now.toTimeString().slice(0, 5);
       
       const { error } = await supabase
         .from('orders')
@@ -109,11 +112,11 @@ export const CheckoutForm = ({ selectedService, onBack, onSuccess }: CheckoutFor
           address: formData.address,
           special_instructions: formData.specialInstructions || null,
           pickup_option: formData.pickupOption,
-          pickup_date: formData.pickupOption === 'choose_time' ? formData.pickupDate : null,
-          pickup_time: formData.pickupOption === 'choose_time' ? formData.pickupTime : null,
+          pickup_date: formData.pickupOption === 'choose_time' ? formData.pickupDate : currentDate,
+          pickup_time: formData.pickupOption === 'choose_time' ? formData.pickupTime : currentTime,
           return_option: formData.returnOption,
-          return_date: formData.returnOption === 'choose_time' ? formData.returnDate : null,
-          return_time: formData.returnOption === 'choose_time' ? formData.returnTime : null,
+          return_date: formData.returnOption === 'choose_time' ? formData.returnDate : currentDate,
+          return_time: formData.returnOption === 'choose_time' ? formData.returnTime : currentTime,
           status: 'pending'
         });
 

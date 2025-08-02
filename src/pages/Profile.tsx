@@ -337,57 +337,132 @@ export const Profile = () => {
             </Card>
           </div>
 
-          {/* Orders History */}
+          {/* Role-specific Content */}
           <div className="lg:col-span-2">
             <Card className="shadow-elegant">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Tilaushistoria
+                  {userRole === 'customer' && <Package className="h-5 w-5" />}
+                  {userRole === 'driver' && <User className="h-5 w-5" />}
+                  {userRole === 'admin' && <User className="h-5 w-5" />}
+                  {userRole === 'customer' ? 'Tilaushistoria' : 
+                   userRole === 'driver' ? 'Kuljettajan tiedot' : 'Ylläpitäjän tiedot'}
                 </CardTitle>
                 <CardDescription>
-                  Kaikki tekemäsi tilaukset
+                  {userRole === 'customer' ? 'Kaikki tekemäsi tilaukset' :
+                   userRole === 'driver' ? 'Asetukset ja työkalut' : 'Hallinta ja työkalut'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {orders.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Ei tilauksia vielä</p>
-                    <Button 
-                      variant="outline" 
-                      className="mt-4"
-                      onClick={() => navigate('/app')}
-                    >
-                      Tee ensimmäinen tilauksesi
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {orders.map((order) => (
-                      <div key={order.id} className="border rounded-lg p-4 hover:shadow-sm transition-shadow">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-semibold">{order.service_name}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              Tilattu {new Date(order.created_at).toLocaleDateString('fi-FI')}
-                            </p>
-                            {order.pickup_option && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Nouto: {order.pickup_option === 'immediate' ? 'Heti' : 
-                                        order.pickup_option === 'choose_time' ? 'Valittu aika' : 'Ei väliä'}
+                {userRole === 'customer' ? (
+                  // Customer order history
+                  orders.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Ei tilauksia vielä</p>
+                      <Button 
+                        variant="outline" 
+                        className="mt-4"
+                        onClick={() => navigate('/app')}
+                      >
+                        Tee ensimmäinen tilauksesi
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {orders.map((order) => (
+                        <div key={order.id} className="border rounded-lg p-4 hover:shadow-sm transition-shadow">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-semibold">{order.service_name}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Tilattu {new Date(order.created_at).toLocaleDateString('fi-FI')}
                               </p>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <Badge className={getStatusColor(order.status)}>
-                              {getStatusText(order.status)}
-                            </Badge>
-                            <p className="text-lg font-bold mt-1">{order.final_price}€</p>
+                              {order.pickup_option && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Nouto: {order.pickup_option === 'immediate' ? 'Heti' : 
+                                          order.pickup_option === 'choose_time' ? 'Valittu aika' : 'Ei väliä'}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <Badge className={getStatusColor(order.status)}>
+                                {getStatusText(order.status)}
+                              </Badge>
+                              <p className="text-lg font-bold mt-1">{order.final_price}€</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  )
+                ) : userRole === 'driver' ? (
+                  // Driver settings and info
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Button 
+                        variant="outline" 
+                        className="h-20 flex flex-col items-center justify-center gap-2"
+                        onClick={() => navigate('/app')}
+                      >
+                        <Package className="h-6 w-6" />
+                        <span>Tilausnäkymä</span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="h-20 flex flex-col items-center justify-center gap-2"
+                        disabled
+                      >
+                        <User className="h-6 w-6" />
+                        <span>Asetukset</span>
+                      </Button>
+                    </div>
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-semibold mb-2">Kuljettajan ID</h4>
+                      <p className="text-sm text-muted-foreground font-mono">{user.id}</p>
+                    </div>
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-semibold mb-2">Yhteystiedot</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Käytä profiilitietoja asiakkaiden yhteydenpitoon
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  // Admin tools
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Button 
+                        variant="outline" 
+                        className="h-20 flex flex-col items-center justify-center gap-2"
+                        onClick={() => navigate('/app')}
+                      >
+                        <Package className="h-6 w-6" />
+                        <span>Ylläpitäjäpaneeli</span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="h-20 flex flex-col items-center justify-center gap-2"
+                        disabled
+                      >
+                        <User className="h-6 w-6" />
+                        <span>Käyttäjähallinta</span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="h-20 flex flex-col items-center justify-center gap-2"
+                        disabled
+                      >
+                        <Package className="h-6 w-6" />
+                        <span>Raportit</span>
+                      </Button>
+                    </div>
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-semibold mb-2">Järjestelmätiedot</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Ylläpitäjä ID: {user.id.slice(0, 8)}
+                      </p>
+                    </div>
                   </div>
                 )}
               </CardContent>
