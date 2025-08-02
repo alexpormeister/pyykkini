@@ -72,11 +72,16 @@ export default {
 			backgroundImage: {
 				'gradient-primary': 'var(--gradient-primary)',
 				'gradient-hero': 'var(--gradient-hero)',
-				'gradient-subtle': 'var(--gradient-subtle)'
+				'gradient-subtle': 'var(--gradient-subtle)',
+				'gradient-fun': 'var(--gradient-fun)'
 			},
 			boxShadow: {
 				'elegant': 'var(--shadow-elegant)',
-				'glow': 'var(--shadow-glow)'
+				'glow': 'var(--shadow-glow)',
+				'fun': 'var(--shadow-fun)'
+			},
+			fontFamily: {
+				'inter': ['Inter', 'sans-serif'],
 			},
 			keyframes: {
 				'accordion-down': {
