@@ -330,17 +330,21 @@ export const Profile = () => {
                    {/* Phone */}
                    <div>
                      <Label htmlFor="phone">Puhelinnumero</Label>
-                     <div className="relative">
-                       <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                       <Input
-                         id="phone"
-                         type="tel"
-                         value={formData.phone}
-                         onChange={(e) => handleInputChange('phone', e.target.value)}
-                         className="pl-10"
-                         placeholder="+358 40 123 4567"
-                       />
-                     </div>
+                       <div className="relative">
+                        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="phone"
+                          type="tel"
+                          value={formData.phone}
+                          onChange={(e) => {
+                            // Only allow numbers, spaces, hyphens, and plus sign
+                            const cleaned = e.target.value.replace(/[^\d\s\-\+]/g, '');
+                            handleInputChange('phone', cleaned);
+                          }}
+                          className="pl-10"
+                          placeholder="+358 40 123 4567"
+                        />
+                      </div>
                    </div>
 
                    {/* Address */}

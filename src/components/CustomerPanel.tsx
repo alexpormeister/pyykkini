@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, Clock, Shirt, Sparkles, Zap, Star, CheckCircle, Package, Truck, ArrowRight, ShoppingCart as CartIcon } from "lucide-react";
+import { Calendar, Clock, Shirt, Sparkles, Zap, Star, CheckCircle, Package, Truck, ArrowRight, ShoppingCart as CartIcon, Heart } from "lucide-react";
 import { CheckoutForm } from "./CheckoutForm";
 import { ShoppingCart, CartItem } from "./ShoppingCart";
+import { RugSelectionDialog } from "./RugSelectionDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -17,38 +18,39 @@ interface Service {
   price: number;
   icon: any;
   duration: string;
+  requiresDimensions?: boolean;
 }
 
 const services: Service[] = [
   {
     id: 'normal',
-    name: 'Normaali pesu',
-    description: 'Arkivaatteiden perus pesu ja kuivaus',
-    price: 15,
+    name: '👕 Peruspyykki',
+    description: 'Arjen vaatteet puhtaaksi ja raikkaaksi. T-paidat, housut, sukat ja muut. Pesemme hellävaraisesti 40 °C asteessa, aina hajusteettomilla pesuaineilla.',
+    price: 25.90,
     icon: Shirt,
     duration: '24-48h'
   },
   {
     id: 'shoes',
-    name: 'Kenkäpesu',
-    description: 'Erikoispesu kengille ja urheilujalkineille',
+    name: '👟 Kenkäpesu',
+    description: 'Lenkkarit tai tennarit puhdistetaan hellästi ja huolellisesti. Pesu tehdään käsin tai koneessa pesupussissa, 30 °C asteessa ja hajusteettomasti.',
     price: 20,
     icon: Sparkles,
     duration: '48h'
   },
   {
     id: 'sheets',
-    name: 'Lakanapyykki',
-    description: 'Pesu, kuivaus ja huolellinen silitys',
-    price: 25,
+    name: '🛏️ Lakanapesu',
+    description: 'Pehmeät lakanat ja pussilakanat puhtaiksi. Paremmat unet odottavat. Käytämme 60 °C pesua ja hajusteettomia aineita hygienian takaamiseksi.',
+    price: 25.90,
     icon: Zap,
     duration: '48-72h'
   },
   {
     id: 'carpets',
-    name: 'Mattopesu',
-    description: 'Ammattimainen mattojen pesu ja kuivaus',
-    price: 35,
+    name: '🧼 Mattopesu',
+    description: 'Pienet matot saavat uuden elämän. Värit kirkastuvat ja pöly katoaa. Matot pestään yksittäin, 30 °C lämpötilassa, ilman hajusteita.',
+    price: 29.90,
     icon: Star,
     duration: '72h'
   }
@@ -102,6 +104,8 @@ export const CustomerPanel = () => {
   const [loading, setLoading] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [showRugDialog, setShowRugDialog] = useState(false);
+  const [pendingService, setPendingService] = useState<Service | null>(null);
 
   useEffect(() => {
     if (currentView === 'orders' && user) {
@@ -143,25 +147,62 @@ export const CustomerPanel = () => {
     setCurrentView('cart');
   };
 
-  const handleAddToCart = (service: Service) => {
+  const handleAddToCart = (service: Service, rugDimensions?: { length: number; width: number }) => {
+    // Check if this is a carpet service and needs dimensions
+    if (service.id === 'carpets' && !rugDimensions) {
+      setPendingService(service);
+      setShowRugDialog(true);
+      return;
+    }
+
+    let finalPrice = service.price;
+    let metadata: any = {};
+
+    // Calculate carpet price based on dimensions
+    if (service.id === 'carpets' && rugDimensions) {
+      const area = (rugDimensions.length * rugDimensions.width) / 10000; // Convert to m²
+      if (area <= 0.54) finalPrice = 29.90;
+      else if (area <= 1.2) finalPrice = 39.90;
+      else if (area <= 2.16) finalPrice = 49.90;
+      else finalPrice = 59.90;
+      
+      metadata.rugDimensions = rugDimensions;
+    }
+
     const newItem: CartItem = {
       id: `${service.id}-${Date.now()}`,
       type: 'service',
       serviceId: service.id,
       name: service.name,
       description: service.description,
-      price: service.price,
-      quantity: 1
+      price: finalPrice,
+      quantity: 1,
+      metadata
     };
     
     setCartItems(prev => [...prev, newItem]);
     setShowServiceModal(false);
     setCurrentView('cart');
     
+    // Fun notification with emoji
+    const notifications = [
+      "🎉 Jes! Pesu matkalla koriin!",
+      "✨ Loistavaa! Lisätty koriin!",
+      "🧺 Hurraa! Pesu odottaa sinua!",
+      "💫 Mahtavaa! Korissa se on!"
+    ];
+    
     toast({
-      title: "Palvelu lisätty",
-      description: `${service.name} lisätty ostoskoriin`
+      title: notifications[Math.floor(Math.random() * notifications.length)],
+      description: `${service.name} lisätty ostoskoriin 💖`
     });
+  };
+
+  const handleRugDimensions = (dimensions: { length: number; width: number }) => {
+    if (pendingService) {
+      handleAddToCart(pendingService, dimensions);
+      setPendingService(null);
+    }
   };
 
   const handleProceedToCheckout = (items: CartItem[], total: number) => {
@@ -171,13 +212,20 @@ export const CustomerPanel = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <div className="container mx-auto px-4 py-8">
-        {/* Hero Section */}
+        {/* Hero Section with Mascot */}
         <div className="text-center mb-12 animate-fade-in">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-hero bg-clip-text text-transparent">
-            Pesupalvelu helposti
+          <div className="flex justify-center mb-6">
+            <img 
+              src="/lovable-uploads/89393e6a-83c3-4f5a-916e-d3ed09d4386a.png" 
+              alt="Pesuni maskotti" 
+              className="w-24 h-24 animate-bounce"
+            />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-fredoka font-bold mb-4 bg-gradient-hero bg-clip-text text-transparent">
+            🧺 Pesupalvelu helposti! 
           </h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Tilaa pesupalvelu kotiin - me noudamme, pesemme ja tuomme takaisin puhtaana
+          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto font-fredoka">
+            ✨ Tilaa pesupalvelu kotiin - me noudamme, pesemme ja tuomme takaisin puhtaana! 🏠💨
           </p>
           
           {/* Quick Actions */}
@@ -220,11 +268,11 @@ export const CustomerPanel = () => {
         {/* Services View */}
         {currentView === 'services' && (
           <div className="animate-fade-in">
-            <h2 className="text-2xl font-semibold mb-6 text-center">Valitse pesu</h2>
+            <h2 className="text-2xl font-fredoka font-semibold mb-6 text-center">🎯 Valitse pesu!</h2>
             
             {/* Bundle Offers - More Prominent */}
             <div className="mb-8">
-              <h3 className="text-xl font-semibold mb-4 text-center">🎉 Pakettitarjoukset - Säästä rahaa!</h3>
+              <h3 className="text-xl font-fredoka font-semibold mb-4 text-center">🎉 Pakettitarjoukset - Säästä rahaa! 💰</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto mb-8">
                 <Card className="border-2 border-primary bg-gradient-to-br from-primary/5 to-primary/10 hover:shadow-elegant transition-all duration-300">
                   <CardContent className="p-6">
@@ -292,41 +340,46 @@ export const CustomerPanel = () => {
               </div>
             </div>
             
-            <h3 className="text-lg font-semibold mb-4 text-center">Yksittäiset palvelut</h3>
+            <h3 className="text-lg font-fredoka font-semibold mb-4 text-center">🧼 Yksittäiset palvelut</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {services.map((service) => {
                 const Icon = service.icon;
                 return (
-                  <Card 
-                    key={service.id} 
-                    className="cursor-pointer transition-all duration-300 hover:shadow-elegant hover:scale-105 group"
-                    onClick={() => handleAddToCart(service)}
-                  >
-                    <CardHeader className="text-center">
-                      <Icon className="h-12 w-12 mx-auto mb-4 text-primary group-hover:scale-110 transition-transform" />
-                      <CardTitle className="text-lg">{service.name}</CardTitle>
-                      <CardDescription className="text-sm">{service.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="text-center">
-                      <div className="text-2xl font-bold text-primary mb-2">
-                        {service.price}€
-                      </div>
-                      <Badge variant="secondary" className="text-xs mb-4">
-                        {service.duration}
-                      </Badge>
-                      <Button 
-                        variant="hero" 
-                        size="sm"
-                        className="w-full"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddToCart(service);
-                        }}
-                      >
-                        Lisää koriin
-                      </Button>
-                    </CardContent>
-                  </Card>
+                    <Card 
+                      key={service.id} 
+                      className="cursor-pointer transition-all duration-300 hover:shadow-elegant hover:scale-105 group bg-gradient-to-br from-white to-primary/5 border-2 border-transparent hover:border-primary/20"
+                      onClick={() => handleAddToCart(service)}
+                    >
+                      <CardHeader className="text-center">
+                        <Icon className="h-12 w-12 mx-auto mb-4 text-primary group-hover:scale-110 transition-transform" />
+                        <CardTitle className="text-lg font-fredoka">{service.name}</CardTitle>
+                        <CardDescription className="text-sm leading-relaxed">{service.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="text-center">
+                        <div className="text-2xl font-bold text-primary mb-2 font-fredoka">
+                          {service.id === 'carpets' ? 'alk. ' : ''}{service.price.toFixed(2)}€
+                          {service.id === 'normal' && <span className="text-sm text-muted-foreground"> / 5 kg</span>}
+                          {service.id === 'sheets' && <span className="text-sm text-muted-foreground"> / setti</span>}
+                          {service.id === 'shoes' && <span className="text-sm text-muted-foreground"> / pari</span>}
+                          {service.id === 'carpets' && <span className="text-sm text-muted-foreground"> / matto</span>}
+                        </div>
+                        <Badge variant="secondary" className="text-xs mb-4 rounded-full">
+                          ⏰ {service.duration}
+                        </Badge>
+                        <Button 
+                          variant="hero" 
+                          size="sm"
+                          className="w-full animate-pulse hover:animate-none transition-all duration-300 group-hover:scale-105 font-fredoka"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddToCart(service);
+                          }}
+                        >
+                          <Heart className="h-4 w-4 mr-2 group-hover:text-red-500 transition-colors" />
+                          Lisää koriin! 
+                        </Button>
+                      </CardContent>
+                    </Card>
                 );
               })}
             </div>
@@ -400,6 +453,14 @@ export const CustomerPanel = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Rug Selection Dialog */}
+        <RugSelectionDialog
+          open={showRugDialog}
+          onOpenChange={setShowRugDialog}
+          onConfirm={handleRugDimensions}
+          rugName={pendingService?.name || "Mattopesu"}
+        />
 
         {/* Shopping Cart View */}
         {currentView === 'cart' && (

@@ -84,6 +84,7 @@ export default {
 			},
 			fontFamily: {
 				'inter': ['Inter', 'sans-serif'],
+				'fredoka': ['Fredoka', 'cursive'],
 			},
 			keyframes: {
 				'accordion-down': {
