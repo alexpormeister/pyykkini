@@ -123,9 +123,7 @@ export const AdminPanel = () => {
             change_type,
             change_description,
             created_at,
-            profiles!order_history_changed_by_fkey (
-              full_name
-            )
+            changed_by
           )
         `)
         .order('created_at', { ascending: false });
@@ -162,6 +160,17 @@ export const AdminPanel = () => {
       const ordersWithProfiles = ordersData?.map(order => {
         const customerProfile = customerProfiles.find(p => p.user_id === order.user_id);
         
+        // Get history with user names
+        const historyWithProfiles = order.order_history?.map((history: any) => {
+          const changedByProfile = [...customerProfiles, ...driverProfiles].find(p => p.user_id === history.changed_by);
+          return {
+            ...history,
+            profiles: {
+              full_name: changedByProfile?.full_name || 'Tuntematon'
+            }
+          };
+        }) || [];
+        
         return {
           ...order,
           // Use customer profile name if first_name is empty or "Asiakas"
@@ -171,9 +180,10 @@ export const AdminPanel = () => {
           last_name: order.last_name === 'Asiakas' || !order.last_name 
             ? customerProfile?.full_name?.split(' ').slice(1).join(' ') || order.last_name 
             : order.last_name,
-          profiles: order.driver_id 
-            ? driverProfiles.find(p => p.user_id === order.driver_id)
-            : null
+          customer_name: customerProfile?.full_name || `${order.first_name} ${order.last_name}`,
+          customer_phone: customerProfile?.phone || order.phone,
+          driver_name: driverProfiles.find(d => d.user_id === order.driver_id)?.full_name || null,
+          order_history: historyWithProfiles
         };
       }) || [];
 

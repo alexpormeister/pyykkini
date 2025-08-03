@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Calendar, MapPin, Phone, Clock, Package, User } from 'lucide-react';
+import { Calendar, MapPin, Phone, Clock, Package, User, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -24,17 +27,38 @@ interface CalendarEvent {
   rugDimensions?: string;
 }
 
+interface CustomEvent {
+  id: string;
+  title: string;
+  description?: string;
+  date: string;
+  startTime: string;
+  endTime?: string;
+  type: string;
+}
+
 export const DriverCalendar = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [customEvents, setCustomEvents] = useState<CustomEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [showAddEventDialog, setShowAddEventDialog] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [newEvent, setNewEvent] = useState({
+    title: '',
+    description: '',
+    startTime: '',
+    endTime: '',
+    type: 'custom'
+  });
 
   useEffect(() => {
     if (user) {
       fetchCalendarEvents();
+      fetchCustomEvents();
     }
   }, [user, currentDate]);
 
@@ -64,10 +88,7 @@ export const DriverCalendar = () => {
           service_name,
           final_price,
           status,
-          profiles!orders_user_id_fkey (
-            full_name,
-            phone
-          ),
+          user_id,
           order_items (
             rug_dimensions
           )
@@ -79,10 +100,23 @@ export const DriverCalendar = () => {
 
       if (error) throw error;
 
+      // Fetch customer profiles separately
+      const customerIds = orders?.map(order => order.user_id) || [];
+      let customerProfiles: any[] = [];
+      
+      if (customerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, phone')
+          .in('user_id', customerIds);
+        customerProfiles = profiles || [];
+      }
+
       const calendarEvents: CalendarEvent[] = [];
 
       orders?.forEach(order => {
-        const customerName = (order.profiles as any)?.full_name || `${order.first_name} ${order.last_name}`;
+        const customerProfile = customerProfiles.find(p => p.user_id === order.user_id);
+        const customerName = customerProfile?.full_name || `${order.first_name} ${order.last_name}`;
         const rugDimensions = order.order_items?.find(item => item.rug_dimensions)?.rug_dimensions;
 
         // Add pickup event
@@ -97,7 +131,7 @@ export const DriverCalendar = () => {
               : order.pickup_time,
             type: 'pickup',
             customerName,
-            customerPhone: (order.profiles as any)?.phone || order.phone,
+            customerPhone: customerProfile?.phone || order.phone,
             address: order.address,
             serviceName: order.service_name,
             finalPrice: order.final_price,
@@ -118,7 +152,7 @@ export const DriverCalendar = () => {
               : order.return_time,
             type: 'return',
             customerName,
-            customerPhone: (order.profiles as any)?.phone || order.phone,
+            customerPhone: customerProfile?.phone || order.phone,
             address: order.address,
             serviceName: order.service_name,
             finalPrice: order.final_price,
@@ -147,7 +181,97 @@ export const DriverCalendar = () => {
 
   const getEventsByDate = (date: Date) => {
     const dateStr = date.toISOString().split('T')[0];
-    return events.filter(event => event.date === dateStr);
+    const orderEvents = events.filter(event => event.date === dateStr);
+    const customEventsForDate = customEvents.filter(event => event.date === dateStr);
+    return { orderEvents, customEvents: customEventsForDate };
+  };
+
+  const handleAddEvent = async () => {
+    if (!selectedDate || !newEvent.title || !newEvent.startTime) {
+      toast({
+        variant: 'destructive',
+        title: 'Virhe',
+        description: 'Täytä vähintään otsikko ja alkamisaika'
+      });
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('driver_calendar_events')
+        .insert({
+          driver_id: user?.id,
+          title: newEvent.title,
+          description: newEvent.description || null,
+          event_date: selectedDate.toISOString().split('T')[0],
+          start_time: newEvent.startTime,
+          end_time: newEvent.endTime || null,
+          event_type: newEvent.type
+        });
+        
+      if (error) throw error;
+      
+      toast({
+        title: 'Tapahtuma lisätty',
+        description: 'Uusi tapahtuma on lisätty kalenteriin'
+      });
+      
+      setShowAddEventDialog(false);
+      setNewEvent({
+        title: '',
+        description: '',
+        startTime: '',
+        endTime: '',
+        type: 'custom'
+      });
+      setSelectedDate(null);
+      fetchCustomEvents();
+      
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Virhe',
+        description: 'Tapahtuman lisääminen epäonnistui'
+      });
+    }
+  };
+
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
+    setShowAddEventDialog(true);
+  };
+
+  const fetchCustomEvents = async () => {
+    if (!user) return;
+    
+    try {
+      const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      
+      const { data: driverEvents, error } = await supabase
+        .from('driver_calendar_events')
+        .select('*')
+        .eq('driver_id', user.id)
+        .gte('event_date', startOfMonth.toISOString().split('T')[0])
+        .lte('event_date', endOfMonth.toISOString().split('T')[0]);
+        
+      if (error) throw error;
+      
+      const customEventsFormatted: CustomEvent[] = driverEvents?.map(event => ({
+        id: event.id,
+        title: event.title,
+        description: event.description,
+        date: event.event_date,
+        startTime: event.start_time,
+        endTime: event.end_time,
+        type: event.event_type
+      })) || [];
+      
+      setCustomEvents(customEventsFormatted);
+      
+    } catch (error: any) {
+      console.error('Error fetching custom events:', error);
+    }
   };
 
   const getDaysInMonth = () => {
@@ -224,6 +348,15 @@ export const DriverCalendar = () => {
               <Button variant="outline" size="sm" onClick={nextMonth}>
                 →
               </Button>
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={() => setShowAddEventDialog(true)}
+                className="ml-2"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Lisää tapahtuma
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -241,31 +374,56 @@ export const DriverCalendar = () => {
           </div>
           
           <div className="grid grid-cols-7 gap-1">
-            {getDaysInMonth().map((day, index) => (
-              <div key={index} className="min-h-[100px] border border-muted/30 p-1">
-                {day && (
-                  <>
-                    <div className="text-sm font-medium mb-1">
-                      {day.getDate()}
-                    </div>
-                    <div className="space-y-1">
-                      {getEventsByDate(day).map(event => (
-                        <div
-                          key={event.id}
-                          className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${getEventColor(event.type, event.status)}`}
-                          onClick={() => setSelectedEvent(event)}
-                        >
-                          <div className="font-medium">{event.time}</div>
-                          <div className="truncate">
-                            {event.type === 'pickup' ? '📦' : '🚚'} {event.customerName}
+            {getDaysInMonth().map((day, index) => {
+              const dayEvents = day ? getEventsByDate(day) : { orderEvents: [], customEvents: [] };
+              return (
+                <div 
+                  key={index} 
+                  className="min-h-[100px] border border-muted/30 p-1 hover:bg-muted/20 cursor-pointer"
+                  onClick={() => day && handleDateClick(day)}
+                >
+                  {day && (
+                    <>
+                      <div className="text-sm font-medium mb-1">
+                        {day.getDate()}
+                      </div>
+                      <div className="space-y-1">
+                        {/* Order events */}
+                        {dayEvents.orderEvents.map(event => (
+                          <div
+                            key={event.id}
+                            className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${getEventColor(event.type, event.status)}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEvent(event);
+                            }}
+                          >
+                            <div className="font-medium">{event.time}</div>
+                            <div className="truncate">
+                              {event.type === 'pickup' ? '📦' : '🚚'} {event.customerName}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
+                        ))}
+                        
+                        {/* Custom events */}
+                        {dayEvents.customEvents.map(event => (
+                          <div
+                            key={event.id}
+                            className="text-xs p-1 rounded cursor-pointer hover:opacity-80 bg-gray-100 text-gray-800"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="font-medium">{event.startTime}</div>
+                            <div className="truncate">
+                              📅 {event.title}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -368,6 +526,85 @@ export const DriverCalendar = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Add Event Dialog */}
+      <Dialog open={showAddEventDialog} onOpenChange={setShowAddEventDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Lisää uusi tapahtuma</DialogTitle>
+            <DialogDescription>
+              {selectedDate && `Päivämäärä: ${selectedDate.toLocaleDateString('fi-FI')}`}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="title">Otsikko *</Label>
+              <Input
+                id="title"
+                value={newEvent.title}
+                onChange={(e) => setNewEvent(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Esim. Tauko, Huolto, Kokous..."
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="description">Kuvaus</Label>
+              <Textarea
+                id="description"
+                value={newEvent.description}
+                onChange={(e) => setNewEvent(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Vapaaehtoinen kuvaus..."
+                rows={2}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="startTime">Alkamisaika *</Label>
+                <Input
+                  id="startTime"
+                  type="time"
+                  value={newEvent.startTime}
+                  onChange={(e) => setNewEvent(prev => ({ ...prev, startTime: e.target.value }))}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="endTime">Päättymisaika</Label>
+                <Input
+                  id="endTime"
+                  type="time"
+                  value={newEvent.endTime}
+                  onChange={(e) => setNewEvent(prev => ({ ...prev, endTime: e.target.value }))}
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowAddEventDialog(false);
+                  setNewEvent({
+                    title: '',
+                    description: '',
+                    startTime: '',
+                    endTime: '',
+                    type: 'custom'
+                  });
+                  setSelectedDate(null);
+                }}
+              >
+                Peruuta
+              </Button>
+              <Button onClick={handleAddEvent}>
+                Lisää tapahtuma
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

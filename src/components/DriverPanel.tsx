@@ -189,10 +189,6 @@ export const DriverPanel = () => {
             quantity,
             rug_dimensions,
             metadata
-          ),
-          profiles!orders_user_id_fkey (
-            full_name,
-            phone
           )
         `)
         .eq('status', 'pending')
@@ -212,10 +208,6 @@ export const DriverPanel = () => {
             quantity,
             rug_dimensions,
             metadata
-          ),
-          profiles!orders_user_id_fkey (
-            full_name,
-            phone
           )
         `)
         .eq('driver_id', user.id)
@@ -224,8 +216,32 @@ export const DriverPanel = () => {
 
       if (assignedError) throw assignedError;
 
-      setPendingOrders(pending || []);
-      setMyOrders(assigned || []);
+      // Fetch customer profiles separately
+      const allOrders = [...(pending || []), ...(assigned || [])];
+      const customerIds = allOrders.map(order => order.user_id);
+      
+      let customerProfiles: any[] = [];
+      if (customerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, phone')
+          .in('user_id', customerIds);
+        customerProfiles = profiles || [];
+      }
+
+      // Add customer info to orders
+      const pendingWithProfiles = pending?.map(order => ({
+        ...order,
+        profiles: customerProfiles.find(p => p.user_id === order.user_id)
+      })) || [];
+
+      const assignedWithProfiles = assigned?.map(order => ({
+        ...order,
+        profiles: customerProfiles.find(p => p.user_id === order.user_id)
+      })) || [];
+
+      setPendingOrders(pendingWithProfiles);
+      setMyOrders(assignedWithProfiles);
     } catch (error: any) {
       toast({
         variant: "destructive",

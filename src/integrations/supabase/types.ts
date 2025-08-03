@@ -56,6 +56,45 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_calendar_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          driver_id: string
+          end_time: string | null
+          event_date: string
+          event_type: string
+          id: string
+          start_time: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          driver_id: string
+          end_time?: string | null
+          event_date: string
+          event_type?: string
+          id?: string
+          start_time: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          driver_id?: string
+          end_time?: string | null
+          event_date?: string
+          event_type?: string
+          id?: string
+          start_time?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       driver_shifts: {
         Row: {
           created_at: string
