@@ -36,9 +36,10 @@ interface CheckoutFormProps {
   } | null;
   onBack: () => void;
   onSuccess: () => void;
+  onApplyCoupon?: (coupon: { code: string; discount_type: string; discount_value: number }) => void;
 }
 
-export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: CheckoutFormProps) => {
+export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onApplyCoupon }: CheckoutFormProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -197,7 +198,15 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
         return;
       }
 
-      // Apply coupon logic would go here
+      // Actually apply the coupon by calling parent component's handler
+      if (onApplyCoupon) {
+        onApplyCoupon({
+          code: coupon.code,
+          discount_type: coupon.discount_type,
+          discount_value: coupon.discount_value
+        });
+      }
+      
       toast({
         title: "Kuponki aktivoitu!",
         description: `Kuponki "${coupon.code}" on aktivoitu. Alennus: ${coupon.discount_type === 'percentage' ? coupon.discount_value + '%' : coupon.discount_value + '€'}`
@@ -320,6 +329,7 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
           return_option: formData.returnOption,
           return_date: formData.returnOption === 'choose_time' ? formData.returnDate : currentDate,
           return_time: formData.returnOption === 'choose_time' ? formData.returnTime : currentTime,
+          discount_code: appliedCoupon?.code || null,
           status: 'pending'
         })
         .select()
@@ -347,6 +357,25 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess }: Ch
 
       if (itemsError) {
         throw itemsError;
+      }
+
+      // Update coupon usage count if one was applied
+      if (appliedCoupon) {
+        // Get current usage count and increment it
+        const { data: currentCoupon } = await supabase
+          .from('coupons')
+          .select('usage_count')
+          .eq('code', appliedCoupon.code)
+          .single();
+        
+        if (currentCoupon) {
+          await supabase
+            .from('coupons')
+            .update({ 
+              usage_count: currentCoupon.usage_count + 1
+            })
+            .eq('code', appliedCoupon.code);
+        }
       }
 
       // Update user's profile with phone and address if they were changed

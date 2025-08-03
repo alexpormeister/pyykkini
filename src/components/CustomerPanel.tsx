@@ -427,6 +427,7 @@ export const CustomerPanel = () => {
               setCurrentView('orders');
               fetchOrders();
             }}
+            onApplyCoupon={setAppliedCoupon}
           />
         )}
 

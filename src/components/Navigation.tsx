@@ -69,13 +69,13 @@ export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
 
   return (
     <nav className="bg-card border-b border-border shadow-sm">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-2 sm:px-4">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center space-x-4">
-            <img src={pesuniLogo} alt="Pesuni" className="h-8" />
+          <div className="flex items-center space-x-2 sm:space-x-4">
+            <img src={pesuniLogo} alt="Pesuni" className="h-6 sm:h-8" />
           </div>
           
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1 sm:space-x-2">
             {availablePanels.map((panel) => {
               const Icon = panel.icon;
               const showNotification = panel.id === 'driver' && pendingOrdersCount > 0 && (userRole === 'driver' || userRole === 'admin');
@@ -86,13 +86,13 @@ export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
                     variant={activePanel === panel.id ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => onPanelChange(panel.id as 'customer' | 'driver' | 'admin')}
-                    className="hidden md:flex items-center gap-2"
+                    className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
                   >
-                    <Icon className="h-4 w-4" />
-                    <span className="hidden lg:inline">{panel.label}</span>
+                    <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline lg:inline">{panel.label}</span>
                   </Button>
                   {showNotification && (
-                    <div className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                    <div className="absolute -top-1 -right-1 min-w-[16px] h-4 sm:min-w-[20px] sm:h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
                       {pendingOrdersCount > 99 ? '99+' : pendingOrdersCount}
                     </div>
                   )}
@@ -103,19 +103,19 @@ export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
               variant="ghost"
               size="sm"
               onClick={() => window.location.href = '/profile'}
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+              className="flex items-center gap-1 sm:gap-2 text-muted-foreground hover:text-foreground text-xs sm:text-sm px-2 sm:px-3"
             >
-              <UserCircle className="h-4 w-4" />
-              <span className="hidden md:inline">Profiili</span>
+              <UserCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Profiili</span>
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={signOut}
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+              className="flex items-center gap-1 sm:gap-2 text-muted-foreground hover:text-foreground text-xs sm:text-sm px-2 sm:px-3"
             >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden md:inline">Kirjaudu ulos</span>
+              <LogOut className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Kirjaudu ulos</span>
             </Button>
           </div>
         </div>

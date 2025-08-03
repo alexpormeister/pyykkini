@@ -285,15 +285,34 @@ export const AdminPanel = () => {
           <p className="text-lg text-muted-foreground">
             Hallitse tilauksia ja seuraa liiketoimintaa
           </p>
+          
+          {/* Contact Information */}
+          <div className="mt-6 p-4 bg-card rounded-lg shadow-sm border">
+            <h3 className="text-lg font-semibold mb-3 text-primary">Yhteystiedot</h3>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">📧</span>
+                <a href="mailto:alex@alexsites.com" className="text-primary hover:underline">
+                  alex@alexsites.com
+                </a>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">📞</span>
+                <a href="tel:+358401422449" className="text-primary hover:underline">
+                  +358 40 1422449
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-            <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="overview">Yleiskatsaus</TabsTrigger>
-            <TabsTrigger value="orders">Tilaukset</TabsTrigger>
-            <TabsTrigger value="customers">Käyttäjät</TabsTrigger>
-            <TabsTrigger value="coupons">Kupongit</TabsTrigger>
-            <TabsTrigger value="reports">Raportit</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-5 sm:grid-cols-5 gap-1 text-xs sm:text-sm overflow-x-auto">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-4">Yleis</TabsTrigger>
+            <TabsTrigger value="orders" className="text-xs sm:text-sm px-2 sm:px-4">Tilaukset</TabsTrigger>
+            <TabsTrigger value="customers" className="text-xs sm:text-sm px-2 sm:px-4">Käyttäjät</TabsTrigger>
+            <TabsTrigger value="coupons" className="text-xs sm:text-sm px-2 sm:px-4">Kupongit</TabsTrigger>
+            <TabsTrigger value="reports" className="text-xs sm:text-sm px-2 sm:px-4">Raportit</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
