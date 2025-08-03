@@ -20,7 +20,10 @@ import {
   Search,
   Eye,
   BarChart3,
-  Calendar
+  Calendar,
+  Truck,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 
 interface Order {
@@ -63,6 +66,13 @@ interface Stats {
   revenue: number;
 }
 
+interface ActiveDriver {
+  id: string;
+  full_name: string;
+  phone?: string;
+  started_at: string;
+}
+
 export const AdminPanel = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
@@ -78,10 +88,17 @@ export const AdminPanel = () => {
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [activeDrivers, setActiveDrivers] = useState<ActiveDriver[]>([]);
+  const [expandedMenus, setExpandedMenus] = useState<{[key: string]: boolean}>({
+    management: true,
+    orders: false,
+    analytics: false
+  });
 
   useEffect(() => {
     fetchOrders();
     fetchStats();
+    fetchActiveDrivers();
     
     // Check for tab preference from Profile navigation
     const preferredTab = sessionStorage.getItem('adminTab');
@@ -104,6 +121,19 @@ export const AdminPanel = () => {
 
       if (ordersError) throw ordersError;
 
+      // Fetch customer profiles
+      const customerIds = ordersData?.map(o => o.user_id) || [];
+      let customerProfiles: any[] = [];
+      
+      if (customerIds.length > 0) {
+        const { data: customerProfilesData } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, phone')
+          .in('user_id', customerIds);
+        
+        customerProfiles = customerProfilesData || [];
+      }
+
       // Then fetch driver profiles for orders that have drivers
       const driverIds = ordersData?.filter(o => o.driver_id).map(o => o.driver_id) || [];
       let driverProfiles: any[] = [];
@@ -117,15 +147,26 @@ export const AdminPanel = () => {
         driverProfiles = profilesData || [];
       }
 
-      // Combine orders with driver profiles
-      const ordersWithDrivers = ordersData?.map(order => ({
-        ...order,
-        profiles: order.driver_id 
-          ? driverProfiles.find(p => p.user_id === order.driver_id)
-          : null
-      })) || [];
+      // Combine orders with customer and driver profiles and fix customer names
+      const ordersWithProfiles = ordersData?.map(order => {
+        const customerProfile = customerProfiles.find(p => p.user_id === order.user_id);
+        
+        return {
+          ...order,
+          // Use customer profile name if first_name is empty or "Asiakas"
+          first_name: order.first_name === 'Asiakas' || !order.first_name 
+            ? customerProfile?.full_name?.split(' ')[0] || order.first_name 
+            : order.first_name,
+          last_name: order.last_name === 'Asiakas' || !order.last_name 
+            ? customerProfile?.full_name?.split(' ').slice(1).join(' ') || order.last_name 
+            : order.last_name,
+          profiles: order.driver_id 
+            ? driverProfiles.find(p => p.user_id === order.driver_id)
+            : null
+        };
+      }) || [];
 
-      setOrders(ordersWithDrivers);
+      setOrders(ordersWithProfiles);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -169,6 +210,45 @@ export const AdminPanel = () => {
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
+    }
+  };
+
+  const fetchActiveDrivers = async () => {
+    try {
+      const { data: activeShifts, error } = await supabase
+        .from('driver_shifts')
+        .select('*')
+        .eq('is_active', true)
+        .order('started_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch driver profiles
+      const driverIds = activeShifts?.map(shift => shift.driver_id) || [];
+      let driverProfiles: any[] = [];
+      
+      if (driverIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, phone')
+          .in('user_id', driverIds);
+        
+        driverProfiles = profilesData || [];
+      }
+
+      const drivers = activeShifts?.map(shift => {
+        const driverProfile = driverProfiles.find(p => p.user_id === shift.driver_id);
+        return {
+          id: shift.driver_id,
+          full_name: driverProfile?.full_name || 'Tuntematon kuljettaja',
+          phone: driverProfile?.phone,
+          started_at: shift.started_at
+        };
+      }) || [];
+
+      setActiveDrivers(drivers);
+    } catch (error) {
+      console.error('Error fetching active drivers:', error);
     }
   };
 
@@ -263,6 +343,13 @@ export const AdminPanel = () => {
     setShowOrderDetails(true);
   };
 
+  const toggleMenu = (menuKey: string) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [menuKey]: !prev[menuKey]
+    }));
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -306,14 +393,101 @@ export const AdminPanel = () => {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-            <TabsList className="grid w-full grid-cols-5 sm:grid-cols-5 gap-1 text-xs sm:text-sm overflow-x-auto">
-            <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 sm:px-4">Yleis</TabsTrigger>
-            <TabsTrigger value="orders" className="text-xs sm:text-sm px-2 sm:px-4">Tilaukset</TabsTrigger>
-            <TabsTrigger value="customers" className="text-xs sm:text-sm px-2 sm:px-4">Käyttäjät</TabsTrigger>
-            <TabsTrigger value="coupons" className="text-xs sm:text-sm px-2 sm:px-4">Kupongit</TabsTrigger>
-            <TabsTrigger value="reports" className="text-xs sm:text-sm px-2 sm:px-4">Raportit</TabsTrigger>
-          </TabsList>
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Sidebar Navigation */}
+          <div className="lg:w-64 space-y-4">
+            <Card>
+              <CardContent className="p-4">
+                <nav className="space-y-2">
+                  {/* Management Section */}
+                  <div>
+                    <button
+                      onClick={() => toggleMenu('management')}
+                      className="flex items-center justify-between w-full p-2 text-left hover:bg-muted rounded-lg"
+                    >
+                      <span className="font-medium text-primary">Hallinta</span>
+                      {expandedMenus.management ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                    {expandedMenus.management && (
+                      <div className="ml-4 mt-2 space-y-1">
+                        <button
+                          onClick={() => setActiveTab('overview')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'overview' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Yleiskatsaus
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('drivers')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'drivers' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Aktiiviset kuljettajat
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('customers')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'customers' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Käyttäjien hallinta
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('coupons')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'coupons' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Kuponkien hallinta
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Orders Section */}
+                  <div>
+                    <button
+                      onClick={() => toggleMenu('orders')}
+                      className="flex items-center justify-between w-full p-2 text-left hover:bg-muted rounded-lg"
+                    >
+                      <span className="font-medium text-primary">Tilaukset</span>
+                      {expandedMenus.orders ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                    {expandedMenus.orders && (
+                      <div className="ml-4 mt-2 space-y-1">
+                        <button
+                          onClick={() => setActiveTab('orders')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'orders' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Kaikki tilaukset
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Analytics Section */}
+                  <div>
+                    <button
+                      onClick={() => toggleMenu('analytics')}
+                      className="flex items-center justify-between w-full p-2 text-left hover:bg-muted rounded-lg"
+                    >
+                      <span className="font-medium text-primary">Analytiikka</span>
+                      {expandedMenus.analytics ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                    {expandedMenus.analytics && (
+                      <div className="ml-4 mt-2 space-y-1">
+                        <button
+                          onClick={() => setActiveTab('reports')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'reports' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Raportit ja tilastot
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </nav>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8"
+                  style={{ display: 'contents' }}>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="animate-fade-in">
@@ -391,6 +565,61 @@ export const AdminPanel = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Active Drivers Tab */}
+          <TabsContent value="drivers" className="animate-fade-in">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Truck className="h-5 w-5" />
+                  Aktiiviset kuljettajat
+                </CardTitle>
+                <CardDescription>
+                  Tällä hetkellä työvuorossa olevat kuljettajat
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {activeDrivers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Truck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Ei aktiivisia kuljettajia</h3>
+                    <p className="text-muted-foreground">Tällä hetkellä kukaan kuljettajista ei ole työvuorossa.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {activeDrivers.map((driver) => (
+                      <div key={driver.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-green-100">
+                            <Truck className="h-6 w-6 text-green-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold">{driver.full_name}</h3>
+                            {driver.phone && (
+                              <p className="text-sm text-muted-foreground">Puh: {driver.phone}</p>
+                            )}
+                            <p className="text-sm text-muted-foreground">
+                              Vuoro alkanut: {driver.started_at ? new Date(driver.started_at).toLocaleString('fi-FI') : 'Tuntematon'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-green-100 text-green-800">
+                            Aktiivinen
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-4 p-3 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Yhteensä aktiivisia kuljettajia:</strong> {activeDrivers.length}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -542,7 +771,9 @@ export const AdminPanel = () => {
           <TabsContent value="reports" className="animate-fade-in">
             <Reports />
           </TabsContent>
-        </Tabs>
+            </Tabs>
+          </div>
+        </div>
 
         {/* Order Details Dialog */}
         <Dialog open={showOrderDetails} onOpenChange={setShowOrderDetails}>
