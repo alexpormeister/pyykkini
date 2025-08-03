@@ -332,25 +332,42 @@ export const DriverPanel = () => {
       toast({
         variant: "destructive",
         title: "Virhe",
-        description: "Täytä sekä nouto- että palautusaika."
+        description: "Valitse sekä nouto- että palautusajat"
       });
       return;
     }
 
     try {
+      // Parse current date and time
+      const now = new Date();
+      const pickupDateTime = new Date(`${now.toDateString()} ${timeData.pickupTime}`);
+      const returnDateTime = new Date(`${now.toDateString()} ${timeData.returnTime}`);
+
+      // If time has already passed today, assume it's for tomorrow
+      if (pickupDateTime < now) {
+        pickupDateTime.setDate(pickupDateTime.getDate() + 1);
+      }
+      if (returnDateTime < now) {
+        returnDateTime.setDate(returnDateTime.getDate() + 1);
+      }
+
       const { error } = await supabase
         .from('orders')
         .update({
-          actual_pickup_time: timeData.pickupTime,
-          actual_return_time: timeData.returnTime
+          pickup_date: pickupDateTime.toISOString().split('T')[0],
+          pickup_time: timeData.pickupTime,
+          return_date: returnDateTime.toISOString().split('T')[0],
+          return_time: timeData.returnTime,
+          accepted_at: new Date().toISOString(),
+          status: 'accepted'
         })
         .eq('id', orderId);
 
       if (error) throw error;
 
       toast({
-        title: "Ajat asetettu!",
-        description: "Asiakas saa ilmoituksen ajoista."
+        title: "Ajat asetettu",
+        description: "Nouto- ja palautusajat on päivitetty asiakkaalle"
       });
 
       setShowTimeForm(null);
@@ -360,7 +377,7 @@ export const DriverPanel = () => {
       toast({
         variant: "destructive",
         title: "Virhe",
-        description: "Aikojen asettaminen epäonnistui."
+        description: "Aikojen asettaminen epäonnistui"
       });
     }
   };

@@ -116,7 +116,18 @@ export const AdminPanel = () => {
       // First fetch orders
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          order_history (
+            id,
+            change_type,
+            change_description,
+            created_at,
+            profiles!order_history_changed_by_fkey (
+              full_name
+            )
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;

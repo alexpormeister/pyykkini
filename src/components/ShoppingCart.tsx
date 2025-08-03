@@ -456,25 +456,31 @@ export const ShoppingCart = ({
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Tag className="h-5 w-5" />
-              Lisätuotteet
+              <Sparkles className="h-5 w-5" />
+              Valitse pesu
             </DialogTitle>
             <DialogDescription>
-              Täydennä tilaustasi laadukkailla lisätuotteilla
+              Valitse haluamasi pesupalvelu
             </DialogDescription>
           </DialogHeader>
           
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {addonItems.map((addon) => (
-              <Card key={addon.id} className="hover:shadow-elegant transition-all duration-300">
+            {[
+              { id: 'normal', name: '👕 Peruspyykki', description: 'T-paidat, housut, sukat ja muut arkivaatteet', price: 25.90 },
+              { id: 'shoes', name: '👟 Kenkäpesu', description: 'Lenkkarit tai tennarit puhdistetaan hellästi', price: 20 },
+              { id: 'sheets', name: '🛏️ Lakanapesu', description: 'Pehmeät lakanat ja pussilakanat puhtaiksi', price: 25.90 },
+              { id: 'carpets', name: '🧼 Mattopesu', description: 'Pienet matot saavat uuden elämän', price: 29.90 }
+            ].map((service) => (
+              <Card key={service.id} className="hover:shadow-elegant transition-all duration-300">
                 <CardContent className="p-4">
                   <div className="text-center">
-                    <h3 className="font-semibold">{addon.name}</h3>
-                    <p className="text-sm text-muted-foreground mb-3">{addon.description}</p>
-                    <p className="text-lg font-bold text-primary mb-3">{addon.price}€</p>
+                    <h3 className="font-semibold">{service.name}</h3>
+                    <p className="text-sm text-muted-foreground mb-3">{service.description}</p>
+                    <p className="text-lg font-bold text-primary mb-3">{service.price}€</p>
                     <Button 
                       onClick={() => {
-                        addAddon(addon);
+                        addService(service);
                         setShowAddons(false);
                       }}
                       className="w-full"

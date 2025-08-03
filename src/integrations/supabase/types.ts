@@ -86,6 +86,47 @@ export type Database = {
         }
         Relationships: []
       }
+      order_history: {
+        Row: {
+          change_description: string | null
+          change_type: string
+          changed_by: string
+          created_at: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          order_id: string
+        }
+        Insert: {
+          change_description?: string | null
+          change_type: string
+          changed_by: string
+          created_at?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          order_id: string
+        }
+        Update: {
+          change_description?: string | null
+          change_type?: string
+          changed_by?: string
+          created_at?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string
@@ -335,6 +376,16 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
         }
         Returns: boolean
+      }
+      log_order_change: {
+        Args: {
+          p_order_id: string
+          p_change_type: string
+          p_old_value?: Json
+          p_new_value?: Json
+          p_description?: string
+        }
+        Returns: string
       }
     }
     Enums: {
