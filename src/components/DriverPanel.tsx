@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut } from "lucide-react";
+import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { DriverCalendar } from "./DriverCalendar";
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -64,6 +65,7 @@ export const DriverPanel = () => {
   });
   const [showRejectDialog, setShowRejectDialog] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [currentView, setCurrentView] = useState<'orders' | 'calendar'>('orders');
 
   useEffect(() => {
     if (user) {
@@ -187,6 +189,10 @@ export const DriverPanel = () => {
             quantity,
             rug_dimensions,
             metadata
+          ),
+          profiles!orders_user_id_fkey (
+            full_name,
+            phone
           )
         `)
         .eq('status', 'pending')
@@ -206,6 +212,10 @@ export const DriverPanel = () => {
             quantity,
             rug_dimensions,
             metadata
+          ),
+          profiles!orders_user_id_fkey (
+            full_name,
+            phone
           )
         `)
         .eq('driver_id', user.id)
@@ -468,15 +478,32 @@ export const DriverPanel = () => {
             <h1 className="text-3xl md:text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent">
               Kuljettajapaneeli
             </h1>
-            <Button
-              onClick={toggleShift}
-              disabled={shiftLoading}
-              variant="outline"
-              size="sm"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              {shiftLoading ? 'Lopetetaan...' : 'Lopeta vuoro'}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant={currentView === 'orders' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setCurrentView('orders')}
+              >
+                Tilaukset
+              </Button>
+              <Button
+                variant={currentView === 'calendar' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setCurrentView('calendar')}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Kalenteri
+              </Button>
+              <Button
+                onClick={toggleShift}
+                disabled={shiftLoading}
+                variant="outline"
+                size="sm"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                {shiftLoading ? 'Lopetetaan...' : 'Lopeta vuoro'}
+              </Button>
+            </div>
           </div>
           
           <div className="flex items-center justify-center gap-2 mb-6">
@@ -521,12 +548,17 @@ export const DriverPanel = () => {
           </div>
         </div>
 
-        {loading && (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p>Ladataan tilauksia...</p>
-          </div>
-        )}
+        {/* View Content */}
+        {currentView === 'calendar' ? (
+          <DriverCalendar />
+        ) : (
+          <>
+            {loading && (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p>Ladataan tilauksia...</p>
+              </div>
+            )}
 
         {/* Pending Orders */}
         {pendingOrders.length > 0 && (
@@ -543,7 +575,7 @@ export const DriverPanel = () => {
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold">{order.first_name} {order.last_name}</h3>
+                            <h3 className="font-semibold">{order.profiles?.full_name || `${order.first_name} ${order.last_name}`}</h3>
                             <Badge variant="outline">{order.service_name}</Badge>
                           </div>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
@@ -624,7 +656,7 @@ export const DriverPanel = () => {
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold">{order.first_name} {order.last_name}</h3>
+                              <h3 className="font-semibold">{order.profiles?.full_name || `${order.first_name} ${order.last_name}`}</h3>
                               <Badge className={getStatusColor(order.status)}>
                                 {getStatusText(order.status)}
                               </Badge>
@@ -709,14 +741,16 @@ export const DriverPanel = () => {
           </div>
         )}
 
-        {!loading && pendingOrders.length === 0 && myOrders.length === 0 && (
-          <div className="text-center py-12">
-            <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-xl font-semibold mb-2">Ei tilauksia</h3>
-            <p className="text-muted-foreground">
-              Tällä hetkellä ei ole uusia tilauksia saatavilla.
-            </p>
-          </div>
+            {!loading && pendingOrders.length === 0 && myOrders.length === 0 && (
+              <div className="text-center py-12">
+                <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2">Ei tilauksia</h3>
+                <p className="text-muted-foreground">
+                  Tällä hetkellä ei ole uusia tilauksia saatavilla.
+                </p>
+              </div>
+            )}
+          </>
         )}
 
         {/* Time Setting Dialog */}

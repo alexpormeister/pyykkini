@@ -275,8 +275,8 @@ export const ShoppingCart = ({
               onClick={() => setShowAddons(true)}
               className="w-full"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Lisää lisätuotteita
+              <Sparkles className="h-4 w-4 mr-2" />
+              Valitse pesu
             </Button>
           </div>
         </CardContent>

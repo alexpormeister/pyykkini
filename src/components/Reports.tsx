@@ -229,7 +229,7 @@ export const Reports = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Kokonaisliikevaihto</p>
-                <p className="text-2xl font-bold text-green-600">{orderStats?.totalRevenue?.toFixed(2)}€</p>
+                <p className="text-2xl font-bold text-green-600">{orderStats?.totalRevenue?.toFixed(2) || '0.00'}€</p>
               </div>
               <DollarSign className="h-8 w-8 text-green-600" />
             </div>

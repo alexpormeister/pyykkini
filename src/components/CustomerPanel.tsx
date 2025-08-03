@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, Clock, Shirt, Sparkles, Zap, Star, CheckCircle, Package, Truck, ArrowRight, ShoppingCart as CartIcon, Heart } from "lucide-react";
+import { Calendar, Clock, Shirt, Sparkles, Zap, Star, CheckCircle, Package, Truck, ArrowRight, ShoppingCart as CartIcon } from "lucide-react";
 import { CheckoutForm } from "./CheckoutForm";
 import { ShoppingCart, CartItem } from "./ShoppingCart";
 import { RugSelectionDialog } from "./RugSelectionDialog";
@@ -369,13 +369,12 @@ export const CustomerPanel = () => {
                         <Button 
                           variant="hero" 
                           size="sm"
-                          className="w-full animate-pulse hover:animate-none transition-all duration-300 group-hover:scale-105 font-fredoka"
+                          className="w-full hover:scale-105 transition-all duration-300 font-fredoka"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAddToCart(service);
                           }}
                         >
-                          <Heart className="h-4 w-4 mr-2 group-hover:text-red-500 transition-colors" />
                           Lisää koriin! 
                         </Button>
                       </CardContent>
