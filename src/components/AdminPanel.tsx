@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { UserManagement } from "@/components/UserManagement";
 import { Reports } from "@/components/Reports";
 import { CouponManagement } from "@/components/CouponManagement";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
   Package, 
@@ -75,6 +76,7 @@ interface ActiveDriver {
 
 export const AdminPanel = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [orders, setOrders] = useState<Order[]>([]);
@@ -270,6 +272,37 @@ export const AdminPanel = () => {
       setActiveDrivers(drivers);
     } catch (error) {
       console.error('Error fetching active drivers:', error);
+    }
+  };
+
+  const logoutDriver = async (driverId: string) => {
+    try {
+      const { error } = await supabase
+        .from('driver_shifts')
+        .update({
+          is_active: false,
+          ended_at: new Date().toISOString()
+        })
+        .eq('driver_id', driverId)
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      // Refresh the active drivers list
+      fetchActiveDrivers();
+      
+      // Show success message
+      toast({
+        title: 'Kuljettaja kirjattu ulos',
+        description: 'Kuljettajan vuoro on päättynyt'
+      });
+    } catch (error) {
+      console.error('Error logging out driver:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Virhe',
+        description: 'Kuljettajan uloskirjaaminen epäonnistui'
+      });
     }
   };
 
@@ -553,7 +586,7 @@ export const AdminPanel = () => {
                   <Euro className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stats.revenue}€</div>
+                  <div className="text-2xl font-bold">{stats.revenue.toFixed(2)}€</div>
                   <p className="text-xs text-muted-foreground">Valmiit tilaukset</p>
                 </CardContent>
               </Card>
@@ -628,11 +661,19 @@ export const AdminPanel = () => {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-green-100 text-green-800">
-                            Aktiivinen
-                          </Badge>
-                        </div>
+                         <div className="flex items-center gap-2">
+                           <Badge className="bg-green-100 text-green-800">
+                             Aktiivinen
+                           </Badge>
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => logoutDriver(driver.id)}
+                             className="text-xs"
+                           >
+                             Kirjaa ulos
+                           </Button>
+                         </div>
                       </div>
                     ))}
                   </div>

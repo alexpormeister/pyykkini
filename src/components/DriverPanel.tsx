@@ -354,26 +354,21 @@ export const DriverPanel = () => {
     }
 
     try {
-      // Parse current date and time
-      const now = new Date();
-      const pickupDateTime = new Date(`${now.toDateString()} ${timeData.pickupTime}`);
-      const returnDateTime = new Date(`${now.toDateString()} ${timeData.returnTime}`);
+      // Parse datetime-local format (YYYY-MM-DDTHH:MM)
+      const pickupDateTime = new Date(timeData.pickupTime);
+      const returnDateTime = new Date(timeData.returnTime);
 
-      // If time has already passed today, assume it's for tomorrow
-      if (pickupDateTime < now) {
-        pickupDateTime.setDate(pickupDateTime.getDate() + 1);
-      }
-      if (returnDateTime < now) {
-        returnDateTime.setDate(returnDateTime.getDate() + 1);
+      if (isNaN(pickupDateTime.getTime()) || isNaN(returnDateTime.getTime())) {
+        throw new Error('Invalid date format');
       }
 
       const { error } = await supabase
         .from('orders')
         .update({
           pickup_date: pickupDateTime.toISOString().split('T')[0],
-          pickup_time: timeData.pickupTime,
+          pickup_time: pickupDateTime.toTimeString().slice(0, 5), // HH:MM format
           return_date: returnDateTime.toISOString().split('T')[0],
-          return_time: timeData.returnTime,
+          return_time: returnDateTime.toTimeString().slice(0, 5), // HH:MM format
           accepted_at: new Date().toISOString(),
           status: 'accepted'
         })

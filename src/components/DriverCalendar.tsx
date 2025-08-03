@@ -54,6 +54,27 @@ export const DriverCalendar = () => {
     endTime: '',
     type: 'custom'
   });
+  const [selectedCustomEvent, setSelectedCustomEvent] = useState<CustomEvent | null>(null);
+  const [showEditEventDialog, setShowEditEventDialog] = useState(false);
+  const [editingEvent, setEditingEvent] = useState({
+    title: '',
+    description: '',
+    startTime: '',
+    endTime: '',
+    type: 'custom'
+  });
+
+  useEffect(() => {
+    if (selectedCustomEvent) {
+      setEditingEvent({
+        title: selectedCustomEvent.title,
+        description: selectedCustomEvent.description || '',
+        startTime: selectedCustomEvent.startTime,
+        endTime: selectedCustomEvent.endTime || '',
+        type: selectedCustomEvent.type
+      });
+    }
+  }, [selectedCustomEvent]);
 
   useEffect(() => {
     if (user) {
@@ -241,6 +262,90 @@ export const DriverCalendar = () => {
     setShowAddEventDialog(true);
   };
 
+  const handleUpdateEvent = async () => {
+    if (!selectedCustomEvent || !editingEvent.title || !editingEvent.startTime) {
+      toast({
+        variant: 'destructive',
+        title: 'Virhe',
+        description: 'Täytä vähintään otsikko ja alkamisaika'
+      });
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('driver_calendar_events')
+        .update({
+          title: editingEvent.title,
+          description: editingEvent.description || null,
+          start_time: editingEvent.startTime,
+          end_time: editingEvent.endTime || null,
+        })
+        .eq('id', selectedCustomEvent.id);
+        
+      if (error) throw error;
+      
+      toast({
+        title: 'Tapahtuma päivitetty',
+        description: 'Tapahtuman tiedot on päivitetty'
+      });
+      
+      setShowEditEventDialog(false);
+      setSelectedCustomEvent(null);
+      setEditingEvent({
+        title: '',
+        description: '',
+        startTime: '',
+        endTime: '',
+        type: 'custom'
+      });
+      fetchCustomEvents();
+      
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Virhe',
+        description: 'Tapahtuman päivittäminen epäonnistui'
+      });
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!selectedCustomEvent) return;
+    
+    try {
+      const { error } = await supabase
+        .from('driver_calendar_events')
+        .delete()
+        .eq('id', selectedCustomEvent.id);
+        
+      if (error) throw error;
+      
+      toast({
+        title: 'Tapahtuma poistettu',
+        description: 'Tapahtuma on poistettu kalenterista'
+      });
+      
+      setShowEditEventDialog(false);
+      setSelectedCustomEvent(null);
+      setEditingEvent({
+        title: '',
+        description: '',
+        startTime: '',
+        endTime: '',
+        type: 'custom'
+      });
+      fetchCustomEvents();
+      
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Virhe',
+        description: 'Tapahtuman poistaminen epäonnistui'
+      });
+    }
+  };
+
   const fetchCustomEvents = async () => {
     if (!user) return;
     
@@ -364,10 +469,10 @@ export const DriverCalendar = () => {
 
       {/* Calendar Grid */}
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-3 md:p-6">
           <div className="grid grid-cols-7 gap-1 mb-4">
             {['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'].map(day => (
-              <div key={day} className="p-2 text-center font-semibold text-muted-foreground">
+              <div key={day} className="p-1 md:p-2 text-center font-semibold text-muted-foreground text-xs md:text-sm">
                 {day}
               </div>
             ))}
@@ -379,12 +484,12 @@ export const DriverCalendar = () => {
               return (
                 <div 
                   key={index} 
-                  className="min-h-[100px] border border-muted/30 p-1 hover:bg-muted/20 cursor-pointer"
+                  className="min-h-[80px] md:min-h-[100px] border border-muted/30 p-1 hover:bg-muted/20 cursor-pointer"
                   onClick={() => day && handleDateClick(day)}
                 >
                   {day && (
                     <>
-                      <div className="text-sm font-medium mb-1">
+                      <div className="text-xs md:text-sm font-medium mb-1">
                         {day.getDate()}
                       </div>
                       <div className="space-y-1">
@@ -405,19 +510,23 @@ export const DriverCalendar = () => {
                           </div>
                         ))}
                         
-                        {/* Custom events */}
-                        {dayEvents.customEvents.map(event => (
-                          <div
-                            key={event.id}
-                            className="text-xs p-1 rounded cursor-pointer hover:opacity-80 bg-gray-100 text-gray-800"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="font-medium">{event.startTime}</div>
-                            <div className="truncate">
-                              📅 {event.title}
-                            </div>
-                          </div>
-                        ))}
+                         {/* Custom events */}
+                         {dayEvents.customEvents.map(event => (
+                           <div
+                             key={event.id}
+                             className="text-xs p-1 rounded cursor-pointer hover:opacity-80 bg-gray-100 text-gray-800"
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               setSelectedCustomEvent(event);
+                               setShowEditEventDialog(true);
+                             }}
+                           >
+                             <div className="font-medium">{event.startTime}</div>
+                             <div className="truncate">
+                               📅 {event.title}
+                             </div>
+                           </div>
+                         ))}
                       </div>
                     </>
                   )}
@@ -431,7 +540,7 @@ export const DriverCalendar = () => {
       {/* Upcoming Events List */}
       <Card>
         <CardHeader>
-          <CardTitle>Tulevat tapahtumat</CardTitle>
+          <CardTitle className="text-lg md:text-xl">Tulevat tapahtumat</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -441,19 +550,19 @@ export const DriverCalendar = () => {
               .map(event => (
                 <div 
                   key={event.id}
-                  className="flex items-center justify-between p-3 bg-muted/30 rounded-lg cursor-pointer hover:bg-muted/50"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-muted/30 rounded-lg cursor-pointer hover:bg-muted/50 gap-2"
                   onClick={() => setSelectedEvent(event)}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-3 h-3 rounded-full ${event.type === 'pickup' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
                     <div>
-                      <div className="font-medium">{event.title}</div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="font-medium text-sm md:text-base">{event.title}</div>
+                      <div className="text-xs md:text-sm text-muted-foreground">
                         {new Date(event.date).toLocaleDateString('fi-FI')} klo {event.time}
                       </div>
                     </div>
                   </div>
-                  <Badge className={getEventColor(event.type, event.status)}>
+                  <Badge className={`${getEventColor(event.type, event.status)} text-xs`}>
                     {event.type === 'pickup' ? 'Nouto' : 'Palautus'}
                   </Badge>
                 </div>
@@ -603,6 +712,93 @@ export const DriverCalendar = () => {
               <Button onClick={handleAddEvent}>
                 Lisää tapahtuma
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit/Delete Event Dialog */}
+      <Dialog open={showEditEventDialog} onOpenChange={setShowEditEventDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Muokkaa tapahtumaa</DialogTitle>
+            <DialogDescription>
+              {selectedCustomEvent && `Päivämäärä: ${new Date(selectedCustomEvent.date).toLocaleDateString('fi-FI')}`}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-title">Otsikko *</Label>
+              <Input
+                id="edit-title"
+                value={editingEvent.title}
+                onChange={(e) => setEditingEvent(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Esim. Tauko, Huolto, Kokous..."
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="edit-description">Kuvaus</Label>
+              <Textarea
+                id="edit-description"
+                value={editingEvent.description}
+                onChange={(e) => setEditingEvent(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Vapaaehtoinen kuvaus..."
+                rows={2}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-startTime">Alkamisaika *</Label>
+                <Input
+                  id="edit-startTime"
+                  type="time"
+                  value={editingEvent.startTime}
+                  onChange={(e) => setEditingEvent(prev => ({ ...prev, startTime: e.target.value }))}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="edit-endTime">Päättymisaika</Label>
+                <Input
+                  id="edit-endTime"
+                  type="time"
+                  value={editingEvent.endTime}
+                  onChange={(e) => setEditingEvent(prev => ({ ...prev, endTime: e.target.value }))}
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-between">
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteEvent}
+              >
+                Poista
+              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowEditEventDialog(false);
+                    setSelectedCustomEvent(null);
+                    setEditingEvent({
+                      title: '',
+                      description: '',
+                      startTime: '',
+                      endTime: '',
+                      type: 'custom'
+                    });
+                  }}
+                >
+                  Peruuta
+                </Button>
+                <Button onClick={handleUpdateEvent}>
+                  Tallenna
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
