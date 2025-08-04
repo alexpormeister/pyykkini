@@ -85,7 +85,7 @@ export const Landing = () => {
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center space-x-3">
               <img 
-                src="/lovable-uploads/91388627-b45f-4d96-a4b9-d3ced79b6086.png" 
+                src="/lovable-uploads/08c6977a-49b1-49fc-84e2-ffb8957e8f41.png" 
                 alt="Pesuni" 
                 className="h-8 w-auto object-contain"
               />
@@ -94,10 +94,10 @@ export const Landing = () => {
             <div className="flex items-center space-x-3">
               {!user && (
                 <>
-                  <Button variant="ghost" size="sm" onClick={() => navigate('/auth')}>
+                  <Button variant="ghost" size="sm" className="btn-bounce-hover" onClick={() => navigate('/auth')}>
                     Kirjaudu sisään
                   </Button>
-                  <Button variant="hero" size="sm" onClick={() => navigate('/auth')}>
+                  <Button variant="hero" size="sm" className="btn-bounce-hover" onClick={() => navigate('/auth')}>
                     Rekisteröidy
                   </Button>
                 </>
@@ -128,7 +128,7 @@ export const Landing = () => {
                 <Button 
                   variant="hero" 
                   size="lg" 
-                  className="text-xl px-12 py-6 h-auto shadow-glow hover:shadow-fun transition-all duration-300 transform hover:scale-105 font-fredoka font-bold"
+                  className="text-xl px-12 py-6 h-auto font-fredoka font-bold btn-glow-hover"
                   onClick={() => !user && navigate('/auth')}
                 >
                   {user ? 'TILAA PESU' : 'ALOITA NYT'}
@@ -136,22 +136,24 @@ export const Landing = () => {
               </div>
             </div>
             
-            <div className="relative animate-scale-in mt-16">
-              <div className="relative max-w-md mx-auto">
-                <div className="absolute inset-0 bg-gradient-radial from-primary/30 to-transparent rounded-full blur-3xl scale-150"></div>
-                <img 
-                  src="/lovable-uploads/b5c0fb1f-55a8-498d-ba18-42afdc31dbda.png" 
-                  alt="Pesuni maskotti - ystävällinen pyykkikori" 
-                  className="w-full h-auto object-contain drop-shadow-2xl relative z-10 animate-wiggle"
-                />
-                <div className="absolute -top-6 -right-6 bg-gradient-fun text-white px-4 py-2 rounded-full text-sm font-bold shadow-glow animate-heart-beat">
-                  🎉 Helposti kotiin!
-                </div>
-                <div className="absolute -bottom-4 -left-6 bg-secondary text-secondary-foreground px-4 py-2 rounded-full text-sm font-bold shadow-fun">
-                  ⚡ Super nopea!
+            {!user && (
+              <div className="relative animate-scale-in mt-16">
+                <div className="relative max-w-md mx-auto">
+                  <div className="absolute inset-0 bg-gradient-radial from-primary/30 to-transparent rounded-full blur-3xl scale-150"></div>
+                  <img 
+                    src="/lovable-uploads/b5c0fb1f-55a8-498d-ba18-42afdc31dbda.png" 
+                    alt="Pesuni maskotti - ystävällinen pyykkikori" 
+                    className="w-full h-auto object-contain drop-shadow-2xl relative z-10 animate-wiggle"
+                  />
+                  <div className="absolute -top-6 -right-6 bg-gradient-fun text-white px-4 py-2 rounded-full text-sm font-bold shadow-glow animate-heart-beat">
+                    🎉 Helposti kotiin!
+                  </div>
+                  <div className="absolute -bottom-4 -left-6 bg-secondary text-secondary-foreground px-4 py-2 rounded-full text-sm font-bold shadow-fun">
+                    ⚡ Super nopea!
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
@@ -208,7 +210,7 @@ export const Landing = () => {
                     <Button 
                       variant="hero" 
                       size="lg"
-                      className="w-full group-hover:shadow-glow transition-all duration-300 font-fredoka font-bold text-lg"
+                      className="w-full font-fredoka font-bold text-lg btn-bounce-hover"
                       onClick={() => handleOrderNow(service)}
                     >
                       TILAA NYT
@@ -219,12 +221,6 @@ export const Landing = () => {
             })}
           </div>
           
-          <div className="mt-16 text-center">
-            <p className="text-lg text-muted-foreground mb-6 font-medium">Tarvitsetko räätälöityä palvelua?</p>
-            <Button variant="outline" size="lg" className="border-primary/30 hover:bg-primary/10 font-fredoka font-bold text-lg px-8">
-              OTA YHTEYTTÄ
-            </Button>
-          </div>
         </div>
       </section>
 
@@ -267,7 +263,7 @@ export const Landing = () => {
               <div key={index} className="text-center animate-fade-in relative" style={{ animationDelay: `${index * 0.2}s` }}>
                 <div className={`w-24 h-24 mx-auto mb-6 bg-gradient-to-r ${item.color} rounded-full flex items-center justify-center text-3xl font-fredoka font-bold text-white shadow-glow relative group-hover:animate-wiggle`}>
                   {item.step}
-                  <div className="absolute -top-3 -right-3 text-3xl animate-bounce">
+                  <div className="absolute -top-3 -right-3 text-3xl">
                     {item.icon}
                   </div>
                 </div>
@@ -288,7 +284,7 @@ export const Landing = () => {
             <Button 
               variant="hero" 
               size="lg" 
-              className="shadow-glow hover:shadow-fun transition-all duration-300 transform hover:scale-105 font-fredoka font-bold text-xl px-12 py-6 h-auto"
+              className="font-fredoka font-bold text-xl px-12 py-6 h-auto btn-glow-hover"
               onClick={() => !user && navigate('/auth')}
             >
               ALOITA TILAAMINEN
@@ -305,7 +301,7 @@ export const Landing = () => {
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
                 <img 
-                  src="/lovable-uploads/91388627-b45f-4d96-a4b9-d3ced79b6086.png" 
+                  src="/lovable-uploads/08c6977a-49b1-49fc-84e2-ffb8957e8f41.png" 
                   alt="Pesuni" 
                   className="h-10 w-auto object-contain brightness-0 invert"
                 />

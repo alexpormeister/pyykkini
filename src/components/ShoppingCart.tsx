@@ -467,10 +467,10 @@ export const ShoppingCart = ({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
-              { id: 'normal', name: '👕 Peruspyykki', description: 'T-paidat, housut, sukat ja muut arkivaatteet', price: 25.90 },
-              { id: 'shoes', name: '👟 Kenkäpesu', description: 'Lenkkarit tai tennarit puhdistetaan hellästi', price: 20 },
-              { id: 'sheets', name: '🛏️ Lakanapesu', description: 'Pehmeät lakanat ja pussilakanat puhtaiksi', price: 25.90 },
-              { id: 'carpets', name: '🧼 Mattopesu', description: 'Pienet matot saavat uuden elämän', price: 29.90 }
+              { id: 'normal', name: '👕 Normaali pesu', description: 'Arkivaatteiden perus pesu ja kuivaus', price: 15 },
+              { id: 'shoes', name: '👟 Kenkäpesu', description: 'Erikoispesu kengille ja urheilujalkineille', price: 20 },
+              { id: 'sheets', name: '🛏️ Lakanapyykki', description: 'Pesu, kuivaus ja huolellinen silitys', price: 25 },
+              { id: 'carpets', name: '🧼 Mattopesu', description: 'Ammattimainen mattojen pesu ja kuivaus', price: 35 }
             ].map((service) => (
               <Card key={service.id} className="hover:shadow-elegant transition-all duration-300">
                 <CardContent className="p-4">

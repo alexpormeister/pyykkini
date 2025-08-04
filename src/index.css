@@ -161,4 +161,59 @@ All colors MUST be HSL.
   .animate-heart-beat {
     animation: heart-beat 1s ease-in-out infinite;
   }
+
+  /* Scroll-triggered animations */
+  @keyframes slide-up {
+    from { 
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.6s ease-out forwards;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  /* Enhanced button hover effects */
+  .btn-glow-hover {
+    transition: var(--transition-smooth);
+  }
+
+  .btn-glow-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+  }
+
+  .btn-bounce-hover {
+    transition: var(--transition-bounce);
+  }
+
+  .btn-bounce-hover:hover {
+    transform: scale(1.05);
+  }
+
+  /* Scroll-triggered intersection observer classes */
+  .scroll-reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.6s ease-out;
+  }
+
+  .scroll-reveal.revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
