@@ -136,24 +136,6 @@ export const Landing = () => {
               </div>
             </div>
             
-            {!user && (
-              <div className="relative animate-scale-in mt-16">
-                <div className="relative max-w-md mx-auto">
-                  <div className="absolute inset-0 bg-gradient-radial from-primary/30 to-transparent rounded-full blur-3xl scale-150"></div>
-                  <img 
-                    src="/lovable-uploads/b5c0fb1f-55a8-498d-ba18-42afdc31dbda.png" 
-                    alt="Pesuni maskotti - ystävällinen pyykkikori" 
-                    className="w-full h-auto object-contain drop-shadow-2xl relative z-10 animate-wiggle"
-                  />
-                  <div className="absolute -top-6 -right-6 bg-gradient-fun text-white px-4 py-2 rounded-full text-sm font-bold shadow-glow animate-heart-beat">
-                    🎉 Helposti kotiin!
-                  </div>
-                  <div className="absolute -bottom-4 -left-6 bg-secondary text-secondary-foreground px-4 py-2 rounded-full text-sm font-bold shadow-fun">
-                    ⚡ Super nopea!
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </section>
