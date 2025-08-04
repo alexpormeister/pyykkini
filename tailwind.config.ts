@@ -75,7 +75,9 @@ export default {
 				'gradient-primary': 'var(--gradient-primary)',
 				'gradient-hero': 'var(--gradient-hero)',
 				'gradient-subtle': 'var(--gradient-subtle)',
-				'gradient-fun': 'var(--gradient-fun)'
+				'gradient-fun': 'var(--gradient-fun)',
+				'gradient-landing': 'var(--gradient-landing)',
+				'gradient-radial': 'var(--gradient-radial)'
 			},
 			boxShadow: {
 				'elegant': 'var(--shadow-elegant)',

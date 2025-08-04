@@ -12,8 +12,8 @@ All colors MUST be HSL.
 
 @layer base {
 :root {
-    /* Fresh laundry service colors inspired by Wolt/Foodora/Airbnb */
-    --background: 0 0% 100%;
+    /* Turquoise landing page theme inspired by modern design */
+    --background: 180 50% 97%;  /* Light turquoise background #E0F7FA */
     --foreground: 215 25% 15%;
 
     --card: 0 0% 100%;
@@ -22,38 +22,41 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 15%;
 
-    /* Fresh aqua/teal primary theme */
-    --primary: 185 84% 55%;
+    /* Vibrant turquoise primary theme */
+    --primary: 180 84% 45%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 185 90% 65%;
+    --primary-glow: 180 90% 55%;
+    --primary-variant: 185 84% 35%;
 
-    /* Warm secondary colors */
-    --secondary: 45 85% 95%;
-    --secondary-foreground: 45 20% 25%;
+    /* Playful warm secondary colors */
+    --secondary: 45 100% 85%;
+    --secondary-foreground: 45 30% 25%;
 
-    --muted: 210 40% 96%;
+    --muted: 180 30% 92%;
     --muted-foreground: 215 16% 46%;
 
-    --accent: 185 80% 92%;
-    --accent-foreground: 185 84% 20%;
+    --accent: 180 60% 85%;
+    --accent-foreground: 180 84% 20%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 31% 91%;
-    --input: 214 31% 91%;
-    --ring: 185 84% 55%;
+    --border: 180 31% 88%;
+    --input: 180 31% 88%;
+    --ring: 180 84% 45%;
 
-    /* Fun gradients */
+    /* Playful gradients for modern look */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
-    --gradient-hero: linear-gradient(135deg, hsl(185 84% 55%), hsl(200 95% 65%));
-    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(185 20% 98%));
-    --gradient-fun: linear-gradient(135deg, hsl(185 84% 55%), hsl(45 85% 65%));
+    --gradient-hero: linear-gradient(135deg, hsl(180 84% 45%), hsl(185 95% 55%));
+    --gradient-subtle: linear-gradient(180deg, hsl(180 50% 97%), hsl(180 40% 94%));
+    --gradient-fun: linear-gradient(135deg, hsl(180 84% 45%), hsl(45 100% 70%));
+    --gradient-landing: linear-gradient(135deg, hsl(180 50% 97%), hsl(185 45% 92%));
+    --gradient-radial: radial-gradient(circle, hsl(var(--primary-glow) / 0.3), transparent);
 
-    /* Enhanced shadows */
-    --shadow-elegant: 0 10px 30px -10px hsl(var(--primary) / 0.25);
-    --shadow-glow: 0 0 40px hsl(var(--primary-glow) / 0.4);
-    --shadow-fun: 0 15px 35px -5px hsl(185 84% 55% / 0.2);
+    /* Enhanced shadows for depth */
+    --shadow-elegant: 0 10px 30px -10px hsl(var(--primary) / 0.3);
+    --shadow-glow: 0 0 40px hsl(var(--primary-glow) / 0.5);
+    --shadow-fun: 0 15px 35px -5px hsl(180 84% 45% / 0.25);
 
     /* Smooth animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);

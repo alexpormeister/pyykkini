@@ -78,29 +78,26 @@ export const Landing = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-gradient-landing">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
+      <header className="sticky top-0 z-50 bg-background/70 backdrop-blur-md border-b border-primary/10">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center space-x-3">
               <img 
-                src="/lovable-uploads/a58faa00-8b99-4e66-aaee-2e31a0d5b94c.png" 
-                alt="Maskotti" 
-                className="h-10 w-10 object-contain"
+                src="/lovable-uploads/91388627-b45f-4d96-a4b9-d3ced79b6086.png" 
+                alt="Pesuni" 
+                className="h-8 w-auto object-contain"
               />
-              <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Pesuni
-              </h1>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               {!user && (
                 <>
-                  <Button variant="ghost" onClick={() => navigate('/auth')}>
+                  <Button variant="ghost" size="sm" onClick={() => navigate('/auth')}>
                     Kirjaudu sisään
                   </Button>
-                  <Button variant="hero" onClick={() => navigate('/auth')}>
+                  <Button variant="hero" size="sm" onClick={() => navigate('/auth')}>
                     Rekisteröidy
                   </Button>
                 </>
@@ -111,74 +108,47 @@ export const Landing = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="py-16 md:py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-background"></div>
+      <section className="py-16 md:py-20 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-radial from-primary/10 via-transparent to-transparent"></div>
         <div className="container mx-auto px-4 relative">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
-            <div className="animate-fade-in text-center lg:text-left">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 bg-gradient-hero bg-clip-text text-transparent leading-tight">
-                Pesupalvelu
-                <br />
-                kotiin <span className="text-primary">helposti</span>
+          <div className="text-center max-w-4xl mx-auto">
+            <div className="animate-fade-in">
+              <h1 className="font-fredoka text-5xl md:text-7xl lg:text-8xl font-bold mb-6 text-foreground leading-none tracking-tight">
+                PUHTAAT PYYKIT
               </h1>
-              <p className="text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                Tilaa ammattimainen pesupalvelu kotiin. Me noudamme, pesemme ja tuomme 
-                takaisin puhtaana - sinun ei tarvitse tehdä muuta kuin nauttia vapaa-ajastasi.
-              </p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center lg:justify-start">
-                  <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
-                  <span>Nouto ja palautus sisältyy</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center lg:justify-start">
-                  <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
-                  <span>Ammattilaispesu</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground justify-center lg:justify-start">
-                  <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
-                  <span>Nopea toimitus</span>
-                </div>
+              <div className="text-2xl md:text-4xl lg:text-5xl font-fredoka font-bold mb-8 text-primary">
+                ME HAETAAN. ME TUODAAN.
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <p className="text-lg md:text-xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
+                Tilaa ammattimainen pesupalvelu kotiin. Sinun ei tarvitse tehdä muuta kuin nauttia vapaa-ajastasi.
+              </p>
+              
+              <div className="mb-12">
                 <Button 
                   variant="hero" 
                   size="lg" 
-                  className="text-lg px-8 py-4 h-auto shadow-glow hover:shadow-fun transition-all duration-300"
-                  onClick={() => {
-                    const servicesSection = document.getElementById('services');
-                    servicesSection?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                >
-                  Tutustu palveluihin
-                  <ArrowRight className="h-5 w-5 ml-2" />
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  size="lg" 
-                  className="text-lg px-8 py-4 h-auto border-primary/20 hover:bg-primary/5"
+                  className="text-xl px-12 py-6 h-auto shadow-glow hover:shadow-fun transition-all duration-300 transform hover:scale-105 font-fredoka font-bold"
                   onClick={() => !user && navigate('/auth')}
                 >
-                  {user ? 'Tilaa nyt' : 'Aloita tästä'}
+                  {user ? 'TILAA PESU' : 'ALOITA NYT'}
                 </Button>
               </div>
             </div>
             
-            <div className="relative animate-scale-in">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-radial from-primary/20 to-transparent rounded-full blur-3xl"></div>
+            <div className="relative animate-scale-in mt-16">
+              <div className="relative max-w-md mx-auto">
+                <div className="absolute inset-0 bg-gradient-radial from-primary/30 to-transparent rounded-full blur-3xl scale-150"></div>
                 <img 
-                  src="/lovable-uploads/a58faa00-8b99-4e66-aaee-2e31a0d5b94c.png" 
-                  alt="Vaatepesupalvelu maskotti" 
-                  className="w-full max-w-sm lg:max-w-md mx-auto object-contain drop-shadow-2xl relative z-10"
+                  src="/lovable-uploads/b5c0fb1f-55a8-498d-ba18-42afdc31dbda.png" 
+                  alt="Pesuni maskotti - ystävällinen pyykkikori" 
+                  className="w-full h-auto object-contain drop-shadow-2xl relative z-10 animate-wiggle"
                 />
-                <div className="absolute -top-4 -right-4 bg-gradient-primary text-white px-4 py-2 rounded-full text-sm font-semibold shadow-glow animate-pulse">
-                  ⚡ Kätevästi kotiin!
+                <div className="absolute -top-6 -right-6 bg-gradient-fun text-white px-4 py-2 rounded-full text-sm font-bold shadow-glow animate-heart-beat">
+                  🎉 Helposti kotiin!
                 </div>
-                <div className="absolute -bottom-2 -left-4 bg-secondary text-secondary-foreground px-3 py-1 rounded-full text-xs font-medium shadow-fun">
-                  🚚 Nopea toimitus
+                <div className="absolute -bottom-4 -left-6 bg-secondary text-secondary-foreground px-4 py-2 rounded-full text-sm font-bold shadow-fun">
+                  ⚡ Super nopea!
                 </div>
               </div>
             </div>
@@ -187,14 +157,14 @@ export const Landing = () => {
       </section>
 
       {/* Services Section */}
-      <section id="services" className="py-16 md:py-24 bg-background">
+      <section id="services" className="py-16 md:py-24 bg-background/50 backdrop-blur-sm">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12 md:mb-16 animate-fade-in">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-primary bg-clip-text text-transparent">
-              Palvelumme
+            <h2 className="font-fredoka text-4xl md:text-5xl font-bold mb-6 text-foreground">
+              Valitse palvelusi
             </h2>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-              Valitse sopiva palvelu tarpeisiisi. Kaikki hinnat sisältävät noutoa ja palautuksen.
+              Kaikki hinnat sisältävät noutoa ja palautuksen. Ei piilokustannuksia!
             </p>
           </div>
 
@@ -204,43 +174,44 @@ export const Landing = () => {
               return (
                 <Card 
                   key={service.id} 
-                  className="group cursor-pointer transition-all duration-300 hover:shadow-fun hover:scale-105 animate-fade-in border-2 hover:border-primary/20"
+                  className="group cursor-pointer transition-all duration-300 hover:shadow-fun hover:scale-105 animate-fade-in border-2 hover:border-primary/30 bg-card/70 backdrop-blur-sm"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   <CardHeader className="text-center pb-4">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-gradient-primary rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-glow">
-                      <Icon className="h-8 w-8 text-white" />
+                    <div className="w-20 h-20 mx-auto mb-4 bg-gradient-fun rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-glow group-hover:animate-wiggle">
+                      <Icon className="h-10 w-10 text-white" />
                     </div>
-                    <CardTitle className="text-lg md:text-xl">{service.name}</CardTitle>
-                    <CardDescription className="text-sm">
+                    <CardTitle className="text-xl md:text-2xl font-fredoka">{service.name}</CardTitle>
+                    <CardDescription className="text-base">
                       {service.description}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="text-center">
-                      <div className="text-2xl md:text-3xl font-bold text-primary mb-2">
+                      <div className="text-3xl md:text-4xl font-fredoka font-bold text-primary mb-2">
                         {service.price}€
                       </div>
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="secondary" className="text-sm font-semibold">
                         ⏱️ {service.duration}
                       </Badge>
                     </div>
                     
-                    <ul className="space-y-2 text-sm text-muted-foreground">
+                    <ul className="space-y-3 text-sm text-muted-foreground">
                       {service.features.map((feature, i) => (
                         <li key={i} className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span>{feature}</span>
+                          <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
+                          <span className="font-medium">{feature}</span>
                         </li>
                       ))}
                     </ul>
                     
                     <Button 
                       variant="hero" 
-                      className="w-full group-hover:shadow-glow transition-all duration-300"
+                      size="lg"
+                      className="w-full group-hover:shadow-glow transition-all duration-300 font-fredoka font-bold text-lg"
                       onClick={() => handleOrderNow(service)}
                     >
-                      Tilaa nyt
+                      TILAA NYT
                     </Button>
                   </CardContent>
                 </Card>
@@ -248,24 +219,24 @@ export const Landing = () => {
             })}
           </div>
           
-          <div className="mt-12 text-center">
-            <p className="text-muted-foreground mb-4">Tarvitsetko räätälöityä palvelua?</p>
-            <Button variant="outline" size="lg" className="border-primary/20 hover:bg-primary/5">
-              Ota yhteyttä
+          <div className="mt-16 text-center">
+            <p className="text-lg text-muted-foreground mb-6 font-medium">Tarvitsetko räätälöityä palvelua?</p>
+            <Button variant="outline" size="lg" className="border-primary/30 hover:bg-primary/10 font-fredoka font-bold text-lg px-8">
+              OTA YHTEYTTÄ
             </Button>
           </div>
         </div>
       </section>
 
       {/* How it works */}
-      <section className="py-16 md:py-24 bg-gradient-subtle">
+      <section className="py-16 md:py-24 bg-gradient-landing">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12 md:mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-primary bg-clip-text text-transparent">
-              Näin se toimii
+            <h2 className="font-fredoka text-4xl md:text-5xl font-bold mb-6 text-foreground">
+              Näin helppoa se on!
             </h2>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-              Yksinkertainen ja nopea prosessi - sinun ei tarvitse poistua kotoasi
+              Kolme yksinkertaista askelta - sinun ei tarvitse poistua kotoasi
             </p>
           </div>
 
@@ -294,18 +265,18 @@ export const Landing = () => {
               }
             ].map((item, index) => (
               <div key={index} className="text-center animate-fade-in relative" style={{ animationDelay: `${index * 0.2}s` }}>
-                <div className={`w-20 h-20 mx-auto mb-6 bg-gradient-to-r ${item.color} rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-glow relative`}>
+                <div className={`w-24 h-24 mx-auto mb-6 bg-gradient-to-r ${item.color} rounded-full flex items-center justify-center text-3xl font-fredoka font-bold text-white shadow-glow relative group-hover:animate-wiggle`}>
                   {item.step}
-                  <div className="absolute -top-2 -right-2 text-2xl">
+                  <div className="absolute -top-3 -right-3 text-3xl animate-bounce">
                     {item.icon}
                   </div>
                 </div>
-                <h3 className="text-xl font-semibold mb-3">{item.title}</h3>
-                <p className="text-muted-foreground leading-relaxed">{item.description}</p>
+                <h3 className="text-2xl font-fredoka font-bold mb-4 text-foreground">{item.title}</h3>
+                <p className="text-muted-foreground leading-relaxed text-lg">{item.description}</p>
                 
                 {/* Connection arrow for desktop */}
                 {index < 2 && (
-                  <div className="hidden md:block absolute top-10 left-full w-8 h-0.5 bg-gradient-to-r from-primary to-transparent transform -translate-y-1/2 z-10">
+                  <div className="hidden md:block absolute top-12 left-full w-8 h-0.5 bg-gradient-to-r from-primary to-transparent transform -translate-y-1/2 z-10">
                     <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-primary border-t-2 border-b-2 border-t-transparent border-b-transparent"></div>
                   </div>
                 )}
@@ -313,67 +284,67 @@ export const Landing = () => {
             ))}
           </div>
           
-          <div className="mt-12 text-center">
+          <div className="mt-16 text-center">
             <Button 
               variant="hero" 
               size="lg" 
-              className="shadow-glow hover:shadow-fun transition-all duration-300"
+              className="shadow-glow hover:shadow-fun transition-all duration-300 transform hover:scale-105 font-fredoka font-bold text-xl px-12 py-6 h-auto"
               onClick={() => !user && navigate('/auth')}
             >
-              Aloita tilaaminen
-              <ArrowRight className="h-5 w-5 ml-2" />
+              ALOITA TILAAMINEN
+              <ArrowRight className="h-6 w-6 ml-3" />
             </Button>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-foreground text-background py-12">
+      <footer className="bg-primary/90 text-white py-12">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="space-y-4">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-3">
                 <img 
-                  src="/lovable-uploads/a58faa00-8b99-4e66-aaee-2e31a0d5b94c.png" 
-                  alt="Maskotti" 
-                  className="h-8 w-8 object-contain brightness-0 invert"
+                  src="/lovable-uploads/91388627-b45f-4d96-a4b9-d3ced79b6086.png" 
+                  alt="Pesuni" 
+                  className="h-10 w-auto object-contain brightness-0 invert"
                 />
-                <h3 className="text-lg font-bold">Pesuni</h3>
               </div>
-              <p className="text-background/80">
+              <p className="text-white/90 text-lg">
                 Ammattimasta pesupalvelu kotiin. Nouto ja palautus sisältyy hintaan.
               </p>
             </div>
             
             <div className="space-y-4">
-              <h4 className="font-semibold">Yhteystiedot</h4>
-              <div className="space-y-2 text-background/80">
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  <span>+358 40 123 4567</span>
+              <h4 className="font-fredoka font-bold text-xl">Yhteystiedot</h4>
+              <div className="space-y-3 text-white/90">
+                <div className="flex items-center gap-3">
+                  <Phone className="h-5 w-5" />
+                  <span className="text-lg">+358 40 123 4567</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  <span>tilaukset@vaatepesupalvelu.fi</span>
+                <div className="flex items-center gap-3">
+                  <Mail className="h-5 w-5" />
+                  <span className="text-lg">tilaukset@pesuni.fi</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  <span>Vantaa</span>
+                <div className="flex items-center gap-3">
+                  <MapPin className="h-5 w-5" />
+                  <span className="text-lg">Vantaa</span>
                 </div>
               </div>
             </div>
             
             <div className="space-y-4">
-              <h4 className="font-semibold">Palvelu</h4>
-              <div className="text-background/80">
+              <h4 className="font-fredoka font-bold text-xl">Palvelu</h4>
+              <div className="text-white/90 text-lg space-y-2">
                 <p>Ammattimasta pesupalvelu kotiin.</p>
                 <p>Nouto ja palautus sisältyy hintaan.</p>
+                <p className="font-bold text-secondary">100% tyytyväisyystakuu!</p>
               </div>
             </div>
           </div>
           
-          <div className="border-t border-background/20 mt-8 pt-8 text-center text-background/60">
-            <p>&copy; 2024 Pesuni. Kaikki oikeudet pidätetään.</p>
+          <div className="border-t border-white/20 mt-8 pt-8 text-center text-white/70">
+            <p className="text-lg">&copy; 2024 Pesuni. Kaikki oikeudet pidätetään.</p>
           </div>
         </div>
       </footer>

@@ -161,7 +161,11 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
                 id="phone"
                 type="tel"
                 value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
+                onChange={(e) => {
+                  // Only allow numbers, +, -, (, ), and spaces
+                  const value = e.target.value.replace(/[^0-9\s\-\+\(\)]/g, '');
+                  handleInputChange('phone', value);
+                }}
                 className="pl-10"
                 placeholder="+358 40 123 4567"
               />

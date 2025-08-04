@@ -16,6 +16,8 @@ export const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   
   // Form states
   const [signInEmail, setSignInEmail] = useState('');
@@ -80,6 +82,34 @@ export const Auth = () => {
     setShowExtraFields(true);
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Sähköposti lähetetty",
+        description: "Tarkista sähköpostisi ja seuraa ohjeita salasanan vaihtamiseksi."
+      });
+      setShowForgotPassword(false);
+      setForgotPasswordEmail('');
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Virhe",
+        description: error.message || "Salasanan palautus epäonnistui"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCompleteSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -88,6 +118,17 @@ export const Auth = () => {
         variant: "destructive",
         title: "Täytä kaikki kentät",
         description: "Puhelinnumero ja osoite ovat pakollisia tilauksen tekemiseen."
+      });
+      return;
+    }
+
+    // Validate phone number - only allow numbers, +, -, and spaces
+    const phoneRegex = /^[\d\s\-\+\(\)]+$/;
+    if (!phoneRegex.test(signUpPhone)) {
+      toast({
+        variant: "destructive",
+        title: "Virheellinen puhelinnumero",
+        description: "Puhelinnumero saa sisältää vain numeroita ja merkkejä +, -, (, )."
       });
       return;
     }
@@ -199,6 +240,16 @@ export const Auth = () => {
                       />
                     </div>
                   </div>
+                  <div className="text-center">
+                    <Button
+                      type="button"
+                      variant="link"
+                      onClick={() => setShowForgotPassword(true)}
+                      className="text-sm text-muted-foreground"
+                    >
+                      Unohtuiko salasana?
+                    </Button>
+                  </div>
                   <Button 
                     type="submit" 
                     variant="hero" 
@@ -288,15 +339,19 @@ export const Auth = () => {
                       <Label htmlFor="signup-phone">Puhelinnumero *</Label>
                       <div className="relative">
                         <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signup-phone"
-                          type="tel"
-                          value={signUpPhone}
-                          onChange={(e) => setSignUpPhone(e.target.value)}
-                          className="pl-10"
-                          placeholder="+358 40 123 4567"
-                          required
-                        />
+                         <Input
+                           id="signup-phone"
+                           type="tel"
+                           value={signUpPhone}
+                           onChange={(e) => {
+                             // Only allow numbers, +, -, (, ), and spaces
+                             const value = e.target.value.replace(/[^0-9\s\-\+\(\)]/g, '');
+                             setSignUpPhone(value);
+                           }}
+                           className="pl-10"
+                           placeholder="+358 40 123 4567"
+                           required
+                         />
                       </div>
                     </div>
                     
@@ -334,6 +389,56 @@ export const Auth = () => {
             </Tabs>
           </CardContent>
         </Card>
+
+        {/* Forgot Password Dialog */}
+        {showForgotPassword && (
+          <Card className="shadow-elegant mt-4">
+            <CardHeader className="text-center">
+              <CardTitle className="text-xl">Salasanan palautus</CardTitle>
+              <CardDescription>
+                Anna sähköpostiosoitteesi, niin lähetämme sinulle linkin salasanan vaihtamiseksi.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="forgot-email">Sähköposti</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="forgot-email"
+                      type="email"
+                      value={forgotPasswordEmail}
+                      onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                      className="pl-10"
+                      placeholder="anna@example.com"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowForgotPassword(false)}
+                    className="flex-1"
+                  >
+                    Peruuta
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    variant="hero" 
+                    className="flex-1" 
+                    disabled={loading}
+                  >
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Lähetä
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

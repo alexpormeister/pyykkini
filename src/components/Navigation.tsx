@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { User, Truck, Settings, LogOut, UserCircle, Bell } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import pesuniLogo from "@/assets/pesuni-logo.png";
+// Logo removed - using image directly from uploads
 
 interface NavigationProps {
   activePanel: 'customer' | 'driver' | 'admin';
@@ -72,7 +72,7 @@ export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
       <div className="container mx-auto px-2 sm:px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <img src={pesuniLogo} alt="Pesuni" className="h-6 sm:h-8" />
+            <img src="/lovable-uploads/91388627-b45f-4d96-a4b9-d3ced79b6086.png" alt="Pesuni" className="h-6 sm:h-8" />
           </div>
           
           <div className="flex items-center space-x-1 sm:space-x-2">
