@@ -306,7 +306,7 @@ export const Landing = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <MapPin className="h-5 w-5" />
-                  <span className="text-lg">Vantaa</span>
+                  <span className="text-lg">02770 Espoo</span>
                 </div>
               </div>
             </div>
