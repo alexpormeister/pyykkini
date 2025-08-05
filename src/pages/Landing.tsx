@@ -322,7 +322,7 @@ export const Landing = () => {
           </div>
           
           <div className="border-t border-white/20 mt-8 pt-8 text-center text-white/70">
-            <p className="text-lg">&copy; 2024 Pesuni. Kaikki oikeudet pidätetään.</p>
+            <p className="text-lg">&copy; 2025 Pesuni. Kaikki oikeudet pidätetään.</p>
           </div>
         </div>
       </footer>
