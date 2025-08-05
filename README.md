@@ -6,18 +6,19 @@ Vaatepesupalvelun monorepo, joka sisältää web- ja mobiilisovellukset.
 
 ```
 pyykkini/
-├── web/          # Web-sovellus (React + Vite)
-├── mobile/       # Mobiilisovellus (React Native/Expo) - tulossa
-├── shared/       # Jaettu koodi
-├── test-env/     # Testausympäristö
-└── supabase/     # Tietokanta ja backendfunktiot
+├── src/           # Web-sovelluksen pääkoodi (React + Vite)
+├── public/        # Staattiset tiedostot
+├── mobile/        # Mobiilisovellus (React Native/Expo) - tulossa
+├── shared/        # Jaettu koodi
+├── web/           # Web-dokumentaatio
+├── test-env/      # Testausympäristö
+└── supabase/      # Tietokanta ja backendfunktiot
 ```
 
 ## Kehitys
 
 ### Web-sovellus
 ```bash
-cd web
 npm install
 npm run dev
 ```
@@ -48,7 +49,6 @@ Kloonaa repo ja pushaa muutokset. Muutokset näkyvät automaattisesti Lovablessa
 ```sh
 git clone <YOUR_GIT_URL>
 cd <YOUR_PROJECT_NAME>
-cd web  # Siirry web-kansioon
 npm i
 npm run dev
 ```
