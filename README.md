@@ -1,73 +1,54 @@
-# Welcome to your Lovable project
+# Pyykkini - Monorepo
 
-## Project info
+Vaatepesupalvelun monorepo, joka sisältää web- ja mobiilisovellukset.
 
-**URL**: https://lovable.dev/projects/23faf577-bd30-4886-82a0-75906d9036a9
+## Rakenne
 
-## How can I edit this code?
+```
+pyykkini/
+├── web/          # Web-sovellus (React + Vite)
+├── mobile/       # Mobiilisovellus (React Native/Expo) - tulossa
+├── shared/       # Jaettu koodi
+├── test-env/     # Testausympäristö
+└── supabase/     # Tietokanta ja backendfunktiot
+```
 
-There are several ways of editing your application.
+## Kehitys
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/23faf577-bd30-4886-82a0-75906d9036a9) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### Web-sovellus
+```bash
+cd web
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Mobiilisovellus
+Tulossa myöhemmin - React Native/Expo
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Teknologiat
+- **Web**: React, TypeScript, Vite, Tailwind CSS
+- **Mobile**: React Native/Expo (tulossa)
+- **Backend**: Supabase
+- **Database**: PostgreSQL
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Lovable-projektin tiedot
 
-## What technologies are used for this project?
+**URL**: https://lovable.dev/projects/23faf577-bd30-4886-82a0-75906d9036a9
 
-This project is built with:
+### Muokkausohjeet
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+**Käytä Lovablea**
+Vieraile [Lovable-projektissa](https://lovable.dev/projects/23faf577-bd30-4886-82a0-75906d9036a9) ja aloita kehitys.
 
-## How can I deploy this project?
+**Käytä omaa IDE:täsi**
+Kloonaa repo ja pushaa muutokset. Muutokset näkyvät automaattisesti Lovablessa.
 
-Simply open [Lovable](https://lovable.dev/projects/23faf577-bd30-4886-82a0-75906d9036a9) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+```sh
+git clone <YOUR_GIT_URL>
+cd <YOUR_PROJECT_NAME>
+cd web  # Siirry web-kansioon
+npm i
+npm run dev
+```
