@@ -1,54 +1,47 @@
-# Pyykkini - Monorepo
+# 🧺 Pyykkini / Pesuni (työnimi)
 
-Vaatepesupalvelun monorepo, joka sisältää web- ja mobiilisovellukset.
+Tämä on monorepo-rakenne projektille **Pyykkini / Pesuni** (nimi työn alla), joka kehittää modernia verkkopalvelua pyykinpesun hallintaan, tilaamiseen ja mahdollisesti automatisointiin. Tavoitteena on tarjota saumaton kokemus niin selaimessa kuin mobiilissa.
 
-## Rakenne
+## 📁 Projektirakenne
 
-```
 pyykkini/
-├── src/           # Web-sovelluksen pääkoodi (React + Vite)
-├── public/        # Staattiset tiedostot
-├── mobile/        # Mobiilisovellus (React Native/Expo) - tulossa
-├── shared/        # Jaettu koodi
-├── web/           # Web-dokumentaatio
-├── test-env/      # Testausympäristö
-└── supabase/      # Tietokanta ja backendfunktiot
-```
+├── web/ # Verkkosovellus (React, Vite, TailwindCSS, Supabase)
+├── mobile/ # (Tuleva) mobiilisovellus (Expo + React Native)
+├── shared/ # Jaettu logiikka (hookit, utilsit, tyylit ym.)
+└── test-env/ # (Valinnainen) testi/staging-käyttöön
 
-## Kehitys
+## 🛠️ Teknologiat
 
-### Web-sovellus
-```bash
-npm install
-npm run dev
-```
+- React + Vite
+- TailwindCSS
+- Supabase (backend-palvelu)
+- TypeScript
+- Git + GitHub (monorepo-rakenne)
+- (Tuleva) React Native + Expo
 
-### Mobiilisovellus
-Tulossa myöhemmin - React Native/Expo
+## 🤖 Tekoälyn rooli kehityksessä
 
-## Teknologiat
-- **Web**: React, TypeScript, Vite, Tailwind CSS
-- **Mobile**: React Native/Expo (tulossa)
-- **Backend**: Supabase
-- **Database**: PostgreSQL
+Tätä projektia on kehitetty käyttäen tekoälyä tukena, erityisesti:
+
+- **ChatGPT, cursor ja Lovable** on toiminut apuna mm.:
+  - Koodiavustajana
+  - Kansiorakenteen ja Git-strategian suunnittelussa
+  - Dokumentoinnissa ja virheiden ratkaisussa
+
+Tekoäly toimii tukena, mutta kaikki päätökset ja toteutukset tekee ihminen. Tämä nopeuttaa kehitystä ja vähentää turhaa säätöä.
+
+## 🚧 Kehitystilanne
+
+- [x] Web-pohja siirretty monorepo-rakenteeseen
+- [ ] Mobiilisovellus tulossa (ei vielä aloitettu)
+- [ ] Jaetun logiikan kehitys (shared/)
+- [ ] Testiympäristö (test-env/)
+- [ ] Lopullinen nimi valitaan myöhemmin
+
+## 📜 Lisenssi
+
+Tämä projekti on toistaiseksi yksityinen. Lisenssi ja julkaisu päätetään myöhemmin.
 
 ---
 
-## Lovable-projektin tiedot
-
-**URL**: https://lovable.dev/projects/23faf577-bd30-4886-82a0-75906d9036a9
-
-### Muokkausohjeet
-
-**Käytä Lovablea**
-Vieraile [Lovable-projektissa](https://lovable.dev/projects/23faf577-bd30-4886-82a0-75906d9036a9) ja aloita kehitys.
-
-**Käytä omaa IDE:täsi**
-Kloonaa repo ja pushaa muutokset. Muutokset näkyvät automaattisesti Lovablessa.
-
-```sh
-git clone <YOUR_GIT_URL>
-cd <YOUR_PROJECT_NAME>
-npm i
-npm run dev
-```
+> 💡 Nimi "Pyykkini" tai "Pesuni" ei ole vielä lopullinen – brändi ja nimi tarkentuvat kehityksen aikana.
