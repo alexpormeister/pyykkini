@@ -84,13 +84,13 @@ export const Landing = () => {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center space-x-3">
-              <img 
-                src="/lovable-uploads/08c6977a-49b1-49fc-84e2-ffb8957e8f41.png" 
-                alt="Pesuni" 
+              <img
+                src="/lovable-uploads/08c6977a-49b1-49fc-84e2-ffb8957e8f41.png"
+                alt="Pesuni"
                 className="h-8 w-auto object-contain"
               />
             </div>
-            
+
             <div className="flex items-center space-x-3">
               {!user && (
                 <>
@@ -117,17 +117,17 @@ export const Landing = () => {
                 PUHTAAT PYYKIT
               </h1>
               <div className="text-2xl md:text-4xl lg:text-5xl font-fredoka font-bold mb-8 text-primary">
-                ME HAETAAN. ME TUODAAN.
+                YHDELLÄ TILAUKSELLA KAAPPI PUHTAAKSI.
               </div>
-              
+
               <p className="text-lg md:text-xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
                 Tilaa ammattimainen pesupalvelu kotiin. Sinun ei tarvitse tehdä muuta kuin nauttia vapaa-ajastasi.
               </p>
-              
+
               <div className="mb-12">
-                <Button 
-                  variant="hero" 
-                  size="lg" 
+                <Button
+                  variant="hero"
+                  size="lg"
                   className="text-xl px-12 py-6 h-auto font-fredoka font-bold btn-glow-hover"
                   onClick={() => !user && navigate('/auth')}
                 >
@@ -135,7 +135,7 @@ export const Landing = () => {
                 </Button>
               </div>
             </div>
-            
+
           </div>
         </div>
       </section>
@@ -156,8 +156,8 @@ export const Landing = () => {
             {services.map((service, index) => {
               const Icon = service.icon;
               return (
-                <Card 
-                  key={service.id} 
+                <Card
+                  key={service.id}
                   className="group cursor-pointer transition-all duration-300 hover:shadow-fun hover:scale-105 animate-fade-in border-2 hover:border-primary/30 bg-card/70 backdrop-blur-sm"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
@@ -179,7 +179,7 @@ export const Landing = () => {
                         ⏱️ {service.duration}
                       </Badge>
                     </div>
-                    
+
                     <ul className="space-y-3 text-sm text-muted-foreground">
                       {service.features.map((feature, i) => (
                         <li key={i} className="flex items-center gap-2">
@@ -188,9 +188,9 @@ export const Landing = () => {
                         </li>
                       ))}
                     </ul>
-                    
-                    <Button 
-                      variant="hero" 
+
+                    <Button
+                      variant="hero"
                       size="lg"
                       className="w-full font-fredoka font-bold text-lg btn-bounce-hover"
                       onClick={() => handleOrderNow(service)}
@@ -202,7 +202,7 @@ export const Landing = () => {
               );
             })}
           </div>
-          
+
         </div>
       </section>
 
@@ -228,7 +228,7 @@ export const Landing = () => {
                 color: "from-blue-500 to-blue-600"
               },
               {
-                step: "2", 
+                step: "2",
                 title: "Me noudamme",
                 description: "Kuljettajamme noutaa pyykkisi sovittuna aikana kotioveltasi",
                 icon: "🚚",
@@ -251,7 +251,7 @@ export const Landing = () => {
                 </div>
                 <h3 className="text-2xl font-fredoka font-bold mb-4 text-foreground">{item.title}</h3>
                 <p className="text-muted-foreground leading-relaxed text-lg">{item.description}</p>
-                
+
                 {/* Connection arrow for desktop */}
                 {index < 2 && (
                   <div className="hidden md:block absolute top-12 left-full w-8 h-0.5 bg-gradient-to-r from-primary to-transparent transform -translate-y-1/2 z-10">
@@ -261,11 +261,11 @@ export const Landing = () => {
               </div>
             ))}
           </div>
-          
+
           <div className="mt-16 text-center">
-            <Button 
-              variant="hero" 
-              size="lg" 
+            <Button
+              variant="hero"
+              size="lg"
               className="font-fredoka font-bold text-xl px-12 py-6 h-auto btn-glow-hover"
               onClick={() => !user && navigate('/auth')}
             >
@@ -282,9 +282,9 @@ export const Landing = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
-                <img 
-                  src="/lovable-uploads/08c6977a-49b1-49fc-84e2-ffb8957e8f41.png" 
-                  alt="Pesuni" 
+                <img
+                  src="/lovable-uploads/08c6977a-49b1-49fc-84e2-ffb8957e8f41.png"
+                  alt="Pesuni"
                   className="h-10 w-auto object-contain brightness-0 invert"
                 />
               </div>
@@ -292,7 +292,7 @@ export const Landing = () => {
                 Ammattimasta pesupalvelu kotiin. Nouto ja palautus sisältyy hintaan.
               </p>
             </div>
-            
+
             <div className="space-y-4">
               <h4 className="font-fredoka font-bold text-xl">Yhteystiedot</h4>
               <div className="space-y-3 text-white/90">
@@ -310,7 +310,7 @@ export const Landing = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="space-y-4">
               <h4 className="font-fredoka font-bold text-xl">Palvelu</h4>
               <div className="text-white/90 text-lg space-y-2">
@@ -320,7 +320,7 @@ export const Landing = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="border-t border-white/20 mt-8 pt-8 text-center text-white/70">
             <p className="text-lg">&copy; 2025 Pesuni. Kaikki oikeudet pidätetään.</p>
           </div>
@@ -336,17 +336,17 @@ export const Landing = () => {
               Sinun täytyy kirjautua sisään tai rekisteröityä voidaksesi tilata palvelun.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 pt-4">
-            <Button 
-              variant="hero" 
+            <Button
+              variant="hero"
               className="w-full"
               onClick={handleLoginRedirect}
             >
               Kirjaudu sisään tai rekisteröidy
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="w-full"
               onClick={() => setShowLoginDialog(false)}
             >
