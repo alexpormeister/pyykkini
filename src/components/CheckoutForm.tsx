@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, CreditCard, MapPin, Phone, User, Tag, Edit } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { SimpleMap } from './SimpleMap';
@@ -61,6 +62,7 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
   const [pendingRugItem, setPendingRugItem] = useState<any>(null);
   const [couponCode, setCouponCode] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Fetch user profile data and populate form
   useEffect(() => {
@@ -300,6 +302,15 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
       return;
     }
 
+    if (!termsAccepted) {
+      toast({
+        variant: "destructive",
+        title: "Hyväksy ehdot",
+        description: "Sinun täytyy hyväksyä ehdot tehdäksesi tilauksen."
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -330,6 +341,7 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
           return_date: formData.returnOption === 'choose_time' ? formData.returnDate : currentDate,
           return_time: formData.returnOption === 'choose_time' ? formData.returnTime : currentTime,
           discount_code: appliedCoupon?.code || null,
+          terms_accepted: termsAccepted,
           status: 'pending'
         })
         .select()
@@ -833,7 +845,27 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
                     </div>
                   </div>
 
-                  <Button 
+                  {/* Terms and Conditions */}
+                  <div className="space-y-4">
+                    <div className="flex items-start space-x-3 p-4 border border-amber-200 bg-amber-50 rounded-lg">
+                      <Checkbox
+                        id="terms"
+                        checked={termsAccepted}
+                        onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                        className="mt-1"
+                      />
+                      <div>
+                        <Label 
+                          htmlFor="terms" 
+                          className="text-sm leading-relaxed cursor-pointer font-medium"
+                        >
+                          Ymmärrän, että kaikkia tahroja ei välttämättä saada poistettua ja että vaatteiden luonnollinen kuluminen tai värimuutokset eivät ole palvelun vastuulla. Olen tarkistanut, että kaikki pyykit on pussissa tilauksen yhteydessä. *
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button
                     type="submit" 
                     variant="hero" 
                     size="lg" 

@@ -258,6 +258,7 @@ export type Database = {
           pickup_date: string
           pickup_option: string | null
           pickup_time: string
+          pickup_weight_kg: number | null
           price: number
           rejected_at: string | null
           rejected_by: string | null
@@ -266,10 +267,12 @@ export type Database = {
           return_date: string
           return_option: string | null
           return_time: string
+          return_weight_kg: number | null
           service_name: string
           service_type: string
           special_instructions: string | null
           status: Database["public"]["Enums"]["order_status"] | null
+          terms_accepted: boolean
           updated_at: string
           user_id: string
         }
@@ -290,6 +293,7 @@ export type Database = {
           pickup_date: string
           pickup_option?: string | null
           pickup_time: string
+          pickup_weight_kg?: number | null
           price: number
           rejected_at?: string | null
           rejected_by?: string | null
@@ -298,10 +302,12 @@ export type Database = {
           return_date: string
           return_option?: string | null
           return_time: string
+          return_weight_kg?: number | null
           service_name: string
           service_type: string
           special_instructions?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
+          terms_accepted?: boolean
           updated_at?: string
           user_id: string
         }
@@ -322,6 +328,7 @@ export type Database = {
           pickup_date?: string
           pickup_option?: string | null
           pickup_time?: string
+          pickup_weight_kg?: number | null
           price?: number
           rejected_at?: string | null
           rejected_by?: string | null
@@ -330,10 +337,12 @@ export type Database = {
           return_date?: string
           return_option?: string | null
           return_time?: string
+          return_weight_kg?: number | null
           service_name?: string
           service_type?: string
           special_instructions?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
+          terms_accepted?: boolean
           updated_at?: string
           user_id?: string
         }

@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut, Calendar } from "lucide-react";
+import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut, Calendar, Scale } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -71,6 +71,10 @@ export const DriverPanel = () => {
   const [activeTab, setActiveTab] = useState<'my' | 'free'>('my');
   const [myStatusFilter, setMyStatusFilter] = useState<'all' | 'accepted' | 'picking_up' | 'washing' | 'returning' | 'delivered'>('all');
   const [mySort, setMySort] = useState<'newest' | 'oldest'>('newest');
+  const [showWeightDialog, setShowWeightDialog] = useState(false);
+  const [selectedOrderForWeight, setSelectedOrderForWeight] = useState<any>(null);
+  const [weightInput, setWeightInput] = useState('');
+  const [weightType, setWeightType] = useState<'pickup' | 'return'>('pickup');
 
   useEffect(() => {
     if (user) {
@@ -431,6 +435,97 @@ export const DriverPanel = () => {
     }
   };
 
+  const handleWeightInput = (orderId: string, type: 'pickup' | 'return') => {
+    const order = myOrders.find(o => o.id === orderId);
+    setSelectedOrderForWeight(order);
+    setWeightType(type);
+    setWeightInput('');
+    setShowWeightDialog(true);
+  };
+
+  const handleWeightSave = async () => {
+    if (!selectedOrderForWeight || !weightInput.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Virhe",
+        description: "Anna painotieto."
+      });
+      return;
+    }
+
+    const weight = parseFloat(weightInput.replace(',', '.'));
+    if (isNaN(weight) || weight <= 0) {
+      toast({
+        variant: "destructive",
+        title: "Virhe",
+        description: "Anna kelvollinen painotieto (kg)."
+      });
+      return;
+    }
+
+    try {
+      const updateData = weightType === 'pickup' 
+        ? { pickup_weight_kg: weight }
+        : { return_weight_kg: weight };
+
+      const { error } = await supabase
+        .from('orders')
+        .update(updateData)
+        .eq('id', selectedOrderForWeight.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Paino tallennettu!",
+        description: `${weightType === 'pickup' ? 'Nouto' : 'Palautus'}paino: ${weight} kg`
+      });
+
+      setShowWeightDialog(false);
+      setWeightInput('');
+      fetchOrders();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Virhe",
+        description: "Painon tallentaminen epäonnistui."
+      });
+    }
+  };
+
+  const renderWeightInfo = (order: any) => {
+    const hasPickupWeight = order.pickup_weight_kg !== null;
+    const hasReturnWeight = order.return_weight_kg !== null;
+    const weightDiff = hasPickupWeight && hasReturnWeight 
+      ? Math.abs(order.return_weight_kg - order.pickup_weight_kg) 
+      : 0;
+
+    if (!hasPickupWeight && !hasReturnWeight) return null;
+
+    return (
+      <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
+        <div className="flex items-center gap-2 mb-1">
+          <Scale className="h-4 w-4" />
+          <span className="font-medium">Painotiedot:</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <span className="text-muted-foreground">Nouto:</span> 
+            {hasPickupWeight ? `${order.pickup_weight_kg} kg` : 'Ei kirjattu'}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Palautus:</span> 
+            {hasReturnWeight ? `${order.return_weight_kg} kg` : 'Ei kirjattu'}
+          </div>
+        </div>
+        {hasPickupWeight && hasReturnWeight && weightDiff > 0.1 && (
+          <div className="mt-1 text-xs text-orange-600">
+            Painoero: {weightDiff.toFixed(1)} kg
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const getNextStatus = (currentStatus: string) => {
     switch (currentStatus) {
       case 'accepted': return 'picking_up';
@@ -689,6 +784,7 @@ export const DriverPanel = () => {
                                       </div>
                                     )}
                                     {renderRugDimensions(order.order_items || [])}
+                                    {renderWeightInfo(order)}
                                   </div>
                                 </div>
                                 <div className="flex flex-col gap-2">
@@ -702,9 +798,21 @@ export const DriverPanel = () => {
                                       {getNextStatusText(order.status)}
                                     </Button>
                                   )}
-                                  {order.status === 'accepted' && !order.actual_pickup_time && (
+                                   {order.status === 'accepted' && !order.actual_pickup_time && (
                                     <Button variant="outline" size="sm" onClick={() => setShowTimeForm(order.id)} className="w-36">
                                       Aseta ajat
+                                    </Button>
+                                  )}
+                                  {(order.status === 'picking_up' || order.status === 'washing') && !order.pickup_weight_kg && (
+                                    <Button variant="outline" size="sm" onClick={() => handleWeightInput(order.id, 'pickup')} className="w-36">
+                                      <Scale className="h-4 w-4 mr-1" />
+                                      Noutopaino
+                                    </Button>
+                                  )}
+                                  {order.status === 'returning' && !order.return_weight_kg && (
+                                    <Button variant="outline" size="sm" onClick={() => handleWeightInput(order.id, 'return')} className="w-36">
+                                      <Scale className="h-4 w-4 mr-1" />
+                                      Palautuspaino
                                     </Button>
                                   )}
                                   <Button variant="ghost" size="sm" onClick={() => window.open(`tel:${order.phone}`)} className="w-36 text-xs">
@@ -875,6 +983,40 @@ export const DriverPanel = () => {
                   disabled={!rejectionReason.trim()}
                 >
                   Hylkää tilaus
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Weight Input Dialog */}
+        <Dialog open={showWeightDialog} onOpenChange={setShowWeightDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Kirjaa painotieto</DialogTitle>
+              <DialogDescription>
+                {weightType === 'pickup' ? 'Syötä pussin kokonaispaino noudettaessa' : 'Syötä pussin kokonaispaino palautettaessa'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="weight">Paino (kg)</Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  placeholder="esim. 2.5"
+                  value={weightInput}
+                  onChange={(e) => setWeightInput(e.target.value)}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowWeightDialog(false)}>
+                  Peruuta
+                </Button>
+                <Button onClick={handleWeightSave} disabled={!weightInput.trim()}>
+                  Tallenna paino
                 </Button>
               </div>
             </div>
