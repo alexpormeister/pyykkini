@@ -467,6 +467,27 @@ export const DriverPanel = () => {
     );
   };
 
+  const getCustomerName = (order: any) => {
+    // Use profile name if available and not "Asiakas"
+    if (order.profiles?.full_name && 
+        order.profiles.full_name.trim() !== '' && 
+        order.profiles.full_name !== 'Asiakas' &&
+        order.profiles.full_name !== 'Asiakas Asiakas') {
+      return order.profiles.full_name;
+    }
+    
+    // Fallback to order names if they're not "Asiakas"
+    const firstName = order.first_name && order.first_name !== 'Asiakas' ? order.first_name : '';
+    const lastName = order.last_name && order.last_name !== 'Asiakas' ? order.last_name : '';
+    
+    if (firstName || lastName) {
+      return `${firstName} ${lastName}`.trim();
+    }
+    
+    // Last resort
+    return 'Asiakas';
+  };
+
   if (!isOnShift) {
     return (
       <div className="min-h-screen bg-gradient-subtle">
@@ -507,15 +528,16 @@ export const DriverPanel = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in">
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent">
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent text-center sm:text-left">
               Kuljettajapaneeli
             </h1>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 justify-center sm:justify-end">
               <Button
                 variant={currentView === 'orders' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setCurrentView('orders')}
+                className="text-xs px-3"
               >
                 Tilaukset
               </Button>
@@ -523,8 +545,9 @@ export const DriverPanel = () => {
                 variant={currentView === 'calendar' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setCurrentView('calendar')}
+                className="text-xs px-3"
               >
-                <Calendar className="h-4 w-4 mr-2" />
+                <Calendar className="h-4 w-4 mr-1" />
                 Kalenteri
               </Button>
               <Button
@@ -532,8 +555,9 @@ export const DriverPanel = () => {
                 disabled={shiftLoading}
                 variant="outline"
                 size="sm"
+                className="text-xs px-3"
               >
-                <LogOut className="h-4 w-4 mr-2" />
+                <LogOut className="h-4 w-4 mr-1" />
                 {shiftLoading ? 'Lopetetaan...' : 'Lopeta vuoro'}
               </Button>
             </div>
@@ -647,7 +671,7 @@ export const DriverPanel = () => {
                                   </div>
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-1">
-                                      <h3 className="font-semibold">{order.profiles?.full_name || `${order.first_name} ${order.last_name}`}</h3>
+                                      <h3 className="font-semibold">{getCustomerName(order)}</h3>
                                       <Badge className={getStatusColor(order.status)}>
                                         {getStatusText(order.status)}
                                       </Badge>
@@ -732,7 +756,7 @@ export const DriverPanel = () => {
                               </div>
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="font-semibold">{order.profiles?.full_name || `${order.first_name} ${order.last_name}`}</h3>
+                                  <h3 className="font-semibold">{getCustomerName(order)}</h3>
                                   <Badge variant="outline">{order.service_name}</Badge>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
