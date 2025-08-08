@@ -24,7 +24,8 @@ import {
   Calendar,
   Truck,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  UserCheck
 } from "lucide-react";
 
 interface Order {
@@ -96,11 +97,16 @@ export const AdminPanel = () => {
     orders: false,
     analytics: false
   });
+  const [allDrivers, setAllDrivers] = useState<any[]>([]);
+  const [driverSearch, setDriverSearch] = useState("");
+  const [selectedDriverId, setSelectedDriverId] = useState<string>("");
+  const [orderToAssign, setOrderToAssign] = useState<string>("");
 
   useEffect(() => {
     fetchOrders();
     fetchStats();
     fetchActiveDrivers();
+    fetchAllDrivers();
     
     // Check for tab preference from Profile navigation
     const preferredTab = sessionStorage.getItem('adminTab');
@@ -272,6 +278,80 @@ export const AdminPanel = () => {
       setActiveDrivers(drivers);
     } catch (error) {
       console.error('Error fetching active drivers:', error);
+    }
+  };
+
+  const fetchAllDrivers = async () => {
+    try {
+      // First, get all users with driver role
+      const { data: driverRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'driver');
+
+      if (rolesError) throw rolesError;
+
+      const driverIds = driverRoles?.map(role => role.user_id) || [];
+      if (driverIds.length === 0) {
+        setAllDrivers([]);
+        return;
+      }
+
+      // Then get their profiles
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, phone')
+        .in('user_id', driverIds);
+
+      if (profilesError) throw profilesError;
+
+      // Check which drivers are currently on shift
+      const { data: activeShifts } = await supabase
+        .from('driver_shifts')
+        .select('driver_id')
+        .eq('is_active', true);
+
+      const activeDriverIds = activeShifts?.map(shift => shift.driver_id) || [];
+
+      const driversWithShiftStatus = profiles?.map(profile => ({
+        ...profile,
+        is_active: activeDriverIds.includes(profile.user_id)
+      })) || [];
+
+      setAllDrivers(driversWithShiftStatus);
+    } catch (error) {
+      console.error('Error fetching all drivers:', error);
+    }
+  };
+
+  const assignOrderToDriver = async (orderId: string, driverId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          driver_id: driverId,
+          status: 'accepted',
+          accepted_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Tilaus asetettu kuljettajalle',
+        description: 'Tilaus on nyt asetettu valitulle kuljettajalle'
+      });
+
+      fetchOrders();
+      setSelectedDriverId('');
+      setOrderToAssign('');
+    } catch (error) {
+      console.error('Error assigning order:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Virhe',
+        description: 'Tilauksen asettaminen epäonnistui'
+      });
     }
   };
 
@@ -501,13 +581,19 @@ export const AdminPanel = () => {
                       <span className="font-medium text-primary">Tilaukset</span>
                       {expandedMenus.orders ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </button>
-                    {expandedMenus.orders && (
+                     {expandedMenus.orders && (
                       <div className="ml-4 mt-2 space-y-1">
                         <button
                           onClick={() => setActiveTab('orders')}
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'orders' ? 'bg-primary/10 text-primary font-medium' : ''}`}
                         >
                           Kaikki tilaukset
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('free-orders')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'free-orders' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Vapaat ajot
                         </button>
                       </div>
                     )}
@@ -827,6 +913,154 @@ export const AdminPanel = () => {
           {/* Coupons Tab */}
           <TabsContent value="coupons" className="animate-fade-in">
             <CouponManagement />
+          </TabsContent>
+
+          {/* Free Orders Tab */}
+          <TabsContent value="free-orders" className="animate-fade-in">
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Vapaat ajot
+                </CardTitle>
+                <CardDescription>
+                  Tilaukset ilman kuljettajaa - aseta kuljettaja
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="mb-4 flex flex-col md:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Hae kuljettajia nimellä..."
+                      value={driverSearch}
+                      onChange={(e) => setDriverSearch(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                {orderToAssign && (
+                  <div className="mb-6 p-4 bg-blue-50 rounded-lg border">
+                    <h4 className="font-semibold mb-3 text-blue-800">Valitse kuljettaja tilaukselle</h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {allDrivers
+                        .filter(driver => 
+                          driver.full_name?.toLowerCase().includes(driverSearch.toLowerCase())
+                        )
+                        .map((driver) => (
+                          <div 
+                            key={driver.user_id} 
+                            className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                              selectedDriverId === driver.user_id 
+                                ? 'border-primary bg-primary/10' 
+                                : 'border-gray-200 hover:border-gray-300'
+                            } ${
+                              driver.is_active 
+                                ? 'bg-green-50' 
+                                : 'bg-red-50'
+                            }`}
+                            onClick={() => setSelectedDriverId(driver.user_id)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">{driver.full_name}</p>
+                                {driver.phone && (
+                                  <p className="text-sm text-muted-foreground">Puh: {driver.phone}</p>
+                                )}
+                              </div>
+                              <Badge 
+                                className={
+                                  driver.is_active 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                }
+                              >
+                                {driver.is_active ? 'Vuorossa' : 'Ei vuorossa'}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <Button 
+                        onClick={() => assignOrderToDriver(orderToAssign, selectedDriverId)}
+                        disabled={!selectedDriverId}
+                      >
+                        Aseta kuljettajalle
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setOrderToAssign('');
+                          setSelectedDriverId('');
+                          setDriverSearch('');
+                        }}
+                      >
+                        Peruuta
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="space-y-4">
+              {orders
+                .filter(order => order.status === 'pending' && !order.driver_id)
+                .map((order) => (
+                  <Card key={order.id} className="hover:shadow-elegant transition-all duration-300">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-yellow-100">
+                            <Clock className="h-6 w-6 text-yellow-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold">{order.first_name} {order.last_name}</h3>
+                            <p className="text-sm text-muted-foreground">#{order.id.slice(0, 8)} - {order.service_name}</p>
+                            <p className="text-sm text-muted-foreground">Tilattu: {new Date(order.created_at).toLocaleDateString('fi-FI')}</p>
+                            <p className="text-sm text-muted-foreground">Osoite: {order.address}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <Badge className="bg-yellow-100 text-yellow-800">
+                              Vapaa ajo
+                            </Badge>
+                            <p className="text-lg font-semibold mt-1">{order.final_price}€</p>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="default"
+                              onClick={() => {
+                                setOrderToAssign(order.id);
+                                setSelectedDriverId('');
+                              }}
+                            >
+                              <UserCheck className="h-4 w-4 mr-1" />
+                              Aseta kuljettaja
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => openOrderDetails(order)}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              Avaa
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              
+              {orders.filter(order => order.status === 'pending' && !order.driver_id).length === 0 && (
+                <div className="text-center py-12">
+                  <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-xl font-semibold mb-2">Ei vapaita ajoja</h3>
+                  <p className="text-muted-foreground">Kaikki tilaukset on asetettu kuljettajille.</p>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* Reports Tab */}

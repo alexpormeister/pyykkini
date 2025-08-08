@@ -68,6 +68,9 @@ export const DriverPanel = () => {
   const [showRejectDialog, setShowRejectDialog] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [currentView, setCurrentView] = useState<'orders' | 'calendar'>('orders');
+  const [activeTab, setActiveTab] = useState<'my' | 'free'>('my');
+  const [myStatusFilter, setMyStatusFilter] = useState<'all' | 'accepted' | 'picking_up' | 'washing' | 'returning' | 'delivered'>('all');
+  const [mySort, setMySort] = useState<'newest' | 'oldest'>('newest');
 
   useEffect(() => {
     if (user) {
@@ -590,194 +593,193 @@ export const DriverPanel = () => {
               </div>
             )}
 
-        {/* Pending Orders */}
-        {pendingOrders.length > 0 && (
-          <div className="mb-8 animate-fade-in">
-            <h2 className="text-2xl font-semibold mb-6">Uudet tilaukset</h2>
-            <div className="space-y-4">
-              {pendingOrders.map((order) => (
-                <Card key={order.id} className="hover:shadow-elegant transition-all duration-300">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-yellow-100">
-                          <Clock className="h-6 w-6 text-yellow-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold">{order.profiles?.full_name || `${order.first_name} ${order.last_name}`}</h3>
-                            <Badge variant="outline">{order.service_name}</Badge>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                            <MapPin className="h-4 w-4" />
-                            {order.address}
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            Nouto: {new Date(order.pickup_date).toLocaleDateString('fi-FI')} klo {order.pickup_time}
-                          </div>
-                          <div className="text-sm text-muted-foreground mt-1">
-                            Palautus: {new Date(order.return_date).toLocaleDateString('fi-FI')} klo {order.return_time}
-                          </div>
-                          {order.special_instructions && (
-                            <div className="text-sm text-muted-foreground mt-1">
-                              <strong>Lisätiedot:</strong> {order.special_instructions}
-                            </div>
-                          )}
-                          {renderRugDimensions(order.order_items || [])}
-                          <div className="text-lg font-semibold text-primary mt-2">
-                            {order.final_price}€
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Button 
-                          variant="hero" 
-                          size="sm"
-                          onClick={() => handleAcceptOrder(order.id)}
-                          className="w-28"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Hyväksy
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setShowRejectDialog(order.id)}
-                          className="w-28"
-                        >
-                          <X className="h-4 w-4 mr-1" />
-                          Hylkää
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => window.open(`tel:${order.phone}`)}
-                          className="w-28 text-xs"
-                        >
-                          <Phone className="h-4 w-4 mr-1" />
-                          Soita
-                        </Button>
-                      </div>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'my' | 'free')} className="space-y-6">
+              <TabsList className="w-full grid grid-cols-2 md:w-auto">
+                <TabsTrigger value="my">Omat keikat</TabsTrigger>
+                <TabsTrigger value="free">Vapaat keikat</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="my">
+                <Card className="mb-6">
+                  <CardContent className="p-4 flex flex-col md:flex-row gap-4">
+                    <div className="w-full md:w-56">
+                      <Label>Tila</Label>
+                      <Select value={myStatusFilter} onValueChange={(v) => setMyStatusFilter(v as any)}>
+                        <SelectTrigger><SelectValue placeholder="Kaikki" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Kaikki</SelectItem>
+                          <SelectItem value="accepted">Hyväksytty</SelectItem>
+                          <SelectItem value="picking_up">Noutamassa</SelectItem>
+                          <SelectItem value="washing">Pesussa</SelectItem>
+                          <SelectItem value="returning">Palautumassa</SelectItem>
+                          <SelectItem value="delivered">Toimitettu</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="w-full md:w-56">
+                      <Label>Järjestys</Label>
+                      <Select value={mySort} onValueChange={(v) => setMySort(v as any)}>
+                        <SelectTrigger><SelectValue placeholder="Uusimmat ensin" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="newest">Uusimmat ensin</SelectItem>
+                          <SelectItem value="oldest">Vanhimmat ensin</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* My Orders */}
-        {myOrders.length > 0 && (
-          <div className="animate-fade-in">
-            <h2 className="text-2xl font-semibold mb-6">Omat tilaukset</h2>
-            <div className="space-y-4">
-              {myOrders.map((order) => {
-                const StatusIcon = getStatusIcon(order.status);
-                const canProgress = order.status !== 'delivered';
-                
-                return (
-                  <Card key={order.id} className="hover:shadow-elegant transition-all duration-300">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
-                            <StatusIcon className="h-6 w-6 text-primary" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold">{order.profiles?.full_name || `${order.first_name} ${order.last_name}`}</h3>
-                              <Badge className={getStatusColor(order.status)}>
-                                {getStatusText(order.status)}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                              <MapPin className="h-4 w-4" />
-                              {order.address}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {order.service_name} - {order.final_price}€
-                            </div>
-                            {order.special_instructions && (
-                              <div className="text-sm text-muted-foreground mt-1">
-                                <strong>Lisätiedot:</strong> {order.special_instructions}
+                {myOrders.length > 0 ? (
+                  <div className="space-y-4">
+                    {[...myOrders]
+                      .filter(o => myStatusFilter === 'all' || o.status === myStatusFilter)
+                      .sort((a, b) => mySort === 'newest' ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime() : new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                      .map((order) => {
+                        const StatusIcon = getStatusIcon(order.status);
+                        const canProgress = order.status !== 'delivered';
+                        return (
+                          <Card key={order.id} className="hover:shadow-elegant transition-all duration-300">
+                            <CardContent className="p-6">
+                              <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
+                                    <StatusIcon className="h-6 w-6 text-primary" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h3 className="font-semibold">{order.profiles?.full_name || `${order.first_name} ${order.last_name}`}</h3>
+                                      <Badge className={getStatusColor(order.status)}>
+                                        {getStatusText(order.status)}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                                      <MapPin className="h-4 w-4" />
+                                      {order.address}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {order.service_name} - {order.final_price}€
+                                    </div>
+                                    {order.special_instructions && (
+                                      <div className="text-sm text-muted-foreground mt-1">
+                                        <strong>Lisätiedot:</strong> {order.special_instructions}
+                                      </div>
+                                    )}
+                                    {renderRugDimensions(order.order_items || [])}
+                                  </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                  {canProgress && (
+                                    <Button 
+                                      variant="default" 
+                                      size="sm"
+                                      onClick={() => handleStatusUpdate(order.id, getNextStatus(order.status))}
+                                      className="w-36"
+                                    >
+                                      {getNextStatusText(order.status)}
+                                    </Button>
+                                  )}
+                                  {order.status === 'accepted' && !order.actual_pickup_time && (
+                                    <Button variant="outline" size="sm" onClick={() => setShowTimeForm(order.id)} className="w-36">
+                                      Aseta ajat
+                                    </Button>
+                                  )}
+                                  <Button variant="ghost" size="sm" onClick={() => window.open(`tel:${order.phone}`)} className="w-36 text-xs">
+                                    <Phone className="h-4 w-4 mr-1" />
+                                    Soita asiakkaalle
+                                  </Button>
+                                </div>
                               </div>
-                            )}
-                            {renderRugDimensions(order.order_items || [])}
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-col gap-2">
-                          {canProgress && (
-                            <Button 
-                              variant="default" 
-                              size="sm"
-                              onClick={() => handleStatusUpdate(order.id, getNextStatus(order.status))}
-                              className="w-36"
-                            >
-                              {getNextStatusText(order.status)}
-                            </Button>
-                          )}
-                          
-                          {order.status === 'accepted' && !order.actual_pickup_time && (
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setShowTimeForm(order.id)}
-                              className="w-36"
-                            >
-                              Aseta ajat
-                            </Button>
-                          )}
-                          
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => window.open(`tel:${order.phone}`)}
-                            className="w-36 text-xs"
-                          >
-                            <Phone className="h-4 w-4 mr-1" />
-                            Soita asiakkaalle
-                          </Button>
-                        </div>
-                      </div>
+                              <div className="border-t pt-4 grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <strong>Nouto:</strong><br />
+                                  {new Date(order.pickup_date).toLocaleDateString('fi-FI')} klo {order.pickup_time}
+                                  {order.actual_pickup_time && (
+                                    <div className="text-green-600">Todellinen: {new Date(order.actual_pickup_time).toLocaleString('fi-FI')}</div>
+                                  )}
+                                </div>
+                                <div>
+                                  <strong>Palautus:</strong><br />
+                                  {new Date(order.return_date).toLocaleDateString('fi-FI')} klo {order.return_time}
+                                  {order.actual_return_time && (
+                                    <div className="text-green-600">Todellinen: {new Date(order.actual_return_time).toLocaleString('fi-FI')}</div>
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-xl font-semibold mb-2">Ei omia tilauksia</h3>
+                    <p className="text-muted-foreground">Hyväksy vapaita tilauksia aloittaaksesi.</p>
+                  </div>
+                )}
+              </TabsContent>
 
-                      {/* Order Details */}
-                      <div className="border-t pt-4 grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <strong>Nouto:</strong><br />
-                          {new Date(order.pickup_date).toLocaleDateString('fi-FI')} klo {order.pickup_time}
-                          {order.actual_pickup_time && (
-                            <div className="text-green-600">
-                              Todellinen: {new Date(order.actual_pickup_time).toLocaleString('fi-FI')}
+              <TabsContent value="free">
+                {pendingOrders.length > 0 ? (
+                  <div className="space-y-4">
+                    {pendingOrders.map((order) => (
+                      <Card key={order.id} className="hover:shadow-elegant transition-all duration-300">
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-yellow-100">
+                                <Clock className="h-6 w-6 text-yellow-600" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="font-semibold">{order.profiles?.full_name || `${order.first_name} ${order.last_name}`}</h3>
+                                  <Badge variant="outline">{order.service_name}</Badge>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                                  <MapPin className="h-4 w-4" />
+                                  {order.address}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  Tilattu: {new Date(order.created_at).toLocaleString('fi-FI')}
+                                </div>
+                                {renderRugDimensions(order.order_items || [])}
+                                <div className="text-lg font-semibold text-primary mt-2">{order.final_price}€</div>
+                              </div>
                             </div>
-                          )}
-                        </div>
-                        <div>
-                          <strong>Palautus:</strong><br />
-                          {new Date(order.return_date).toLocaleDateString('fi-FI')} klo {order.return_time}
-                          {order.actual_return_time && (
-                            <div className="text-green-600">
-                              Todellinen: {new Date(order.actual_return_time).toLocaleString('fi-FI')}
+                            <div className="flex flex-col gap-2">
+                              <Button variant="hero" size="sm" onClick={() => handleAcceptOrder(order.id)} className="w-28">
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Hyväksy
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => setShowRejectDialog(order.id)} className="w-28">
+                                <X className="h-4 w-4 mr-1" />
+                                Hylkää
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => window.open(`tel:${order.phone}`)} className="w-28 text-xs">
+                                <Phone className="h-4 w-4 mr-1" />
+                                Soita
+                              </Button>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-xl font-semibold mb-2">Ei vapaita tilauksia</h3>
+                    <p className="text-muted-foreground">Tarkista myöhemmin uudelleen.</p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
 
             {!loading && pendingOrders.length === 0 && myOrders.length === 0 && (
               <div className="text-center py-12">
                 <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-xl font-semibold mb-2">Ei tilauksia</h3>
-                <p className="text-muted-foreground">
-                  Tällä hetkellä ei ole uusia tilauksia saatavilla.
-                </p>
+                <p className="text-muted-foreground">Tällä hetkellä ei ole uusia tilauksia saatavilla.</p>
               </div>
             )}
           </>
