@@ -6,22 +6,153 @@ import { Label } from "@/components/ui/label";
 import { CreditCard, Banknote, TestTube } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PaymentOptionsProps {
-  orderId: string;
+  cartItems: Array<{
+    id: string;
+    type: 'service' | 'addon' | 'bundle';
+    serviceId: string;
+    name: string;
+    description: string;
+    price: number;
+    quantity: number;
+    metadata?: any;
+  }>;
+  appliedCoupon?: {
+    code: string;
+    discount_type: string;
+    discount_value: number;
+  } | null;
+  formData: {
+    phone: string;
+    address: string;
+    specialInstructions: string;
+    pickupOption: string;
+    pickupDate: string;
+    pickupTime: string;
+    returnOption: string;
+    returnDate: string;
+    returnTime: string;
+  };
   amount: number;
   onPaymentComplete: () => void;
   onPaymentCancel: () => void;
 }
 
-export function PaymentOptions({ orderId, amount, onPaymentComplete, onPaymentCancel }: PaymentOptionsProps) {
+export function PaymentOptions({ cartItems, appliedCoupon, formData, amount, onPaymentComplete, onPaymentCancel }: PaymentOptionsProps) {
   const [paymentMethod, setPaymentMethod] = useState<string>("stripe");
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const createOrder = async () => {
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().slice(0, 5);
+    
+    // Calculate subtotal
+    const subtotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+    
+    // Create the main order first
+    const { data: orderData, error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        user_id: user.id,
+        service_type: 'multiple',
+        service_name: cartItems.length === 1 ? cartItems[0].name : `${cartItems.length} palvelua`,
+        price: subtotal,
+        final_price: amount,
+        first_name: 'Asiakas',
+        last_name: 'Asiakas',
+        phone: formData.phone,
+        address: formData.address,
+        special_instructions: formData.specialInstructions || null,
+        pickup_option: formData.pickupOption,
+        pickup_date: formData.pickupOption === 'choose_time' ? formData.pickupDate : currentDate,
+        pickup_time: formData.pickupOption === 'choose_time' ? formData.pickupTime : currentTime,
+        return_option: formData.returnOption,
+        return_date: formData.returnOption === 'choose_time' ? formData.returnDate : currentDate,
+        return_time: formData.returnOption === 'choose_time' ? formData.returnTime : currentTime,
+        discount_code: appliedCoupon?.code || null,
+        terms_accepted: true,
+        status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (orderError) throw orderError;
+
+    // Create order items
+    const orderItems = cartItems.map(item => ({
+      order_id: orderData.id,
+      service_type: item.serviceId,
+      service_name: item.name,
+      quantity: item.quantity,
+      unit_price: item.price,
+      total_price: item.price * item.quantity,
+      metadata: item.metadata || null,
+      rug_dimensions: item.metadata?.rugDimensions ? 
+        `${item.metadata.rugDimensions.length}cm x ${item.metadata.rugDimensions.width}cm` : 
+        null
+    }));
+
+    const { error: itemsError } = await supabase
+      .from('order_items')
+      .insert(orderItems);
+
+    if (itemsError) {
+      throw itemsError;
+    }
+
+    // Update coupon usage count if one was applied
+    if (appliedCoupon) {
+      const { data: currentCoupon } = await supabase
+        .from('coupons')
+        .select('usage_count')
+        .eq('code', appliedCoupon.code)
+        .single();
+      
+      if (currentCoupon) {
+        await supabase
+          .from('coupons')
+          .update({ 
+            usage_count: currentCoupon.usage_count + 1
+          })
+          .eq('code', appliedCoupon.code);
+      }
+    }
+
+    // Update user's profile with phone and address if needed
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('address, phone')
+      .eq('user_id', user.id)
+      .single();
+
+    if (currentProfile && (currentProfile.address !== formData.address || currentProfile.phone !== formData.phone)) {
+      await supabase
+        .from('profiles')
+        .update({ 
+          address: formData.address,
+          phone: formData.phone 
+        })
+        .eq('user_id', user.id);
+    }
+
+    return orderData.id;
+  };
 
   const handleStripePayment = async () => {
     setIsProcessing(true);
     try {
+      // First create the order
+      const orderId = await createOrder();
+      
       const { data, error } = await supabase.functions.invoke('create-payment', {
         body: {
           order_id: orderId,
@@ -35,6 +166,7 @@ export function PaymentOptions({ orderId, amount, onPaymentComplete, onPaymentCa
       if (data?.url) {
         // Open Stripe checkout in a new tab
         window.open(data.url, '_blank');
+        onPaymentComplete();
       }
     } catch (error) {
       console.error('Payment error:', error);
@@ -51,6 +183,9 @@ export function PaymentOptions({ orderId, amount, onPaymentComplete, onPaymentCa
   const handleCashPayment = async () => {
     setIsProcessing(true);
     try {
+      // First create the order
+      const orderId = await createOrder();
+      
       const { error } = await supabase
         .from("orders")
         .update({
@@ -85,6 +220,9 @@ export function PaymentOptions({ orderId, amount, onPaymentComplete, onPaymentCa
   const handleFreePayment = async () => {
     setIsProcessing(true);
     try {
+      // First create the order
+      const orderId = await createOrder();
+      
       const { error } = await supabase
         .from("orders")
         .update({

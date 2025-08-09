@@ -65,7 +65,6 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
   const [couponLoading, setCouponLoading] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
-  const [orderId, setOrderId] = useState<string>("");
 
   // Fetch user profile data and populate form
   useEffect(() => {
@@ -317,99 +316,11 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
     setLoading(true);
 
     try {
-      const finalPrice = calculateFinalPrice();
-      const subtotal = calculateSubtotal();
-      const now = new Date();
-      const currentDate = now.toISOString().split('T')[0];
-      const currentTime = now.toTimeString().slice(0, 5);
-      
-      // Create the main order first
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          user_id: user.id,
-          service_type: 'multiple', // Indicate this is a multi-item order
-          service_name: cartItems.length === 1 ? cartItems[0].name : `${cartItems.length} palvelua`,
-          price: subtotal,
-          final_price: finalPrice,
-          first_name: 'Asiakas', // Default value since we removed name fields
-          last_name: 'Asiakas', // Default value since we removed name fields
-          phone: formData.phone,
-          address: formData.address,
-          special_instructions: formData.specialInstructions || null,
-          pickup_option: formData.pickupOption,
-          pickup_date: formData.pickupOption === 'choose_time' ? formData.pickupDate : currentDate,
-          pickup_time: formData.pickupOption === 'choose_time' ? formData.pickupTime : currentTime,
-          return_option: formData.returnOption,
-          return_date: formData.returnOption === 'choose_time' ? formData.returnDate : currentDate,
-          return_time: formData.returnOption === 'choose_time' ? formData.returnTime : currentTime,
-          discount_code: appliedCoupon?.code || null,
-          terms_accepted: termsAccepted,
-          status: 'pending'
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Create order items
-      const orderItems = cartItems.map(item => ({
-        order_id: orderData.id,
-        service_type: item.serviceId,
-        service_name: item.name,
-        quantity: item.quantity,
-        unit_price: item.price,
-        total_price: item.price * item.quantity,
-        metadata: item.metadata || null,
-        rug_dimensions: item.metadata?.rugDimensions ? 
-          `${item.metadata.rugDimensions.length}cm x ${item.metadata.rugDimensions.width}cm` : 
-          null
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsError) {
-        throw itemsError;
-      }
-
-      // Update coupon usage count if one was applied
-      if (appliedCoupon) {
-        // Get current usage count and increment it
-        const { data: currentCoupon } = await supabase
-          .from('coupons')
-          .select('usage_count')
-          .eq('code', appliedCoupon.code)
-          .single();
-        
-        if (currentCoupon) {
-          await supabase
-            .from('coupons')
-            .update({ 
-              usage_count: currentCoupon.usage_count + 1
-            })
-            .eq('code', appliedCoupon.code);
-        }
-      }
-
-      // Update user's profile with phone and address if they were changed
-      if (userProfile?.address !== formData.address || userProfile?.phone !== formData.phone) {
-        await supabase
-          .from('profiles')
-          .update({ 
-            address: formData.address,
-            phone: formData.phone 
-          })
-          .eq('user_id', user.id);
-      }
-      
-      // Show payment options instead of completing immediately
-      setOrderId(orderData.id);
+      // Show payment options instead of creating order here
       setShowPayment(true);
       
       toast({
-        title: "Tilaus luotu!",
+        title: "Tiedot vahvistettu!",
         description: "Valitse maksutapa viimeistelläksesi tilauksen."
       });
     } catch (error: any) {
@@ -822,21 +733,6 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
                     )}
                   </div>
 
-                  {/* Payment Methods */}
-                  <div className="space-y-4">
-                    <h4 className="font-semibold">Maksutavat</h4>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="border rounded-lg p-4 text-center hover:border-primary cursor-pointer transition-colors">
-                        <div className="font-semibold">MobilePay</div>
-                      </div>
-                      <div className="border rounded-lg p-4 text-center hover:border-primary cursor-pointer transition-colors">
-                        <div className="font-semibold">Visa</div>
-                      </div>
-                      <div className="border rounded-lg p-4 text-center hover:border-primary cursor-pointer transition-colors">
-                        <div className="font-semibold">Klarna</div>
-                      </div>
-                    </div>
-                  </div>
 
                   {/* Terms and Conditions */}
                   <div className="space-y-4">
@@ -865,7 +761,7 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
                     className="w-full"
                     disabled={loading}
                   >
-                    {loading ? 'Käsitellään...' : `Vahvista tilaus (${calculateFinalPrice().toFixed(2)}€)`}
+                    {loading ? 'Käsitellään...' : `Valitse maksutapa (${calculateFinalPrice().toFixed(2)}€)`}
                   </Button>
                 </>
               )}
@@ -886,7 +782,9 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
       {showPayment && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <PaymentOptions
-            orderId={orderId}
+            cartItems={cartItems}
+            appliedCoupon={appliedCoupon}
+            formData={formData}
             amount={calculateFinalPrice()}
             onPaymentComplete={() => {
               setShowPayment(false);
