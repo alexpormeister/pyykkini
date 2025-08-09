@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { DriverCalendar } from "./DriverCalendar";
+import { DriverTimeManager } from "./DriverTimeManager";
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -798,11 +799,6 @@ export const DriverPanel = () => {
                                       {getNextStatusText(order.status)}
                                     </Button>
                                   )}
-                                   {order.status === 'accepted' && !order.actual_pickup_time && (
-                                    <Button variant="outline" size="sm" onClick={() => setShowTimeForm(order.id)} className="w-36">
-                                      Aseta ajat
-                                    </Button>
-                                  )}
                                   {(order.status === 'picking_up' || order.status === 'washing') && !order.pickup_weight_kg && (
                                     <Button variant="outline" size="sm" onClick={() => handleWeightInput(order.id, 'pickup')} className="w-36">
                                       <Scale className="h-4 w-4 mr-1" />
@@ -821,21 +817,11 @@ export const DriverPanel = () => {
                                   </Button>
                                 </div>
                               </div>
-                              <div className="border-t pt-4 grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                  <strong>Nouto:</strong><br />
-                                  {new Date(order.pickup_date).toLocaleDateString('fi-FI')} klo {order.pickup_time}
-                                  {order.actual_pickup_time && (
-                                    <div className="text-green-600">Todellinen: {new Date(order.actual_pickup_time).toLocaleString('fi-FI')}</div>
-                                  )}
-                                </div>
-                                <div>
-                                  <strong>Palautus:</strong><br />
-                                  {new Date(order.return_date).toLocaleDateString('fi-FI')} klo {order.return_time}
-                                  {order.actual_return_time && (
-                                    <div className="text-green-600">Todellinen: {new Date(order.actual_return_time).toLocaleString('fi-FI')}</div>
-                                  )}
-                                </div>
+                              <div className="border-t pt-4">
+                                <DriverTimeManager 
+                                  order={order} 
+                                  onOrderUpdate={fetchOrders}
+                                />
                               </div>
                             </CardContent>
                           </Card>
@@ -879,10 +865,10 @@ export const DriverPanel = () => {
                               </div>
                             </div>
                             <div className="flex flex-col gap-2">
-                              <Button variant="hero" size="sm" onClick={() => handleAcceptOrder(order.id)} className="w-28">
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Hyväksy
-                              </Button>
+                              <DriverTimeManager 
+                                order={order} 
+                                onOrderUpdate={fetchOrders}
+                              />
                               <Button variant="outline" size="sm" onClick={() => setShowRejectDialog(order.id)} className="w-28">
                                 <X className="h-4 w-4 mr-1" />
                                 Hylkää

@@ -29,11 +29,18 @@ interface PaymentOptionsProps {
     address: string;
     specialInstructions: string;
     pickupOption: string;
-    pickupDate: string;
-    pickupTime: string;
-    returnOption: string;
-    returnDate: string;
-    returnTime: string;
+    selectedTimeSlot?: {
+      start: string;
+      end: string;
+      date: string;
+      display: string;
+    };
+    estimatedReturnSlot?: {
+      start: string;
+      end: string;
+      date: string;
+      display: string;
+    };
   };
   amount: number;
   onPaymentComplete: () => void;
@@ -73,11 +80,11 @@ export function PaymentOptions({ cartItems, appliedCoupon, formData, amount, onP
         address: formData.address,
         special_instructions: formData.specialInstructions || null,
         pickup_option: formData.pickupOption,
-        pickup_date: formData.pickupOption === 'choose_time' ? formData.pickupDate : currentDate,
-        pickup_time: formData.pickupOption === 'choose_time' ? formData.pickupTime : currentTime,
-        return_option: formData.returnOption,
-        return_date: formData.returnOption === 'choose_time' ? formData.returnDate : currentDate,
-        return_time: formData.returnOption === 'choose_time' ? formData.returnTime : currentTime,
+        pickup_date: formData.selectedTimeSlot?.date || currentDate,
+        pickup_time: formData.selectedTimeSlot?.start || currentTime,
+        return_option: 'automatic',
+        return_date: formData.estimatedReturnSlot?.date || currentDate,
+        return_time: formData.estimatedReturnSlot?.start || currentTime,
         discount_code: appliedCoupon?.code || null,
         terms_accepted: true,
         status: 'pending'

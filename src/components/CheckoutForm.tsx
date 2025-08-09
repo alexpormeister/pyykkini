@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SimpleMap } from './SimpleMap';
 import { RugDimensionsDialog } from './RugDimensionsDialog';
 import { PaymentOptions } from './PaymentOptions';
+import { TimeSlotSelector } from './TimeSlotSelector';
 
 interface CheckoutFormProps {
   cartItems: Array<{
@@ -52,13 +53,10 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
     phone: '',
     address: '',
     specialInstructions: '',
-    pickupOption: '', // 'immediate', 'choose_time'
-    pickupDate: '',
-    pickupTime: '',
-    returnOption: '', // 'immediate', 'choose_time'
-    returnDate: '',
-    returnTime: ''
+    pickupOption: '' as 'asap' | 'choose_time' | ''
   });
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<any>(null);
+  const [estimatedReturnSlot, setEstimatedReturnSlot] = useState<any>(null);
   const [showRugDimensionsDialog, setShowRugDimensionsDialog] = useState(false);
   const [pendingRugItem, setPendingRugItem] = useState<any>(null);
   const [couponCode, setCouponCode] = useState('');
@@ -277,29 +275,11 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
       return;
     }
 
-    if (!formData.pickupOption || !formData.returnOption) {
+    if (!formData.pickupOption || !selectedTimeSlot) {
       toast({
         variant: "destructive", 
         title: "Puuttuvia tietoja",
-        description: "Valitse sekä nouto- että palautustapa."
-      });
-      return;
-    }
-
-    if (formData.pickupOption === 'choose_time' && (!formData.pickupDate || !formData.pickupTime)) {
-      toast({
-        variant: "destructive",
-        title: "Puuttuvia tietoja", 
-        description: "Valitse noutopäivä ja -aika."
-      });
-      return;
-    }
-
-    if (formData.returnOption === 'choose_time' && (!formData.returnDate || !formData.returnTime)) {
-      toast({
-        variant: "destructive",
-        title: "Puuttuvia tietoja",
-        description: "Valitse palautuspäivä ja -aika."
+        description: "Valitse noutotapa ja -aika."
       });
       return;
     }
@@ -511,172 +491,15 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
                     )}
                   </div>
 
-                  {/* Pickup and Return Times */}
-                  <div className="space-y-6">
-                    <h4 className="font-semibold">Nouto- ja palautusajat</h4>
-                    
-                    {/* Pickup Options */}
-                    <div className="space-y-4">
-                      <Label className="text-base font-medium">Noudon ajankohta *</Label>
-                      <div className="grid grid-cols-1 gap-3">
-                        <div 
-                          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.pickupOption === 'immediate' 
-                              ? 'border-primary bg-primary/5' 
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                          onClick={() => handleInputChange('pickupOption', 'immediate')}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-4 h-4 rounded-full border-2 ${
-                              formData.pickupOption === 'immediate' 
-                                ? 'border-primary bg-primary' 
-                                : 'border-muted-foreground'
-                            }`}>
-                              {formData.pickupOption === 'immediate' && (
-                                <div className="w-full h-full rounded-full bg-white scale-50"></div>
-                              )}
-                            </div>
-                            <div>
-                              <h5 className="font-medium">Heti kun mahdollista</h5>
-                              <p className="text-sm text-muted-foreground">Nouto järjestetään seuraavana työpäivänä</p>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div 
-                          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.pickupOption === 'choose_time' 
-                              ? 'border-primary bg-primary/5' 
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                          onClick={() => handleInputChange('pickupOption', 'choose_time')}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-4 h-4 rounded-full border-2 ${
-                              formData.pickupOption === 'choose_time' 
-                                ? 'border-primary bg-primary' 
-                                : 'border-muted-foreground'
-                            }`}>
-                              {formData.pickupOption === 'choose_time' && (
-                                <div className="w-full h-full rounded-full bg-white scale-50"></div>
-                              )}
-                            </div>
-                            <div>
-                              <h5 className="font-medium">Valitse aika</h5>
-                              <p className="text-sm text-muted-foreground">Määritä tarkka noutopäivä ja -aika</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Date and Time Inputs for Pickup */}
-                      {formData.pickupOption === 'choose_time' && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="pickup-date">Noutopäivä</Label>
-                            <Input
-                              id="pickup-date"
-                              type="date"
-                              value={formData.pickupDate}
-                              onChange={(e) => handleInputChange('pickupDate', e.target.value)}
-                              min={new Date().toISOString().split('T')[0]}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="pickup-time">Noutoaika</Label>
-                            <Input
-                              id="pickup-time"
-                              type="time"
-                              value={formData.pickupTime}
-                              onChange={(e) => handleInputChange('pickupTime', e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Return Options */}
-                    <div className="space-y-4">
-                      <Label className="text-base font-medium">Palautuksen ajankohta *</Label>
-                      <div className="grid grid-cols-1 gap-3">
-                        <div 
-                          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.returnOption === 'immediate' 
-                              ? 'border-primary bg-primary/5' 
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                          onClick={() => handleInputChange('returnOption', 'immediate')}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-4 h-4 rounded-full border-2 ${
-                              formData.returnOption === 'immediate' 
-                                ? 'border-primary bg-primary' 
-                                : 'border-muted-foreground'
-                            }`}>
-                              {formData.returnOption === 'immediate' && (
-                                <div className="w-full h-full rounded-full bg-white scale-50"></div>
-                              )}
-                            </div>
-                            <div>
-                              <h5 className="font-medium">Heti kun valmis</h5>
-                              <p className="text-sm text-muted-foreground">Palautus heti kun pesu on valmis</p>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div 
-                          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.returnOption === 'choose_time' 
-                              ? 'border-primary bg-primary/5' 
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                          onClick={() => handleInputChange('returnOption', 'choose_time')}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-4 h-4 rounded-full border-2 ${
-                              formData.returnOption === 'choose_time' 
-                                ? 'border-primary bg-primary' 
-                                : 'border-muted-foreground'
-                            }`}>
-                              {formData.returnOption === 'choose_time' && (
-                                <div className="w-full h-full rounded-full bg-white scale-50"></div>
-                              )}
-                            </div>
-                            <div>
-                              <h5 className="font-medium">Valitse aika</h5>
-                              <p className="text-sm text-muted-foreground">Määritä tarkka palautuspäivä ja -aika</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Date and Time Inputs for Return */}
-                      {formData.returnOption === 'choose_time' && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="return-date">Palautuspäivä</Label>
-                            <Input
-                              id="return-date"
-                              type="date"
-                              value={formData.returnDate}
-                              onChange={(e) => handleInputChange('returnDate', e.target.value)}
-                              min={new Date().toISOString().split('T')[0]}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="return-time">Palautusaika</Label>
-                            <Input
-                              id="return-time"
-                              type="time"
-                              value={formData.returnTime}
-                              onChange={(e) => handleInputChange('returnTime', e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  {/* Time Slot Selection */}
+                  <TimeSlotSelector
+                    selectedPickupOption={formData.pickupOption}
+                    onPickupOptionChange={(option) => setFormData(prev => ({ ...prev, pickupOption: option }))}
+                    selectedTimeSlot={selectedTimeSlot}
+                    onTimeSlotChange={setSelectedTimeSlot}
+                    estimatedReturnSlot={estimatedReturnSlot}
+                    onEstimatedReturnChange={setEstimatedReturnSlot}
+                  />
 
                   {/* Special Instructions */}
                   <div className="space-y-4">
@@ -784,7 +607,11 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
           <PaymentOptions
             cartItems={cartItems}
             appliedCoupon={appliedCoupon}
-            formData={formData}
+            formData={{
+              ...formData,
+              selectedTimeSlot,
+              estimatedReturnSlot
+            }}
             amount={calculateFinalPrice()}
             onPaymentComplete={() => {
               setShowPayment(false);
@@ -792,13 +619,10 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
                 phone: '',
                 address: '',
                 specialInstructions: '',
-                pickupOption: '',
-                pickupDate: '',
-                pickupTime: '',
-                returnOption: '',
-                returnDate: '',
-                returnTime: ''
+                pickupOption: ''
               });
+              setSelectedTimeSlot(null);
+              setEstimatedReturnSlot(null);
               onSuccess();
             }}
             onPaymentCancel={() => setShowPayment(false)}
