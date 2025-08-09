@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { SimpleMap } from './SimpleMap';
 import { RugDimensionsDialog } from './RugDimensionsDialog';
+import { PaymentOptions } from './PaymentOptions';
 
 interface CheckoutFormProps {
   cartItems: Array<{
@@ -63,6 +64,8 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
   const [couponCode, setCouponCode] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [orderId, setOrderId] = useState<string>("");
 
   // Fetch user profile data and populate form
   useEffect(() => {
@@ -401,24 +404,14 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
           .eq('user_id', user.id);
       }
       
+      // Show payment options instead of completing immediately
+      setOrderId(orderData.id);
+      setShowPayment(true);
+      
       toast({
-        title: "Tilaus vastaanotettu!",
-        description: `Tilauksesi ${cartItems.length} tuotetta on käsittelyssä. Saat vahvistuksen pian.`
+        title: "Tilaus luotu!",
+        description: "Valitse maksutapa viimeistelläksesi tilauksen."
       });
-      
-      setFormData({
-        phone: '',
-        address: '',
-        specialInstructions: '',
-        pickupOption: '',
-        pickupDate: '',
-        pickupTime: '',
-        returnOption: '',
-        returnDate: '',
-        returnTime: ''
-      });
-      
-      onSuccess();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -888,6 +881,32 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
         onConfirm={handleRugDimensions}
         rugName={pendingRugItem?.name || ''}
       />
+
+      {/* Payment Modal */}
+      {showPayment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <PaymentOptions
+            orderId={orderId}
+            amount={calculateFinalPrice()}
+            onPaymentComplete={() => {
+              setShowPayment(false);
+              setFormData({
+                phone: '',
+                address: '',
+                specialInstructions: '',
+                pickupOption: '',
+                pickupDate: '',
+                pickupTime: '',
+                returnOption: '',
+                returnDate: '',
+                returnTime: ''
+              });
+              onSuccess();
+            }}
+            onPaymentCancel={() => setShowPayment(false)}
+          />
+        </div>
+      )}
     </div>
   );
 };

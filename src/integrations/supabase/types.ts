@@ -254,6 +254,10 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          paid_at: string | null
+          payment_amount: number | null
+          payment_method: string | null
+          payment_status: string | null
           phone: string
           pickup_date: string
           pickup_option: string | null
@@ -272,6 +276,8 @@ export type Database = {
           service_type: string
           special_instructions: string | null
           status: Database["public"]["Enums"]["order_status"] | null
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string | null
           terms_accepted: boolean
           updated_at: string
           user_id: string
@@ -289,6 +295,10 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          paid_at?: string | null
+          payment_amount?: number | null
+          payment_method?: string | null
+          payment_status?: string | null
           phone: string
           pickup_date: string
           pickup_option?: string | null
@@ -307,6 +317,8 @@ export type Database = {
           service_type: string
           special_instructions?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
           terms_accepted?: boolean
           updated_at?: string
           user_id: string
@@ -324,6 +336,10 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          paid_at?: string | null
+          payment_amount?: number | null
+          payment_method?: string | null
+          payment_status?: string | null
           phone?: string
           pickup_date?: string
           pickup_option?: string | null
@@ -342,6 +358,8 @@ export type Database = {
           service_type?: string
           special_instructions?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
           terms_accepted?: boolean
           updated_at?: string
           user_id?: string
