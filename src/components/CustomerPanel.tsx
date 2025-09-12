@@ -222,7 +222,7 @@ export const CustomerPanel = () => {
             />
           </div>
           <h1 className="text-4xl md:text-5xl font-fredoka font-bold mb-4 bg-gradient-hero bg-clip-text text-transparent">
-            🧺 Pesupalvelu helposti! 
+            Pesupalvelu helposti! 
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto font-fredoka">
             ✨ Tilaa pesupalvelu kotiin - me noudamme, pesemme ja tuomme takaisin puhtaana! 🏠💨
