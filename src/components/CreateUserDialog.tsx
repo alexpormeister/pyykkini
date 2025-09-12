@@ -48,8 +48,21 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
       if (signUpError) throw signUpError;
 
       if (data.user) {
-        // Wait a bit for the trigger to create the profile, then update it with additional info
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // The trigger creates profile and customer role automatically
+        // We need to update the role if it's not customer, and update profile info
+        
+        if (formData.role !== 'customer') {
+          // Update the role if different from default customer role
+          const { error: roleError } = await supabase
+            .from('user_roles')
+            .update({ role: formData.role as 'admin' | 'driver' | 'customer' })
+            .eq('user_id', data.user.id);
+
+          if (roleError) throw roleError;
+        }
+
+        // Wait a moment for trigger, then update profile with additional info
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         const { error: profileError } = await supabase
           .from('profiles')
@@ -60,16 +73,6 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
           .eq('user_id', data.user.id);
 
         if (profileError) throw profileError;
-
-        // Set user role - INSERT instead of UPDATE since it's a new user
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({ 
-            user_id: data.user.id,
-            role: formData.role as 'admin' | 'driver' | 'customer' 
-          });
-
-        if (roleError) throw roleError;
 
         toast({
           title: 'Käyttäjä luotu',
