@@ -48,7 +48,9 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
       if (signUpError) throw signUpError;
 
       if (data.user) {
-        // Update profile with additional info
+        // Wait a bit for the trigger to create the profile, then update it with additional info
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
@@ -59,11 +61,13 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
 
         if (profileError) throw profileError;
 
-        // Set user role
+        // Set user role - INSERT instead of UPDATE since it's a new user
         const { error: roleError } = await supabase
           .from('user_roles')
-          .update({ role: formData.role as 'admin' | 'driver' | 'customer' })
-          .eq('user_id', data.user.id);
+          .insert({ 
+            user_id: data.user.id,
+            role: formData.role as 'admin' | 'driver' | 'customer' 
+          });
 
         if (roleError) throw roleError;
 

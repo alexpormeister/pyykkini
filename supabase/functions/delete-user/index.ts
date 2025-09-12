@@ -79,7 +79,85 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Delete from user_roles first
+    // Delete all related data in correct order to avoid foreign key constraints
+    console.log('Starting deletion of related data...');
+
+    // 1. Delete order history records where this user made changes
+    const { error: historyError } = await supabase
+      .from('order_history')
+      .delete()
+      .eq('changed_by', userId);
+
+    if (historyError) {
+      console.error('Error deleting order history:', historyError);
+    } else {
+      console.log('Deleted order history records');
+    }
+
+    // 2. Delete order rejections by this user
+    const { error: rejectionsError } = await supabase
+      .from('order_rejections')
+      .delete()
+      .eq('driver_id', userId);
+
+    if (rejectionsError) {
+      console.error('Error deleting order rejections:', rejectionsError);
+    } else {
+      console.log('Deleted order rejections');
+    }
+
+    // 3. Delete driver calendar events
+    const { error: calendarError } = await supabase
+      .from('driver_calendar_events')
+      .delete()
+      .eq('driver_id', userId);
+
+    if (calendarError) {
+      console.error('Error deleting calendar events:', calendarError);
+    } else {
+      console.log('Deleted calendar events');
+    }
+
+    // 4. Delete driver shifts
+    const { error: shiftsError } = await supabase
+      .from('driver_shifts')
+      .delete()
+      .eq('driver_id', userId);
+
+    if (shiftsError) {
+      console.error('Error deleting driver shifts:', shiftsError);
+    } else {
+      console.log('Deleted driver shifts');
+    }
+
+    // 5. Update orders to remove driver assignments and user associations
+    const { error: orderUpdateError } = await supabase
+      .from('orders')
+      .update({ 
+        driver_id: null,
+        rejected_by: null 
+      })
+      .or(`driver_id.eq.${userId},rejected_by.eq.${userId}`);
+
+    if (orderUpdateError) {
+      console.error('Error updating orders:', orderUpdateError);
+    } else {
+      console.log('Updated orders to remove user references');
+    }
+
+    // 6. Delete orders created by this user
+    const { error: ordersError } = await supabase
+      .from('orders')
+      .delete()
+      .eq('user_id', userId);
+
+    if (ordersError) {
+      console.error('Error deleting user orders:', ordersError);
+    } else {
+      console.log('Deleted user orders');
+    }
+
+    // 7. Delete from user_roles
     const { error: rolesError } = await supabase
       .from('user_roles')
       .delete()
@@ -87,9 +165,11 @@ Deno.serve(async (req) => {
 
     if (rolesError) {
       console.error('Error deleting user roles:', rolesError);
+    } else {
+      console.log('Deleted user roles');
     }
 
-    // Delete from profiles
+    // 8. Delete from profiles
     const { error: profileError } = await supabase
       .from('profiles')
       .delete()
@@ -97,6 +177,8 @@ Deno.serve(async (req) => {
 
     if (profileError) {
       console.error('Error deleting user profile:', profileError);
+    } else {
+      console.log('Deleted user profile');
     }
 
     // Delete from auth.users (this requires service role)
