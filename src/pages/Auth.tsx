@@ -24,7 +24,8 @@ export const Auth = () => {
   const [signInPassword, setSignInPassword] = useState('');
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
-  const [signUpFullName, setSignUpFullName] = useState('');
+  const [signUpFirstName, setSignUpFirstName] = useState('');
+  const [signUpLastName, setSignUpLastName] = useState('');
   const [signUpPhone, setSignUpPhone] = useState('');
   const [signUpAddress, setSignUpAddress] = useState('');
   const [showExtraFields, setShowExtraFields] = useState(false);
@@ -69,17 +70,55 @@ export const Auth = () => {
     }
   };
 
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validateName = (name: string) => {
+    const nameRegex = /^[a-zA-ZäöåÄÖÅ\s-]+$/;
+    return nameRegex.test(name);
+  };
+
+  const validateAddress = (address: string) => {
+    const addressRegex = /^[a-zA-Z0-9äöåÄÖÅ\s.,\-()]+$/;
+    return addressRegex.test(address);
+  };
+
   const handleInitialSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signUpEmail || !signUpPassword || !signUpFullName) {
+    
+    if (!signUpEmail || !signUpPassword || !signUpFirstName || !signUpLastName) {
       toast({
         variant: "destructive",
         title: "Täytä kaikki kentät",
-        description: "Sähköposti, salasana ja nimi ovat pakollisia."
+        description: "Sähköposti, salasana ja nimet ovat pakollisia."
       });
       return;
     }
-    setShowExtraFields(true);
+
+    if (!validateEmail(signUpEmail)) {
+      toast({
+        variant: "destructive",
+        title: "Virheellinen sähköposti",
+        description: "Anna kelvollinen sähköpostiosoite."
+      });
+      return;
+    }
+
+    if (!validateName(signUpFirstName) || !validateName(signUpLastName)) {
+      toast({
+        variant: "destructive",
+        title: "Virheellinen nimi",
+        description: "Nimissä saa olla vain kirjaimia."
+      });
+      return;
+    }
+
+    // Add smooth transition effect
+    setTimeout(() => {
+      setShowExtraFields(true);
+    }, 150);
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -122,6 +161,15 @@ export const Auth = () => {
       return;
     }
 
+    if (!validateAddress(signUpAddress)) {
+      toast({
+        variant: "destructive",
+        title: "Virheellinen osoite",
+        description: "Osoite sisältää kiellettyjä merkkejä."
+      });
+      return;
+    }
+
     // Validate phone number - only allow numbers, +, -, and spaces
     const phoneRegex = /^[\d\s\-\+\(\)]+$/;
     if (!phoneRegex.test(signUpPhone)) {
@@ -136,7 +184,8 @@ export const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await signUp(signUpEmail, signUpPassword, signUpFullName);
+      const fullName = `${signUpFirstName} ${signUpLastName}`;
+      const { error } = await signUp(signUpEmail, signUpPassword, fullName);
       
       if (error) {
         if (error.message.includes('already registered')) {
@@ -173,7 +222,8 @@ export const Auth = () => {
         // Clear form and reset to first step
         setSignUpEmail('');
         setSignUpPassword('');
-        setSignUpFullName('');
+        setSignUpFirstName('');
+        setSignUpLastName('');
         setSignUpPhone('');
         setSignUpAddress('');
         setShowExtraFields(false);
@@ -266,16 +316,37 @@ export const Auth = () => {
                 {!showExtraFields ? (
                   <form onSubmit={handleInitialSignUp} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="signup-name">Koko nimi</Label>
+                      <Label htmlFor="signup-firstname">Etunimi</Label>
                       <div className="relative">
                         <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
-                          id="signup-name"
+                          id="signup-firstname"
                           type="text"
-                          value={signUpFullName}
-                          onChange={(e) => setSignUpFullName(e.target.value)}
+                          value={signUpFirstName}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^a-zA-ZäöåÄÖÅ\s-]/g, '');
+                            setSignUpFirstName(value);
+                          }}
                           className="pl-10"
-                          placeholder="Anna Asiakas"
+                          placeholder="Anna"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-lastname">Sukunimi</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signup-lastname"
+                          type="text"
+                          value={signUpLastName}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^a-zA-ZäöåÄÖÅ\s-]/g, '');
+                            setSignUpLastName(value);
+                          }}
+                          className="pl-10"
+                          placeholder="Asiakas"
                           required
                         />
                       </div>
@@ -291,6 +362,7 @@ export const Auth = () => {
                           onChange={(e) => setSignUpEmail(e.target.value)}
                           className="pl-10"
                           placeholder="anna@example.com"
+                          pattern="[^@]+@[^@]+\.[^@]+"
                           required
                         />
                       </div>
@@ -314,7 +386,7 @@ export const Auth = () => {
                     <Button 
                       type="submit" 
                       variant="hero" 
-                      className="w-full"
+                      className="w-full transition-all duration-300 hover:scale-105"
                     >
                       Jatka
                     </Button>
@@ -362,7 +434,10 @@ export const Auth = () => {
                         <Input
                           id="signup-address"
                           value={signUpAddress}
-                          onChange={(e) => setSignUpAddress(e.target.value)}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^a-zA-Z0-9äöåÄÖÅ\s.,\-()]/g, '');
+                            setSignUpAddress(value);
+                          }}
                           className="pl-10"
                           placeholder="Katu 1, 00100 Helsinki"
                           required

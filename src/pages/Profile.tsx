@@ -46,6 +46,13 @@ interface Profile {
   address?: string;
 }
 
+const parseFullName = (fullName: string) => {
+  const parts = fullName.trim().split(' ');
+  const firstName = parts[0] || '';
+  const lastName = parts.slice(1).join(' ') || '';
+  return { firstName, lastName };
+};
+
 export const Profile = () => {
   const { user, userRole, signOut, deleteAccount } = useAuth();
   const { toast } = useToast();
@@ -55,7 +62,8 @@ export const Profile = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [formData, setFormData] = useState({
-    full_name: '',
+    first_name: '',
+    last_name: '',
     email: '',
     phone: '',
     profile_image: 1,
@@ -81,8 +89,10 @@ export const Profile = () => {
 
       if (data) {
         setProfile(data);
+        const { firstName, lastName } = parseFullName(data.full_name || '');
         setFormData({
-          full_name: data.full_name || '',
+          first_name: firstName,
+          last_name: lastName,
           email: data.email || '',
           phone: data.phone || '',
           profile_image: data.profile_image || 1,
@@ -121,10 +131,11 @@ export const Profile = () => {
 
     setLoading(true);
     try {
+      const fullName = `${formData.first_name} ${formData.last_name}`.trim();
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: formData.full_name,
+          full_name: fullName,
           email: formData.email,
           phone: formData.phone,
           profile_image: formData.profile_image,
@@ -256,7 +267,7 @@ export const Profile = () => {
                     className="w-full h-full rounded-full object-cover border-4 border-primary/20"
                   />
                 </div>
-                <CardTitle>{formData.full_name || user.email}</CardTitle>
+                <CardTitle>{`${formData.first_name} ${formData.last_name}`.trim() || user.email}</CardTitle>
                 <CardDescription className="flex items-center justify-center gap-2">
                   <Badge variant="secondary" className="capitalize">
                     {userRole}
@@ -296,17 +307,38 @@ export const Profile = () => {
                     </div>
                   </div>
 
-                  {/* Name */}
+                  {/* First Name */}
                   <div>
-                    <Label htmlFor="full_name">Koko nimi</Label>
+                    <Label htmlFor="first_name">Etunimi</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
-                        id="full_name"
-                        value={formData.full_name}
-                        onChange={(e) => handleInputChange('full_name', e.target.value)}
+                        id="first_name"
+                        value={formData.first_name}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^a-zA-ZäöåÄÖÅ\s-]/g, '');
+                          handleInputChange('first_name', value);
+                        }}
                         className="pl-10"
-                        placeholder="Koko nimesi"
+                        placeholder="Etunimesi"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Last Name */}
+                  <div>
+                    <Label htmlFor="last_name">Sukunimi</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="last_name"
+                        value={formData.last_name}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^a-zA-ZäöåÄÖÅ\s-]/g, '');
+                          handleInputChange('last_name', value);
+                        }}
+                        className="pl-10"
+                        placeholder="Sukunimesi"
                       />
                     </div>
                   </div>

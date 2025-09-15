@@ -265,7 +265,7 @@ export const ShoppingCart = ({
           <div className="space-y-3">
             <Button 
               onClick={() => setShowBundles(true)}
-              className="w-full bg-gradient-fun hover:opacity-90 transition-opacity"
+              className="w-full bg-gradient-fun hover:opacity-90 transition-all duration-300 hover:scale-105"
             >
               <Package className="h-4 w-4 mr-2" />
               Katso pakettitarjouksia
@@ -273,7 +273,7 @@ export const ShoppingCart = ({
             <Button 
               variant="outline" 
               onClick={() => setShowAddons(true)}
-              className="w-full"
+              className="w-full transition-all duration-300 hover:scale-105"
             >
               <Sparkles className="h-4 w-4 mr-2" />
               Valitse pesu
@@ -296,8 +296,8 @@ export const ShoppingCart = ({
         </CardHeader>
         <CardContent className="space-y-4">
           {cartItems.map((item) => (
-            <div key={item.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-              <div className="flex-1">
+            <div key={item.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-muted/30 rounded-lg">
+              <div className="flex-1 min-w-0">
                 <h4 className="font-semibold">{item.name}</h4>
                 <p className="text-sm text-muted-foreground">{item.description}</p>
                 {item.metadata?.rugDimensions && (
@@ -316,7 +316,7 @@ export const ShoppingCart = ({
                 </div>
               </div>
               
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between sm:justify-end gap-3 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <Button 
                     variant="outline" 
@@ -335,7 +335,7 @@ export const ShoppingCart = ({
                   </Button>
                 </div>
                 
-                <div className="text-right min-w-[80px]">
+                <div className="text-right">
                   <p className="font-semibold">{(item.price * item.quantity).toFixed(2)}€</p>
                   <p className="text-xs text-muted-foreground">{item.price}€ / kpl</p>
                 </div>
@@ -358,6 +358,7 @@ export const ShoppingCart = ({
               variant="outline" 
               size="sm"
               onClick={() => setShowBundles(true)}
+              className="transition-all duration-300 hover:scale-105"
             >
               <Package className="h-3 w-3 mr-1" />
               Paketit
@@ -366,6 +367,7 @@ export const ShoppingCart = ({
               variant="outline" 
               size="sm"
               onClick={() => setShowAddons(true)}
+              className="transition-all duration-300 hover:scale-105"
             >
               <Plus className="h-3 w-3 mr-1" />
               Lisätuotteet

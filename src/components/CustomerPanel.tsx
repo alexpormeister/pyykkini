@@ -347,15 +347,15 @@ export const CustomerPanel = () => {
                 return (
                     <Card 
                       key={service.id} 
-                      className="cursor-pointer transition-all duration-300 hover:shadow-elegant hover:scale-105 group bg-gradient-to-br from-white to-primary/5 border-2 border-transparent hover:border-primary/20"
+                      className="cursor-pointer transition-all duration-300 hover:shadow-elegant hover:scale-105 group bg-gradient-to-br from-white to-primary/5 border-2 border-transparent hover:border-primary/20 flex flex-col h-full"
                       onClick={() => handleAddToCart(service)}
                     >
-                      <CardHeader className="text-center">
+                      <CardHeader className="text-center flex-grow">
                         <Icon className="h-12 w-12 mx-auto mb-4 text-primary group-hover:scale-110 transition-transform" />
                         <CardTitle className="text-lg font-fredoka">{service.name}</CardTitle>
                         <CardDescription className="text-sm leading-relaxed">{service.description}</CardDescription>
                       </CardHeader>
-                      <CardContent className="text-center">
+                      <CardContent className="text-center mt-auto">
                         <div className="text-2xl font-bold text-primary mb-2 font-fredoka">
                           {service.id === 'carpets' ? 'alk. ' : ''}{service.price.toFixed(2)}€
                           {service.id === 'normal' && <span className="text-sm text-muted-foreground"> / 5 kg</span>}
