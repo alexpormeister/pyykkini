@@ -45,6 +45,7 @@ export const CouponManagement = () => {
 
   const fetchCoupons = async () => {
     try {
+      // Admin users can view all coupons
       const { data, error } = await supabase
         .from('coupons')
         .select('*')

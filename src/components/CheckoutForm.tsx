@@ -162,56 +162,38 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
 
     setCouponLoading(true);
     try {
-      const { data: coupon, error } = await supabase
-        .from('coupons')
-        .select('*')
-        .eq('code', couponCode.trim().toUpperCase())
-        .single();
+      // Calculate order total for validation
+      const orderTotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-      if (error || !coupon) {
+      // Use secure coupon validation edge function
+      const { data, error } = await supabase.functions.invoke('validate-coupon', {
+        body: {
+          code: couponCode.trim().toUpperCase(),
+          orderTotal: orderTotal
+        }
+      });
+
+      if (error || !data.valid) {
         toast({
           variant: "destructive",
           title: "Virhe",
-          description: "Kuponkia ei löytynyt tai se on vanhentunut."
+          description: data.error || "Kuponkia ei löytynyt tai se on vanhentunut."
         });
         return;
       }
 
-      // Check if coupon is valid
-      const now = new Date();
-      const validFrom = new Date(coupon.valid_from);
-      const validUntil = coupon.valid_until ? new Date(coupon.valid_until) : null;
-
-      if (now < validFrom || (validUntil && now > validUntil)) {
-        toast({
-          variant: "destructive",
-          title: "Virhe",
-          description: "Kuponki ei ole voimassa tällä hetkellä."
-        });
-        return;
-      }
-
-      if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
-        toast({
-          variant: "destructive",
-          title: "Virhe",
-          description: "Kuponki on jo käytetty loppuun."
-        });
-        return;
-      }
-
-      // Actually apply the coupon by calling parent component's handler
-      if (onApplyCoupon) {
+      // Apply the coupon using the secure validation result
+      if (onApplyCoupon && data.coupon) {
         onApplyCoupon({
-          code: coupon.code,
-          discount_type: coupon.discount_type,
-          discount_value: coupon.discount_value
+          code: data.coupon.code,
+          discount_type: data.coupon.discount_type,
+          discount_value: data.coupon.discount_value
         });
       }
       
       toast({
         title: "Kuponki aktivoitu!",
-        description: `Kuponki "${coupon.code}" on aktivoitu. Alennus: ${coupon.discount_type === 'percentage' ? coupon.discount_value + '%' : coupon.discount_value + '€'}`
+        description: `Kuponki "${data.coupon.code}" on aktivoitu. Alennus: ${data.coupon.discount_type === 'percentage' ? data.coupon.discount_value + '%' : data.coupon.discount_value + '€'}`
       });
       
       setCouponCode('');

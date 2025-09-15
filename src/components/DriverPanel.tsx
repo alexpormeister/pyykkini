@@ -188,9 +188,9 @@ export const DriverPanel = () => {
     
     setLoading(true);
     try {
-      // Fetch pending orders (only visible to drivers on shift)
+      // Fetch pending orders using the secure view
       const { data: pending, error: pendingError } = await supabase
-        .from('orders')
+        .from('driver_pending_orders')
         .select(`
           *,
           order_items (

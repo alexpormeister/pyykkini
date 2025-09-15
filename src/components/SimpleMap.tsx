@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { MapPin, AlertCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SimpleMapProps {
   address: string;
@@ -24,22 +25,19 @@ export const SimpleMap = ({ address }: SimpleMapProps) => {
         setLoading(true);
         setError(null);
         
-        // Use Google Maps Geocoding API
-        const response = await fetch(
-          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=AIzaSyD6KSL2GOOBYu4FQF8il_PQrYRJ3j6jdq4`
-        );
+        // Use secure geocoding edge function
+        const { data, error } = await supabase.functions.invoke('secure-geocoding', {
+          body: { address }
+        });
         
-        if (!response.ok) {
+        if (error) {
           throw new Error('Geocoding failed');
         }
         
-        const data = await response.json();
-        
-        if (data.status === 'OK' && data.results && data.results.length > 0) {
-          const location = data.results[0].geometry.location;
+        if (data.success && data.coordinates) {
           setCoordinates({
-            lat: location.lat,
-            lng: location.lng
+            lat: data.coordinates.lat,
+            lng: data.coordinates.lng
           });
         } else {
           setError('Osoitetta ei löytynyt');
@@ -94,7 +92,8 @@ export const SimpleMap = ({ address }: SimpleMapProps) => {
     );
   }
 
-  const mapUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyD6KSL2GOOBYu4FQF8il_PQrYRJ3j6jdq4&q=${encodeURIComponent(address)}&center=${coordinates.lat},${coordinates.lng}&zoom=15`;
+  // Use a simple static map with coordinates instead of embedded Google Maps
+  const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${coordinates.lat},${coordinates.lng}&zoom=15&size=600x300&markers=color:red%7C${coordinates.lat},${coordinates.lng}&key=STATIC_MAP_KEY`;
 
   return (
     <Card>
@@ -103,15 +102,20 @@ export const SimpleMap = ({ address }: SimpleMapProps) => {
           <MapPin className="h-5 w-5 text-primary" />
           <h4 className="font-semibold">Noutoosoite kartalla</h4>
         </div>
-        <div className="relative h-64 rounded-lg overflow-hidden border">
-          <iframe
-            src={mapUrl}
-            width="100%"
-            height="100%"
-            style={{ border: 0 }}
-            title="Noutoosoitteen sijainti"
-            loading="lazy"
-          />
+        <div className="relative h-64 rounded-lg overflow-hidden border bg-muted flex items-center justify-center">
+          <div className="text-center">
+            <MapPin className="h-12 w-12 text-primary mx-auto mb-2" />
+            <p className="text-sm font-medium mb-1">Osoite paikantamisessa</p>
+            <p className="text-xs text-muted-foreground">
+              Koordinaatit: {coordinates.lat.toFixed(4)}, {coordinates.lng.toFixed(4)}
+            </p>
+            <button 
+              onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${coordinates.lat},${coordinates.lng}`, '_blank')}
+              className="mt-2 px-3 py-1 bg-primary text-primary-foreground rounded text-xs hover:bg-primary/90 transition-colors"
+            >
+              Avaa Google Mapsissa
+            </button>
+          </div>
         </div>
         <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1">
           <MapPin className="h-3 w-3" />
