@@ -188,70 +188,63 @@ export const DriverPanel = () => {
     
     setLoading(true);
     try {
-      // Fetch pending orders using the secure view
-      const { data: pending, error: pendingError } = await supabase
-        .from('driver_pending_orders')
-        .select(`
-          *,
-          order_items (
-            id,
-            service_name,
-            quantity,
-            rug_dimensions,
-            metadata
-          )
-        `)
-        .eq('status', 'pending')
-        .is('driver_id', null)
-        .order('created_at', { ascending: false });
+      // Fetch orders using the secure function
+      const { data: allDriverOrders, error: driverOrdersError } = await supabase
+        .rpc('get_driver_orders');
 
-      if (pendingError) throw pendingError;
+      if (driverOrdersError) throw driverOrdersError;
 
-      // Fetch driver's assigned orders
-      const { data: assigned, error: assignedError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            id,
-            service_name,
-            quantity,
-            rug_dimensions,
-            metadata
-          )
-        `)
-        .eq('driver_id', user.id)
-        .neq('status', 'rejected')
-        .order('created_at', { ascending: true });
+      // Separate pending and assigned orders
+      const pending = allDriverOrders?.filter(order => 
+        order.status === 'pending' && order.driver_id === null
+      ) || [];
+      
+      const assigned = allDriverOrders?.filter(order => 
+        order.driver_id === user.id && order.status !== 'rejected'
+      ) || [];
 
-      if (assignedError) throw assignedError;
+      // Now fetch order items for all orders
+      const allOrderIds = [...pending.map(o => o.id), ...assigned.map(o => o.id)];
+      let orderItems: any[] = [];
+      
+      if (allOrderIds.length > 0) {
+        const { data: items, error: itemsError } = await supabase
+          .from('order_items')
+          .select('*')
+          .in('order_id', allOrderIds);
+          
+        if (!itemsError) {
+          orderItems = items || [];
+        }
+      }
 
-      // Fetch customer profiles separately
-      const allOrders = [...(pending || []), ...(assigned || [])];
-      const customerIds = allOrders.map(order => order.user_id);
+      // Fetch customer profiles separately for assigned orders only (where we have full access)
+      const assignedCustomerIds = assigned.map(order => order.user_id);
       
       let customerProfiles: any[] = [];
-      if (customerIds.length > 0) {
+      if (assignedCustomerIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, full_name, phone')
-          .in('user_id', customerIds);
+          .in('user_id', assignedCustomerIds);
         customerProfiles = profiles || [];
       }
 
-      // Add customer info to orders
-      const pendingWithProfiles = pending?.map(order => ({
+      // Add order items and customer info to orders
+      const pendingWithItems = pending?.map(order => ({
         ...order,
+        order_items: orderItems.filter(item => item.order_id === order.id),
+        profiles: null // No profile data for pending orders for security
+      })) || [];
+
+      const assignedWithItems = assigned?.map(order => ({
+        ...order,
+        order_items: orderItems.filter(item => item.order_id === order.id),
         profiles: customerProfiles.find(p => p.user_id === order.user_id)
       })) || [];
 
-      const assignedWithProfiles = assigned?.map(order => ({
-        ...order,
-        profiles: customerProfiles.find(p => p.user_id === order.user_id)
-      })) || [];
-
-      setPendingOrders(pendingWithProfiles);
-      setMyOrders(assignedWithProfiles);
+      setPendingOrders(pendingWithItems);
+      setMyOrders(assignedWithItems);
     } catch (error: any) {
       toast({
         variant: "destructive",

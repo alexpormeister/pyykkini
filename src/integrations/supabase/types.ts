@@ -161,13 +161,6 @@ export type Database = {
             foreignKeyName: "order_history_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
-            referencedRelation: "driver_pending_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_history_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -211,13 +204,6 @@ export type Database = {
           unit_price?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "order_items_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "driver_pending_orders"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
@@ -447,65 +433,30 @@ export type Database = {
       }
     }
     Views: {
-      driver_pending_orders: {
-        Row: {
-          address: string | null
-          created_at: string | null
-          driver_id: string | null
-          first_name: string | null
-          id: string | null
-          last_name: string | null
-          phone: string | null
-          pickup_date: string | null
-          pickup_time: string | null
-          price: number | null
-          return_date: string | null
-          return_time: string | null
-          service_name: string | null
-          service_type: string | null
-          status: Database["public"]["Enums"]["order_status"] | null
-          user_id: string | null
-        }
-        Insert: {
-          address?: never
-          created_at?: string | null
-          driver_id?: string | null
-          first_name?: never
-          id?: string | null
-          last_name?: never
-          phone?: never
-          pickup_date?: string | null
-          pickup_time?: string | null
-          price?: number | null
-          return_date?: string | null
-          return_time?: string | null
-          service_name?: string | null
-          service_type?: string | null
-          status?: Database["public"]["Enums"]["order_status"] | null
-          user_id?: string | null
-        }
-        Update: {
-          address?: never
-          created_at?: string | null
-          driver_id?: string | null
-          first_name?: never
-          id?: string | null
-          last_name?: never
-          phone?: never
-          pickup_date?: string | null
-          pickup_time?: string | null
-          price?: number | null
-          return_date?: string | null
-          return_time?: string | null
-          service_name?: string | null
-          service_type?: string | null
-          status?: Database["public"]["Enums"]["order_status"] | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
+      get_driver_orders: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          address: string
+          created_at: string
+          driver_id: string
+          first_name: string
+          id: string
+          last_name: string
+          phone: string
+          pickup_date: string
+          pickup_time: string
+          price: number
+          return_date: string
+          return_time: string
+          service_name: string
+          service_type: string
+          status: Database["public"]["Enums"]["order_status"]
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
