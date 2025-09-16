@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut, Calendar, Scale } from "lucide-react";
+import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut, Calendar, Scale, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -766,7 +766,7 @@ export const DriverPanel = () => {
                     {/* Pagination controls for my orders */}
                     <div className="flex justify-between items-center">
                       <div className="text-sm text-muted-foreground">
-                        Näytetään {myOrdersPage * ordersPerPage + 1}-{Math.min((myOrdersPage + 1) * ordersPerPage, myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length)} / {myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length} tilausta
+                        Näytetään {myOrdersPage * 3 + 1}-{Math.min((myOrdersPage + 1) * 3, myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length)} / {myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length} tilausta
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -775,15 +775,17 @@ export const DriverPanel = () => {
                           onClick={() => setMyOrdersPage(Math.max(0, myOrdersPage - 1))}
                           disabled={myOrdersPage === 0}
                         >
+                          <ChevronLeft className="h-4 w-4" />
                           Edellinen
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setMyOrdersPage(myOrdersPage + 1)}
-                          disabled={(myOrdersPage + 1) * ordersPerPage >= myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length}
+                          disabled={(myOrdersPage + 1) * 3 >= myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length}
                         >
                           Seuraava
+                          <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -791,7 +793,7 @@ export const DriverPanel = () => {
                     {[...myOrders]
                       .filter(o => myStatusFilter === 'all' || o.status === myStatusFilter)
                       .sort((a, b) => mySort === 'newest' ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime() : new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                      .slice(myOrdersPage * ordersPerPage, (myOrdersPage + 1) * ordersPerPage)
+                      .slice(myOrdersPage * 3, (myOrdersPage + 1) * 3)
                       .map((order) => {
                         const StatusIcon = getStatusIcon(order.status);
                         const canProgress = order.status !== 'delivered';
