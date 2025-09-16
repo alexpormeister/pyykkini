@@ -37,6 +37,7 @@ interface ShoppingCartProps {
     discount_value: number;
   } | null;
   onCouponApplied: (coupon: any) => void;
+  onNavigateToServices?: () => void;
 }
 
 const bundleOffers = [
@@ -98,7 +99,8 @@ export const ShoppingCart = ({
   onUpdateCart, 
   onProceedToCheckout,
   appliedCoupon,
-  onCouponApplied 
+  onCouponApplied,
+  onNavigateToServices
 }: ShoppingCartProps) => {
   const { toast } = useToast();
   const [showAddons, setShowAddons] = useState(false);
@@ -264,19 +266,11 @@ export const ShoppingCart = ({
           
           <div className="space-y-3">
             <Button 
-              onClick={() => setShowBundles(true)}
-              className="w-full bg-gradient-fun hover:opacity-90 transition-all duration-300 hover:scale-105"
-            >
-              <Package className="h-4 w-4 mr-2" />
-              Katso pakettitarjouksia
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowAddons(true)}
-              className="w-full transition-all duration-300 hover:scale-105"
+              onClick={onNavigateToServices}
+              className="w-full bg-gradient-primary hover:opacity-90 transition-all duration-300 hover:scale-105"
             >
               <Sparkles className="h-4 w-4 mr-2" />
-              Valitse pesu
+              Valitse pesu ja aloita!
             </Button>
           </div>
         </CardContent>

@@ -184,7 +184,17 @@ export const DriverPanel = () => {
   };
 
   const fetchOrders = async () => {
-    if (!user || !isOnShift) return;
+    if (!user) return;
+    
+    // Admins can always see orders, drivers need to be on shift for pending orders
+    const { data: userRoles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id);
+    
+    const isAdmin = userRoles?.some(r => r.role === 'admin');
+    
+    if (!isAdmin && !isOnShift) return;
     
     setLoading(true);
     try {

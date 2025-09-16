@@ -471,6 +471,7 @@ export const CustomerPanel = () => {
               onProceedToCheckout={handleProceedToCheckout}
               appliedCoupon={appliedCoupon}
               onCouponApplied={setAppliedCoupon}
+              onNavigateToServices={() => setCurrentView('services')}
             />
           </div>
         )}
