@@ -13,6 +13,8 @@ import { SimpleMap } from './SimpleMap';
 import { RugDimensionsDialog } from './RugDimensionsDialog';
 import { PaymentOptions } from './PaymentOptions';
 import { TimeSlotSelector } from './TimeSlotSelector';
+import { SwipeToConfirm } from './SwipeToConfirm';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface CheckoutFormProps {
   cartItems: Array<{
@@ -45,6 +47,7 @@ interface CheckoutFormProps {
 export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onApplyCoupon }: CheckoutFormProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
   const [isAddressEditable, setIsAddressEditable] = useState(false);
@@ -230,8 +233,8 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
     return Math.max(0, subtotal - discount);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     
     if (!user) {
       toast({
@@ -559,15 +562,25 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
                     </div>
                   </div>
 
-                  <Button
-                    type="submit" 
-                    variant="hero" 
-                    size="lg" 
-                    className="w-full"
-                    disabled={loading}
-                  >
-                    {loading ? 'Käsitellään...' : `Valitse maksutapa (${calculateFinalPrice().toFixed(2)}€)`}
-                  </Button>
+                  {isMobile ? (
+                    <SwipeToConfirm
+                      onConfirm={handleSubmit}
+                      text={`Swipe to confirm - ${calculateFinalPrice().toFixed(2)}€`}
+                      confirmText="Vahvistettu!"
+                      disabled={loading}
+                      className="w-full"
+                    />
+                  ) : (
+                    <Button
+                      type="submit" 
+                      variant="hero" 
+                      size="lg" 
+                      className="w-full"
+                      disabled={loading}
+                    >
+                      {loading ? 'Käsitellään...' : `Valitse maksutapa (${calculateFinalPrice().toFixed(2)}€)`}
+                    </Button>
+                  )}
                 </>
               )}
             </form>

@@ -79,6 +79,8 @@ export const DriverPanel = () => {
   
   // Pagination for pending orders
   const [pendingPage, setPendingPage] = useState(0);
+  // Pagination for my orders
+  const [myOrdersPage, setMyOrdersPage] = useState(0);
   const ordersPerPage = 3;
 
   useEffect(() => {
@@ -217,7 +219,7 @@ export const DriverPanel = () => {
       ) || [];
       
       const assigned = allDriverOrders?.filter(order => 
-        order.driver_id === user.id
+        order.driver_id === user.id && order.status !== 'rejected'
       ) || [];
 
       // Now fetch order items for all orders
@@ -761,9 +763,35 @@ export const DriverPanel = () => {
 
                 {myOrders.length > 0 ? (
                   <div className="space-y-4">
+                    {/* Pagination controls for my orders */}
+                    <div className="flex justify-between items-center">
+                      <div className="text-sm text-muted-foreground">
+                        Näytetään {myOrdersPage * ordersPerPage + 1}-{Math.min((myOrdersPage + 1) * ordersPerPage, myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length)} / {myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length} tilausta
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMyOrdersPage(Math.max(0, myOrdersPage - 1))}
+                          disabled={myOrdersPage === 0}
+                        >
+                          Edellinen
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMyOrdersPage(myOrdersPage + 1)}
+                          disabled={(myOrdersPage + 1) * ordersPerPage >= myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length}
+                        >
+                          Seuraava
+                        </Button>
+                      </div>
+                    </div>
+                    
                     {[...myOrders]
                       .filter(o => myStatusFilter === 'all' || o.status === myStatusFilter)
                       .sort((a, b) => mySort === 'newest' ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime() : new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                      .slice(myOrdersPage * ordersPerPage, (myOrdersPage + 1) * ordersPerPage)
                       .map((order) => {
                         const StatusIcon = getStatusIcon(order.status);
                         const canProgress = order.status !== 'delivered';

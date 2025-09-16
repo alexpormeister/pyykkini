@@ -357,6 +357,11 @@ export const AdminPanel = () => {
 
   const logoutDriver = async (driverId: string) => {
     try {
+      // Check if current user is admin - only allow admins to logout other drivers
+      if (!user || !driverId) {
+        throw new Error('Unauthorized or missing driver ID');
+      }
+
       const { error } = await supabase
         .from('driver_shifts')
         .update({
