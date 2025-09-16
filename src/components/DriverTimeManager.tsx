@@ -71,6 +71,8 @@ export const DriverTimeManager = ({ order, onOrderUpdate }: DriverTimeManagerPro
 
   const handleAcceptOrder = async () => {
     try {
+      console.log('🚀 DriverTimeManager: Starting order acceptance:', { orderId: order.id });
+      
       // Get current user from auth context  
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -78,7 +80,7 @@ export const DriverTimeManager = ({ order, onOrderUpdate }: DriverTimeManagerPro
         throw new Error('No authenticated user');
       }
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('orders')
         .update({
           driver_id: user.id,
@@ -87,22 +89,39 @@ export const DriverTimeManager = ({ order, onOrderUpdate }: DriverTimeManagerPro
         })
         .eq('id', order.id)
         .eq('status', 'pending')
-        .is('driver_id', null);
+        .is('driver_id', null)
+        .select();
 
-      if (error) throw error;
+      console.log('💾 DriverTimeManager: Update result:', { data, error });
+
+      if (error) {
+        console.error('❌ DriverTimeManager: Database error:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.error('❌ DriverTimeManager: No rows updated - order may already be accepted');
+        throw new Error('Tilaus on ehkä jo hyväksytty toiselta kuljettajalta');
+      }
+
+      console.log('✅ DriverTimeManager: Order accepted successfully:', data[0]);
 
       toast({
         title: "Tilaus hyväksytty!",
         description: "Tilaus on hyväksytty nykyisillä ajoilla."
       });
 
+      // Notify parent component to refresh and switch tabs
       onOrderUpdate?.();
     } catch (error: any) {
+      console.error('💥 DriverTimeManager: Accept order error:', error);
       toast({
         variant: "destructive",
         title: "Virhe",
-        description: "Tilauksen hyväksyminen epäonnistui. Toinen kuljettaja on ehkä jo hyväksynyt sen."
+        description: error.message || "Tilauksen hyväksyminen epäonnistui. Toinen kuljettaja on ehkä jo hyväksynyt sen."
       });
+      // Still call onOrderUpdate to refresh the list
+      onOrderUpdate?.();
     }
   };
 

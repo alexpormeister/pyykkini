@@ -221,7 +221,7 @@ export const DriverPanel = () => {
         throw driverOrdersError;
       }
 
-      console.log('Fetched driver orders:', allDriverOrders);
+      console.log('📊 Raw driver orders from database:', allDriverOrders);
 
       // Separate pending and assigned orders
       const pending = allDriverOrders?.filter(order => 
@@ -232,7 +232,12 @@ export const DriverPanel = () => {
         order.driver_id === user.id
       ) || [];
 
-      console.log('Pending orders:', pending.length, 'Assigned orders:', assigned.length);
+      console.log('🔄 Filtered orders:', { 
+        pending: pending.length, 
+        assigned: assigned.length,
+        currentUserId: user.id,
+        assignedOrderIds: assigned.map(o => ({ id: o.id, status: o.status, driver_id: o.driver_id }))
+      });
 
       // Now fetch order items for all orders
       const allOrderIds = [...pending.map(o => o.id), ...assigned.map(o => o.id)];
@@ -289,12 +294,17 @@ export const DriverPanel = () => {
 
   const handleAcceptOrder = async (orderId: string) => {
     try {
-      console.log('Accepting order:', orderId, 'by driver:', user?.id);
+      console.log('🚀 Starting order acceptance:', { orderId, driverId: user?.id });
       
+      // Check if user exists
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
       const { data, error } = await supabase
         .from('orders')
         .update({
-          driver_id: user?.id,
+          driver_id: user.id,
           status: 'accepted',
           accepted_at: new Date().toISOString()
         })
@@ -303,12 +313,19 @@ export const DriverPanel = () => {
         .is('driver_id', null)
         .select();
 
+      console.log('💾 Update result:', { data, error });
+
       if (error) {
-        console.error('Error accepting order:', error);
+        console.error('❌ Database error:', error);
         throw error;
       }
 
-      console.log('Order accepted successfully:', data);
+      if (!data || data.length === 0) {
+        console.error('❌ No rows updated - order may already be accepted');
+        throw new Error('Tilaus on ehkä jo hyväksytty toiselta kuljettajalta');
+      }
+
+      console.log('✅ Order accepted successfully:', data[0]);
 
       toast({
         title: "Tilaus hyväksytty!",
@@ -319,18 +336,20 @@ export const DriverPanel = () => {
       setActiveTab('my');
       
       // Refresh orders to see updated state
+      console.log('🔄 Refreshing orders...');
       await fetchOrders();
       
       // Show time form for setting pickup/return times
       setShowTimeForm(orderId);
     } catch (error: any) {
-      console.error('Accept order error:', error);
+      console.error('💥 Accept order error:', error);
       toast({
         variant: "destructive",
         title: "Virhe",
-        description: "Tilauksen hyväksyminen epäonnistui. Toinen kuljettaja on ehkä jo hyväksynyt sen."
+        description: error.message || "Tilauksen hyväksyminen epäonnistui. Toinen kuljettaja on ehkä jo hyväksynyt sen."
       });
-      fetchOrders(); // Refresh to see current state
+      // Refresh to see current state even on error
+      fetchOrders();
     }
   };
 
@@ -961,7 +980,11 @@ export const DriverPanel = () => {
                             <div className="flex flex-col gap-2">
                               <DriverTimeManager 
                                 order={order} 
-                                onOrderUpdate={fetchOrders}
+                                onOrderUpdate={async () => {
+                                  console.log('🔄 Order accepted via DriverTimeManager, switching to My orders tab');
+                                  setActiveTab('my');
+                                  await fetchOrders();
+                                }}
                               />
                               <Button variant="outline" size="sm" onClick={() => setShowRejectDialog(order.id)} className="w-28">
                                 <X className="h-4 w-4 mr-1" />
