@@ -409,7 +409,7 @@ export const ShoppingCart = ({
 
       {/* Bundle Offers Dialog */}
       <Dialog open={showBundles} onOpenChange={setShowBundles}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
@@ -420,7 +420,7 @@ export const ShoppingCart = ({
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid gap-4">
+          <div className="grid gap-4 pb-4">
             {bundleOffers.map((bundle) => (
               <Card key={bundle.id} className="hover:shadow-elegant transition-all duration-300">
                 <CardContent className="p-4">
@@ -455,7 +455,7 @@ export const ShoppingCart = ({
 
       {/* Addon Items Dialog */}
       <Dialog open={showAddons} onOpenChange={setShowAddons}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5" />
@@ -466,8 +466,7 @@ export const ShoppingCart = ({
             </DialogDescription>
           </DialogHeader>
           
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
             {[
               { id: 'normal', name: '👕 Normaali pesu', description: 'Arkivaatteiden perus pesu ja kuivaus', price: 15 },
               { id: 'shoes', name: '👟 Kenkäpesu', description: 'Erikoispesu kengille ja urheilujalkineille', price: 20 },

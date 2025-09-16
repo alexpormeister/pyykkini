@@ -192,7 +192,7 @@ export const Landing = () => {
                     <Button
                       variant="hero"
                       size="lg"
-                      className="w-full font-fredoka font-bold text-lg btn-bounce-hover"
+                      className="w-full font-fredoka font-bold text-lg btn-bounce-hover h-12"
                       onClick={() => handleOrderNow(service)}
                     >
                       TILAA NYT

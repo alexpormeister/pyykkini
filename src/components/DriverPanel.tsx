@@ -192,7 +192,10 @@ export const DriverPanel = () => {
       const { data: allDriverOrders, error: driverOrdersError } = await supabase
         .rpc('get_driver_orders');
 
-      if (driverOrdersError) throw driverOrdersError;
+      if (driverOrdersError) {
+        console.error('Error fetching driver orders:', driverOrdersError);
+        throw driverOrdersError;
+      }
 
       // Separate pending and assigned orders
       const pending = allDriverOrders?.filter(order => 
