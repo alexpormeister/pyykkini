@@ -86,14 +86,16 @@ export const DriverPanel = () => {
   useEffect(() => {
     if (user) {
       checkShiftStatus();
+      // Always fetch orders to see assigned orders, regardless of shift status
+      fetchOrders();
     }
   }, [user]);
 
   useEffect(() => {
-    if (user && isOnShift) {
+    if (user) {
       fetchOrders();
       
-      // Set up real-time subscription
+      // Set up real-time subscription for all order changes
       const channel = supabase
         .channel('orders-changes')
         .on(
@@ -103,7 +105,10 @@ export const DriverPanel = () => {
             schema: 'public',
             table: 'orders'
           },
-          () => fetchOrders()
+          () => {
+            console.log('Order change detected, refreshing...');
+            fetchOrders();
+          }
         )
         .subscribe();
 
@@ -111,7 +116,7 @@ export const DriverPanel = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [user, isOnShift]);
+  }, [user]);
 
   const checkShiftStatus = async () => {
     if (!user) return;
@@ -216,14 +221,18 @@ export const DriverPanel = () => {
         throw driverOrdersError;
       }
 
+      console.log('Fetched driver orders:', allDriverOrders);
+
       // Separate pending and assigned orders
       const pending = allDriverOrders?.filter(order => 
         order.status === 'pending' && order.driver_id === null
       ) || [];
       
       const assigned = allDriverOrders?.filter(order => 
-        order.driver_id === user.id && order.status !== 'rejected'
+        order.driver_id === user.id
       ) || [];
+
+      console.log('Pending orders:', pending.length, 'Assigned orders:', assigned.length);
 
       // Now fetch order items for all orders
       const allOrderIds = [...pending.map(o => o.id), ...assigned.map(o => o.id)];
@@ -280,7 +289,9 @@ export const DriverPanel = () => {
 
   const handleAcceptOrder = async (orderId: string) => {
     try {
-      const { error } = await supabase
+      console.log('Accepting order:', orderId, 'by driver:', user?.id);
+      
+      const { data, error } = await supabase
         .from('orders')
         .update({
           driver_id: user?.id,
@@ -289,9 +300,15 @@ export const DriverPanel = () => {
         })
         .eq('id', orderId)
         .eq('status', 'pending')
-        .is('driver_id', null);
+        .is('driver_id', null)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error accepting order:', error);
+        throw error;
+      }
+
+      console.log('Order accepted successfully:', data);
 
       toast({
         title: "Tilaus hyväksytty!",
@@ -300,9 +317,14 @@ export const DriverPanel = () => {
 
       // Switch to "My orders" tab after successful acceptance
       setActiveTab('my');
+      
+      // Refresh orders to see updated state
       await fetchOrders();
+      
+      // Show time form for setting pickup/return times
       setShowTimeForm(orderId);
     } catch (error: any) {
+      console.error('Accept order error:', error);
       toast({
         variant: "destructive",
         title: "Virhe",
