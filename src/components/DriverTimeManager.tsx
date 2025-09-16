@@ -71,13 +71,23 @@ export const DriverTimeManager = ({ order, onOrderUpdate }: DriverTimeManagerPro
 
   const handleAcceptOrder = async () => {
     try {
+      // Get current user from auth context  
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('No authenticated user');
+      }
+
       const { error } = await supabase
         .from('orders')
         .update({
+          driver_id: user.id,
           status: 'accepted',
           accepted_at: new Date().toISOString()
         })
-        .eq('id', order.id);
+        .eq('id', order.id)
+        .eq('status', 'pending')
+        .is('driver_id', null);
 
       if (error) throw error;
 
@@ -91,7 +101,7 @@ export const DriverTimeManager = ({ order, onOrderUpdate }: DriverTimeManagerPro
       toast({
         variant: "destructive",
         title: "Virhe",
-        description: "Tilauksen hyväksyminen epäonnistui."
+        description: "Tilauksen hyväksyminen epäonnistui. Toinen kuljettaja on ehkä jo hyväksynyt sen."
       });
     }
   };

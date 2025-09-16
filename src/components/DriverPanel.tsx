@@ -76,6 +76,10 @@ export const DriverPanel = () => {
   const [selectedOrderForWeight, setSelectedOrderForWeight] = useState<any>(null);
   const [weightInput, setWeightInput] = useState('');
   const [weightType, setWeightType] = useState<'pickup' | 'return'>('pickup');
+  
+  // Pagination for pending orders
+  const [pendingPage, setPendingPage] = useState(0);
+  const ordersPerPage = 3;
 
   useEffect(() => {
     if (user) {
@@ -213,7 +217,7 @@ export const DriverPanel = () => {
       ) || [];
       
       const assigned = allDriverOrders?.filter(order => 
-        order.driver_id === user.id && order.status !== 'rejected'
+        order.driver_id === user.id
       ) || [];
 
       // Now fetch order items for all orders
@@ -846,7 +850,34 @@ export const DriverPanel = () => {
               <TabsContent value="free">
                 {pendingOrders.length > 0 ? (
                   <div className="space-y-4">
-                    {pendingOrders.map((order) => (
+                    {/* Pagination controls */}
+                    <div className="flex justify-between items-center">
+                      <div className="text-sm text-muted-foreground">
+                        Näytetään {pendingPage * ordersPerPage + 1}-{Math.min((pendingPage + 1) * ordersPerPage, pendingOrders.length)} / {pendingOrders.length} tilausta
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPendingPage(Math.max(0, pendingPage - 1))}
+                          disabled={pendingPage === 0}
+                        >
+                          Edellinen
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPendingPage(pendingPage + 1)}
+                          disabled={(pendingPage + 1) * ordersPerPage >= pendingOrders.length}
+                        >
+                          Seuraava
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {pendingOrders
+                      .slice(pendingPage * ordersPerPage, (pendingPage + 1) * ordersPerPage)
+                      .map((order) => (
                       <Card key={order.id} className="hover:shadow-elegant transition-all duration-300">
                         <CardContent className="p-6">
                           <div className="flex items-center justify-between">
