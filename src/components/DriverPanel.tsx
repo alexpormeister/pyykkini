@@ -192,15 +192,18 @@ export const DriverPanel = () => {
   const fetchOrders = async () => {
     if (!user) return;
     
-    // Admins can always see orders, drivers need to be on shift for pending orders
+    // Check user role first
     const { data: userRoles } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id);
     
     const isAdmin = userRoles?.some(r => r.role === 'admin');
+    const isDriver = userRoles?.some(r => r.role === 'driver');
     
-    if (!isAdmin && !isOnShift) return;
+    // For drivers: can see their assigned orders always, pending orders only when on shift
+    // For admins: can see all orders always
+    if (!isAdmin && !isDriver) return;
     
     setLoading(true);
     try {
@@ -295,7 +298,9 @@ export const DriverPanel = () => {
         description: "Voit nyt asettaa nouto- ja palautusajat."
       });
 
-      fetchOrders();
+      // Switch to "My orders" tab after successful acceptance
+      setActiveTab('my');
+      await fetchOrders();
       setShowTimeForm(orderId);
     } catch (error: any) {
       toast({
