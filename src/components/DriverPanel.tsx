@@ -324,17 +324,26 @@ export const DriverPanel = () => {
         console.error('❌ DriverPanel: No rows updated');
         
         // Check if the order still exists and what its current state is
-        const { data: currentOrder } = await supabase
+        const { data: currentOrder, error: selectError } = await supabase
           .from('orders')
           .select('id, status, driver_id')
           .eq('id', orderId)
           .single();
           
-        console.log('🔍 Current order state:', currentOrder);
+        console.log('🔍 Current order query result:', { currentOrder, selectError });
         
-        if (currentOrder?.driver_id && currentOrder.driver_id !== user.id) {
+        if (selectError) {
+          console.error('❌ Cannot read order details:', selectError);
+          throw new Error('Tilauksen hyväksyminen epäonnistui. Ei pääsyä tilauksen tietoihin.');
+        }
+        
+        if (!currentOrder) {
+          throw new Error('Tilausta ei löydy.');
+        }
+        
+        if (currentOrder.driver_id && currentOrder.driver_id !== user.id) {
           throw new Error('Tilaus on jo hyväksytty toiselta kuljettajalta');
-        } else if (currentOrder?.status !== 'pending') {
+        } else if (currentOrder.status !== 'pending') {
           throw new Error(`Tilausta ei voi hyväksyä, koska sen tila on: ${currentOrder.status}`);
         } else {
           throw new Error('Tilauksen hyväksyminen epäonnistui. Tarkista käyttöoikeutesi.');
