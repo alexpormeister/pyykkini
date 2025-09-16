@@ -92,16 +92,32 @@ export const DriverTimeManager = ({ order, onOrderUpdate }: DriverTimeManagerPro
         .is('driver_id', null)
         .select();
 
-      console.log('💾 DriverTimeManager: Update result:', { data, error });
+      console.log('💾 DriverTimeManager: Update result:', { data, error, orderId: order.id, rowsUpdated: data?.length });
 
       if (error) {
         console.error('❌ DriverTimeManager: Database error:', error);
-        throw error;
+        throw new Error(`Database error: ${error.message}`);
       }
 
       if (!data || data.length === 0) {
-        console.error('❌ DriverTimeManager: No rows updated - order may already be accepted');
-        throw new Error('Tilaus on ehkä jo hyväksytty toiselta kuljettajalta');
+        console.error('❌ DriverTimeManager: No rows updated');
+        
+        // Check if the order still exists and what its current state is
+        const { data: currentOrder } = await supabase
+          .from('orders')
+          .select('id, status, driver_id')
+          .eq('id', order.id)
+          .single();
+          
+        console.log('🔍 Current order state:', currentOrder);
+        
+        if (currentOrder?.driver_id && currentOrder.driver_id !== user.id) {
+          throw new Error('Tilaus on jo hyväksytty toiselta kuljettajalta');
+        } else if (currentOrder?.status !== 'pending') {
+          throw new Error(`Tilausta ei voi hyväksyä, koska sen tila on: ${currentOrder.status}`);
+        } else {
+          throw new Error('Tilauksen hyväksyminen epäonnistui. Tarkista käyttöoikeutesi.');
+        }
       }
 
       console.log('✅ DriverTimeManager: Order accepted successfully:', data[0]);

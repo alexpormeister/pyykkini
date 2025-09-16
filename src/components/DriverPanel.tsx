@@ -321,8 +321,24 @@ export const DriverPanel = () => {
       }
 
       if (!data || data.length === 0) {
-        console.error('❌ No rows updated - order may already be accepted');
-        throw new Error('Tilaus on ehkä jo hyväksytty toiselta kuljettajalta');
+        console.error('❌ DriverPanel: No rows updated');
+        
+        // Check if the order still exists and what its current state is
+        const { data: currentOrder } = await supabase
+          .from('orders')
+          .select('id, status, driver_id')
+          .eq('id', orderId)
+          .single();
+          
+        console.log('🔍 Current order state:', currentOrder);
+        
+        if (currentOrder?.driver_id && currentOrder.driver_id !== user.id) {
+          throw new Error('Tilaus on jo hyväksytty toiselta kuljettajalta');
+        } else if (currentOrder?.status !== 'pending') {
+          throw new Error(`Tilausta ei voi hyväksyä, koska sen tila on: ${currentOrder.status}`);
+        } else {
+          throw new Error('Tilauksen hyväksyminen epäonnistui. Tarkista käyttöoikeutesi.');
+        }
       }
 
       console.log('✅ Order accepted successfully:', data[0]);
