@@ -107,17 +107,17 @@ export const DriverTimeManager = ({ order, onOrderUpdate }: DriverTimeManagerPro
           .from('orders')
           .select('id, status, driver_id')
           .eq('id', order.id)
-          .single();
+          .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no row found
           
         console.log('🔍 Current order query result:', { currentOrder, selectError });
         
         if (selectError) {
           console.error('❌ Cannot read order details:', selectError);
-          throw new Error('Tilauksen hyväksyminen epäonnistui. Ei pääsyä tilauksen tietoihin.');
+          throw new Error('Tilauksen hyväksyminen epäonnistui. Virhe tietokannassa.');
         }
         
         if (!currentOrder) {
-          throw new Error('Tilausta ei löydy.');
+          throw new Error('Tilausta ei löydy tai sinulla ei ole oikeutta nähdä sitä.');
         }
         
         if (currentOrder.driver_id && currentOrder.driver_id !== user.id) {
@@ -125,7 +125,7 @@ export const DriverTimeManager = ({ order, onOrderUpdate }: DriverTimeManagerPro
         } else if (currentOrder.status !== 'pending') {
           throw new Error(`Tilausta ei voi hyväksyä, koska sen tila on: ${currentOrder.status}`);
         } else {
-          throw new Error('Tilauksen hyväksyminen epäonnistui. Tarkista käyttöoikeutesi.');
+          throw new Error('Tilauksen hyväksyminen epäonnistui. Tarkista että olet vuorossa.');
         }
       }
 

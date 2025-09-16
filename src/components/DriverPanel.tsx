@@ -328,7 +328,7 @@ export const DriverPanel = () => {
           .from('orders')
           .select('id, status, driver_id')
           .eq('id', orderId)
-          .single();
+          .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no row found
           
         console.log('🔍 Current order query result:', { currentOrder, selectError });
         
