@@ -627,37 +627,13 @@ export const DriverPanel = () => {
           <span className="font-medium">Painotiedot:</span>
         </div>
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-muted-foreground">Nouto:</span> 
-              {order.pickup_weight_kg ? `${order.pickup_weight_kg} kg` : 'Ei kirjattu'}
-            </div>
-            {(order.status === 'picking_up' || (order.status !== 'pending' && !hasPickupWeight)) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleWeightInput(order.id, 'pickup')}
-                className="h-6 w-12 p-1 text-xs"
-              >
-                {hasPickupWeight ? 'Muokkaa' : 'Lisää'}
-              </Button>
-            )}
+          <div>
+            <span className="text-muted-foreground">Nouto:</span> 
+            {order.pickup_weight_kg ? `${order.pickup_weight_kg} kg` : 'Ei kirjattu'}
           </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-muted-foreground">Palautus:</span> 
-              {order.return_weight_kg ? `${order.return_weight_kg} kg` : 'Ei kirjattu'}
-            </div>
-            {(order.status === 'returning' || (order.status !== 'pending' && !hasReturnWeight)) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleWeightInput(order.id, 'return')}
-                className="h-6 w-12 p-1 text-xs"
-              >
-                {hasReturnWeight ? 'Muokkaa' : 'Lisää'}
-              </Button>
-            )}
+          <div>
+            <span className="text-muted-foreground">Palautus:</span> 
+            {order.return_weight_kg ? `${order.return_weight_kg} kg` : 'Ei kirjattu'}
           </div>
         </div>
         {hasPickupWeight && hasReturnWeight && weightDiff > 0.1 && (
