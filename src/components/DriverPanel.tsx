@@ -489,25 +489,29 @@ export const DriverPanel = () => {
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     const order = myOrders.find(o => o.id === orderId);
     
-    // Check weight requirements before status update
+    // For pickup - show weight dialog if weight is missing
     if (newStatus === 'picking_up' && !order?.pickup_weight_kg) {
-      toast({
-        variant: "destructive",
-        title: "Painotieto puuttuu",
-        description: "Lisää noutopaino ennen tilan vaihtamista."
-      });
+      setSelectedOrderForWeight(order);
+      setWeightType('pickup');
+      setWeightInput('');
+      setShowWeightDialog(true);
       return;
     }
     
+    // For delivery - show weight dialog if return weight is missing
     if (newStatus === 'delivered' && !order?.return_weight_kg) {
-      toast({
-        variant: "destructive",
-        title: "Painotieto puuttuu", 
-        description: "Lisää palautuspaino ennen toimittamista."
-      });
+      setSelectedOrderForWeight(order);
+      setWeightType('return');
+      setWeightInput('');
+      setShowWeightDialog(true);
       return;
     }
 
+    // Proceed with status update if no weight is needed
+    await updateOrderStatus(orderId, newStatus);
+  };
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       const updateData: any = { status: newStatus };
       
@@ -587,7 +591,15 @@ export const DriverPanel = () => {
 
       setShowWeightDialog(false);
       setWeightInput('');
-      fetchOrders();
+      
+      // If this was for status transition, proceed with the status update
+      if (weightType === 'pickup') {
+        await updateOrderStatus(selectedOrderForWeight.id, 'picking_up');
+      } else if (weightType === 'return') {
+        await updateOrderStatus(selectedOrderForWeight.id, 'delivered');
+      } else {
+        fetchOrders();
+      }
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -1150,34 +1162,51 @@ export const DriverPanel = () => {
 
         {/* Weight Input Dialog */}
         <Dialog open={showWeightDialog} onOpenChange={setShowWeightDialog}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Kirjaa painotieto</DialogTitle>
+              <DialogTitle>
+                {weightType === 'pickup' ? 'Noutopaino' : 'Palautuspaino'}
+              </DialogTitle>
               <DialogDescription>
-                {weightType === 'pickup' ? 'Syötä pussin kokonaispaino noudettaessa' : 'Syötä pussin kokonaispaino palautettaessa'}
+                Syötä {weightType === 'pickup' ? 'noudettujen' : 'palautettujen'} tekstiilien paino kilogrammina.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
                 <Label htmlFor="weight">Paino (kg)</Label>
                 <Input
                   id="weight"
                   type="number"
                   step="0.1"
                   min="0"
-                  placeholder="esim. 2.5"
+                  placeholder="Esim. 2.5"
                   value={weightInput}
                   onChange={(e) => setWeightInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleWeightSave();
+                    }
+                  }}
+                  autoFocus
                 />
               </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowWeightDialog(false)}>
-                  Peruuta
-                </Button>
-                <Button onClick={handleWeightSave} disabled={!weightInput.trim()}>
-                  Tallenna paino
-                </Button>
-              </div>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowWeightDialog(false)}
+                className="flex-1"
+              >
+                Peruuta
+              </Button>
+              <Button
+                onClick={handleWeightSave}
+                disabled={!weightInput.trim() || parseFloat(weightInput) <= 0}
+                className="flex-1"
+              >
+                <Scale className="h-4 w-4 mr-2" />
+                Tallenna paino
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
