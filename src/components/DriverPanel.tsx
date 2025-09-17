@@ -901,17 +901,8 @@ export const DriverPanel = () => {
                       .slice(myOrdersPage * 3, (myOrdersPage + 1) * 3)
                       .map((order) => {
                         const StatusIcon = getStatusIcon(order.status);
-                        // Can progress if status isn't delivered AND weight requirements are met
-                        const canProgress = order.status !== 'delivered' && (() => {
-                          switch(order.status) {
-                            case 'picking_up': 
-                              return !!order.pickup_weight_kg;
-                            case 'returning': 
-                              return !!order.return_weight_kg;
-                            default: 
-                              return true;
-                          }
-                        })();
+                        // Can progress if status isn't delivered
+                        const canProgress = order.status !== 'delivered';
                         return (
                           <Card key={order.id} className="hover:shadow-elegant transition-all duration-300">
                             <CardContent className="p-6">
