@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserManagement } from "@/components/UserManagement";
@@ -25,7 +29,9 @@ import {
   Truck,
   ChevronDown,
   ChevronRight,
-  UserCheck
+  UserCheck,
+  Filter,
+  RotateCcw
 } from "lucide-react";
 
 interface Order {
@@ -79,7 +85,11 @@ export const AdminPanel = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'this_week' | 'this_month' | 'custom'>('all');
+  const [customDateStart, setCustomDateStart] = useState('');
+  const [customDateEnd, setCustomDateEnd] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<Stats>({
     totalOrders: 0,
@@ -391,20 +401,75 @@ export const AdminPanel = () => {
     }
   };
 
+  const allStatusOptions = [
+    { value: 'pending', label: 'Odottaa' },
+    { value: 'accepted', label: 'Hyväksytty' },
+    { value: 'picking_up', label: 'Haetaan' },
+    { value: 'washing', label: 'Pesussa' },
+    { value: 'returning', label: 'Palautuvat' },
+    { value: 'delivered', label: 'Toimitettu' },
+    { value: 'rejected', label: 'Hylätty' }
+  ];
+
+  const handleStatusFilterChange = (status: string, checked: boolean) => {
+    if (checked) {
+      setStatusFilters(prev => [...prev, status]);
+    } else {
+      setStatusFilters(prev => prev.filter(s => s !== status));
+    }
+  };
+
+  const resetFilters = () => {
+    setStatusFilters([]);
+    setDateFilter('all');
+    setCustomDateStart('');
+    setCustomDateEnd('');
+    setSearchTerm('');
+  };
+
+  const getDateRange = () => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(startOfToday);
+    startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    switch (dateFilter) {
+      case 'today':
+        return { start: startOfToday, end: new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000) };
+      case 'this_week':
+        return { start: startOfWeek, end: new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000) };
+      case 'this_month':
+        return { start: startOfMonth, end: new Date(now.getFullYear(), now.getMonth() + 1, 1) };
+      case 'custom':
+        return customDateStart && customDateEnd 
+          ? { start: new Date(customDateStart), end: new Date(customDateEnd + 'T23:59:59') }
+          : null;
+      default:
+        return null;
+    }
+  };
+
   const filteredOrders = orders.filter(order => {
+    // Search filter
     const matchesSearch = 
       `${order.first_name} ${order.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.service_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase());
+      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.address.toLowerCase().includes(searchTerm.toLowerCase());
     
-    let matchesStatus = true;
-    if (statusFilter === 'active') {
-      matchesStatus = order.status === 'pending';
-    } else if (statusFilter !== 'all') {
-      matchesStatus = order.status === statusFilter;
+    // Status filter
+    const matchesStatus = statusFilters.length === 0 || statusFilters.includes(order.status);
+    
+    // Date filter
+    let matchesDate = true;
+    const dateRange = getDateRange();
+    if (dateRange) {
+      const orderDate = new Date(order.created_at);
+      matchesDate = orderDate >= dateRange.start && orderDate <= dateRange.end;
     }
     
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && matchesDate;
   });
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
@@ -780,64 +845,154 @@ export const AdminPanel = () => {
 
           {/* Orders Tab */}
           <TabsContent value="orders" className="animate-fade-in">
-            {/* Search and Filters */}
+            {/* Enhanced Search and Filters */}
             <Card className="mb-6">
               <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Hae tilauksia (asiakas, tilausnumero, palvelu...)"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
-                      variant={statusFilter === 'active' ? 'default' : 'outline'}
-                      onClick={() => setStatusFilter('active')}
-                      size="sm"
-                    >
-                      Aktiiviset
-                    </Button>
-                    <Button
-                      variant={statusFilter === 'accepted' ? 'default' : 'outline'}
-                      onClick={() => setStatusFilter('accepted')}
-                      size="sm"
-                    >
-                      Hyväksytyt
-                    </Button>
-                    <Button
-                      variant={statusFilter === 'washing' ? 'default' : 'outline'}
-                      onClick={() => setStatusFilter('washing')}
-                      size="sm"
-                    >
-                      Pesussa olevat
-                    </Button>
-                    <Button
-                      variant={statusFilter === 'returning' ? 'default' : 'outline'}
-                      onClick={() => setStatusFilter('returning')}
-                      size="sm"
-                    >
-                      Palautuvat
-                    </Button>
-                    <Button
-                      variant={statusFilter === 'delivered' ? 'default' : 'outline'}
-                      onClick={() => setStatusFilter('delivered')}
-                      size="sm"
-                    >
-                      Toimitettu
-                    </Button>
-                    <Button
-                      variant={statusFilter === 'rejected' ? 'default' : 'outline'}
-                      onClick={() => setStatusFilter('rejected')}
-                      size="sm"
-                    >
-                      Hylätty
-                    </Button>
-                  </div>
+                {/* Main Search Bar */}
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    placeholder="🔍 Superhaku - Hae tilauksia (asiakas, osoite, tilausnumero, palvelu...)"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-12 text-lg"
+                  />
                 </div>
+
+                {/* Advanced Filters */}
+                <Collapsible open={showAdvancedFilters} onOpenChange={setShowAdvancedFilters}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="outline" className="mb-4">
+                      <Filter className="h-4 w-4 mr-2" />
+                      Lisäfiltterit
+                      <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-4">
+                    {/* Status Filters */}
+                    <div>
+                      <Label className="text-sm font-medium">Tila (monivalinta)</Label>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                        {allStatusOptions.map(status => (
+                          <div key={status.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={status.value}
+                              checked={statusFilters.includes(status.value)}
+                              onCheckedChange={(checked) => 
+                                handleStatusFilterChange(status.value, checked as boolean)
+                              }
+                            />
+                            <Label htmlFor={status.value} className="text-sm">
+                              {status.label}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Date Range */}
+                    <div>
+                      <Label className="text-sm font-medium">Aikaväli</Label>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <Button
+                          variant={dateFilter === 'all' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setDateFilter('all')}
+                        >
+                          Kaikki
+                        </Button>
+                        <Button
+                          variant={dateFilter === 'today' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setDateFilter('today')}
+                        >
+                          Tänään
+                        </Button>
+                        <Button
+                          variant={dateFilter === 'this_week' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setDateFilter('this_week')}
+                        >
+                          Tämä viikko
+                        </Button>
+                        <Button
+                          variant={dateFilter === 'this_month' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setDateFilter('this_month')}
+                        >
+                          Tämä kuukausi
+                        </Button>
+                        <Button
+                          variant={dateFilter === 'custom' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setDateFilter('custom')}
+                        >
+                          Mukautettu
+                        </Button>
+                      </div>
+                      
+                      {dateFilter === 'custom' && (
+                        <div className="flex gap-2 mt-2">
+                          <div>
+                            <Label htmlFor="start-date" className="text-xs">Alkaen</Label>
+                            <Input
+                              id="start-date"
+                              type="date"
+                              value={customDateStart}
+                              onChange={(e) => setCustomDateStart(e.target.value)}
+                              className="text-sm"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="end-date" className="text-xs">Päättyen</Label>
+                            <Input
+                              id="end-date"
+                              type="date"
+                              value={customDateEnd}
+                              onChange={(e) => setCustomDateEnd(e.target.value)}
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Reset Filters */}
+                    <Button variant="outline" size="sm" onClick={resetFilters}>
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Nollaa filtterit
+                    </Button>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Active Filters Summary */}
+                {(statusFilters.length > 0 || dateFilter !== 'all' || searchTerm) && (
+                  <div className="flex flex-wrap gap-2 mt-4 p-3 bg-muted rounded-lg">
+                    <span className="text-sm font-medium">Aktiiviset suodattimet:</span>
+                    {searchTerm && (
+                      <Badge variant="secondary">Haku: "{searchTerm}"</Badge>
+                    )}
+                    {statusFilters.map(status => {
+                      const statusOption = allStatusOptions.find(s => s.value === status);
+                      return (
+                        <Badge key={status} variant="secondary">
+                          {statusOption?.label}
+                        </Badge>
+                      );
+                    })}
+                    {dateFilter !== 'all' && (
+                      <Badge variant="secondary">
+                        {dateFilter === 'today' && 'Tänään'}
+                        {dateFilter === 'this_week' && 'Tämä viikko'}
+                        {dateFilter === 'this_month' && 'Tämä kuukausi'}
+                        {dateFilter === 'custom' && `${customDateStart} - ${customDateEnd}`}
+                      </Badge>
+                    )}
+                    <span className="text-sm text-muted-foreground">
+                      ({filteredOrders.length} tilausta löytyi)
+                    </span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

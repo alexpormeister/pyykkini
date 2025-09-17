@@ -487,6 +487,27 @@ export const DriverPanel = () => {
   };
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
+    const order = myOrders.find(o => o.id === orderId);
+    
+    // Check weight requirements before status update
+    if (newStatus === 'picking_up' && !order?.pickup_weight_kg) {
+      toast({
+        variant: "destructive",
+        title: "Painotieto puuttuu",
+        description: "Lisää noutopaino ennen tilan vaihtamista."
+      });
+      return;
+    }
+    
+    if (newStatus === 'delivered' && !order?.return_weight_kg) {
+      toast({
+        variant: "destructive",
+        title: "Painotieto puuttuu", 
+        description: "Lisää palautuspaino ennen toimittamista."
+      });
+      return;
+    }
+
     try {
       const updateData: any = { status: newStatus };
       
@@ -867,7 +888,17 @@ export const DriverPanel = () => {
                       .slice(myOrdersPage * 3, (myOrdersPage + 1) * 3)
                       .map((order) => {
                         const StatusIcon = getStatusIcon(order.status);
-                        const canProgress = order.status !== 'delivered';
+                        // Can progress if status isn't delivered AND weight requirements are met
+                        const canProgress = order.status !== 'delivered' && (() => {
+                          switch(order.status) {
+                            case 'picking_up': 
+                              return !!order.pickup_weight_kg;
+                            case 'returning': 
+                              return !!order.return_weight_kg;
+                            default: 
+                              return true;
+                          }
+                        })();
                         return (
                           <Card key={order.id} className="hover:shadow-elegant transition-all duration-300">
                             <CardContent className="p-6">

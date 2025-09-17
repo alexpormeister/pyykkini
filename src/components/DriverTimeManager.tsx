@@ -236,14 +236,17 @@ export const DriverTimeManager = ({ order, onOrderUpdate }: DriverTimeManagerPro
                 <Badge variant="default" className="text-xs">
                   {currentPickupSlot.display}
                 </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleEditTime('pickup')}
-                  className="h-8 w-8 p-0"
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
+                {/* Only show edit button if order is already accepted and assigned to this driver */}
+                {order.status !== 'pending' && order.driver_id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEditTime('pickup')}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
             
@@ -253,16 +256,38 @@ export const DriverTimeManager = ({ order, onOrderUpdate }: DriverTimeManagerPro
                 <Badge variant="secondary" className="text-xs">
                   {currentReturnSlot.display}
                 </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleEditTime('return')}
-                  className="h-8 w-8 p-0"
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
+                {/* Only show edit button if order is already accepted and assigned to this driver */}
+                {order.status !== 'pending' && order.driver_id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEditTime('return')}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
+
+            {/* Show weights if available */}
+            {(order.pickup_weight_kg || order.return_weight_kg) && (
+              <div className="border-t pt-3 mt-3">
+                <div className="font-semibold text-sm text-muted-foreground mb-2">PAINOT</div>
+                <div className="space-y-1">
+                  {order.pickup_weight_kg && (
+                    <div className="text-xs">
+                      <span className="text-muted-foreground">Noutopaino:</span> {order.pickup_weight_kg} kg
+                    </div>
+                  )}
+                  {order.return_weight_kg && (
+                    <div className="text-xs">
+                      <span className="text-muted-foreground">Palautuspaino:</span> {order.return_weight_kg} kg
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {order.status === 'pending' && (
