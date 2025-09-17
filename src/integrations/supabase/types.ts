@@ -474,6 +474,10 @@ export type Database = {
         }
         Returns: string
       }
+      validate_data_access: {
+        Args: { operation: string; table_name: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "driver" | "customer"
