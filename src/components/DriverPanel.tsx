@@ -610,13 +610,14 @@ export const DriverPanel = () => {
   };
 
   const renderWeightInfo = (order: any) => {
-    const hasPickupWeight = order.pickup_weight_kg !== null;
-    const hasReturnWeight = order.return_weight_kg !== null;
+    const hasPickupWeight = order.pickup_weight_kg !== null && order.pickup_weight_kg !== undefined;
+    const hasReturnWeight = order.return_weight_kg !== null && order.return_weight_kg !== undefined;
     const weightDiff = hasPickupWeight && hasReturnWeight 
       ? Math.abs(order.return_weight_kg - order.pickup_weight_kg) 
       : 0;
 
-    if (!hasPickupWeight && !hasReturnWeight) return null;
+    // Always show weight section if order is accepted or beyond
+    if (order.status === 'pending') return null;
 
     return (
       <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
@@ -627,11 +628,11 @@ export const DriverPanel = () => {
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
             <span className="text-muted-foreground">Nouto:</span> 
-            {hasPickupWeight ? `${order.pickup_weight_kg} kg` : 'Ei kirjattu'}
+            {order.pickup_weight_kg ? `${order.pickup_weight_kg} kg` : 'Ei kirjattu'}
           </div>
           <div>
             <span className="text-muted-foreground">Palautus:</span> 
-            {hasReturnWeight ? `${order.return_weight_kg} kg` : 'Ei kirjattu'}
+            {order.return_weight_kg ? `${order.return_weight_kg} kg` : 'Ei kirjattu'}
           </div>
         </div>
         {hasPickupWeight && hasReturnWeight && weightDiff > 0.1 && (
@@ -951,18 +952,6 @@ export const DriverPanel = () => {
                                       className="w-36"
                                     >
                                       {getNextStatusText(order.status)}
-                                    </Button>
-                                  )}
-                                  {(order.status === 'picking_up' || order.status === 'washing') && !order.pickup_weight_kg && (
-                                    <Button variant="outline" size="sm" onClick={() => handleWeightInput(order.id, 'pickup')} className="w-36">
-                                      <Scale className="h-4 w-4 mr-1" />
-                                      Noutopaino
-                                    </Button>
-                                  )}
-                                  {order.status === 'returning' && !order.return_weight_kg && (
-                                    <Button variant="outline" size="sm" onClick={() => handleWeightInput(order.id, 'return')} className="w-36">
-                                      <Scale className="h-4 w-4 mr-1" />
-                                      Palautuspaino
                                     </Button>
                                   )}
                                   <Button variant="ghost" size="sm" onClick={() => window.open(`tel:${order.phone}`)} className="w-36 text-xs">
