@@ -379,8 +379,9 @@ export type Database = {
           address: string | null
           created_at: string
           email: string
-          full_name: string | null
+          first_name: string | null
           id: string
+          last_name: string | null
           phone: string | null
           profile_image: number | null
           updated_at: string
@@ -390,8 +391,9 @@ export type Database = {
           address?: string | null
           created_at?: string
           email: string
-          full_name?: string | null
+          first_name?: string | null
           id?: string
+          last_name?: string | null
           phone?: string | null
           profile_image?: number | null
           updated_at?: string
@@ -401,8 +403,9 @@ export type Database = {
           address?: string | null
           created_at?: string
           email?: string
-          full_name?: string | null
+          first_name?: string | null
           id?: string
+          last_name?: string | null
           phone?: string | null
           profile_image?: number | null
           updated_at?: string
@@ -437,7 +440,7 @@ export type Database = {
     }
     Functions: {
       get_driver_orders: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           address: string
           created_at: string

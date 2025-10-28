@@ -184,8 +184,7 @@ export const Auth = () => {
     setLoading(true);
 
     try {
-      const fullName = `${signUpFirstName} ${signUpLastName}`;
-      const { error } = await signUp(signUpEmail, signUpPassword, fullName);
+      const { error } = await signUp(signUpEmail, signUpPassword, signUpFirstName, signUpLastName);
       
       if (error) {
         if (error.message.includes('already registered')) {

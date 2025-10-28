@@ -310,7 +310,7 @@ export const AdminPanel = () => {
       // Then get their profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, phone')
+        .select('user_id, first_name, last_name, phone')
         .in('user_id', driverIds);
 
       if (profilesError) throw profilesError;

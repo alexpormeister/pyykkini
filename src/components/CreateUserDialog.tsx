@@ -20,7 +20,8 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    full_name: '',
+    first_name: '',
+    last_name: '',
     phone: '',
     role: 'customer'
   });
@@ -40,7 +41,8 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
         password: formData.password,
         options: {
           data: {
-            full_name: formData.full_name
+            first_name: formData.first_name,
+            last_name: formData.last_name
           }
         }
       });
@@ -67,7 +69,8 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
-            full_name: formData.full_name,
+            first_name: formData.first_name,
+            last_name: formData.last_name,
             phone: formData.phone
           })
           .eq('user_id', data.user.id);
@@ -76,13 +79,14 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
 
         toast({
           title: 'Käyttäjä luotu',
-          description: `Uusi käyttäjä ${formData.full_name} luotu onnistuneesti.`
+          description: `Uusi käyttäjä ${formData.first_name} ${formData.last_name} luotu onnistuneesti.`
         });
 
         setFormData({
           email: '',
           password: '',
-          full_name: '',
+          first_name: '',
+          last_name: '',
           phone: '',
           role: 'customer'
         });
@@ -116,18 +120,34 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="full_name">Koko nimi *</Label>
-            <div className="relative">
-              <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="full_name"
-                value={formData.full_name}
-                onChange={(e) => handleInputChange('full_name', e.target.value)}
-                className="pl-10"
-                placeholder="Koko nimi"
-                required
-              />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="first_name">Etunimi *</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="first_name"
+                  value={formData.first_name}
+                  onChange={(e) => handleInputChange('first_name', e.target.value)}
+                  className="pl-10"
+                  placeholder="Etunimi"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="last_name">Sukunimi *</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="last_name"
+                  value={formData.last_name}
+                  onChange={(e) => handleInputChange('last_name', e.target.value)}
+                  className="pl-10"
+                  placeholder="Sukunimi"
+                  required
+                />
+              </div>
             </div>
           </div>
 

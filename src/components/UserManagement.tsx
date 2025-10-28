@@ -15,7 +15,8 @@ interface UserWithRole {
   id: string;
   email: string;
   profiles?: {
-    full_name?: string;
+    first_name?: string;
+    last_name?: string;
     phone?: string;
     address?: string;
   };
@@ -35,7 +36,8 @@ export const UserManagement = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deletingUser, setDeletingUser] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState({
-    full_name: '',
+    first_name: '',
+    last_name: '',
     email: '',
     phone: '',
     address: ''
@@ -53,7 +55,8 @@ export const UserManagement = () => {
         .select(`
           user_id,
           email,
-          full_name,
+          first_name,
+          last_name,
           phone,
           address
         `);
@@ -72,7 +75,8 @@ export const UserManagement = () => {
         id: profile.user_id,
         email: profile.email,
         profiles: {
-          full_name: profile.full_name,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
           phone: profile.phone,
           address: profile.address
         },
@@ -133,7 +137,8 @@ export const UserManagement = () => {
   const openEditDialog = (user: UserWithRole) => {
     setEditingUser(user);
     setEditFormData({
-      full_name: user.profiles?.full_name || '',
+      first_name: user.profiles?.first_name || '',
+      last_name: user.profiles?.last_name || '',
       email: user.email,
       phone: user.profiles?.phone || '',
       address: user.profiles?.address || ''
@@ -149,7 +154,8 @@ export const UserManagement = () => {
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: editFormData.full_name,
+          first_name: editFormData.first_name,
+          last_name: editFormData.last_name,
           email: editFormData.email,
           phone: editFormData.phone,
           address: editFormData.address
@@ -221,10 +227,11 @@ export const UserManagement = () => {
     }
   };
 
-  const filteredUsers = users.filter(user => 
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = users.filter(user => {
+    const fullName = [user.profiles?.first_name, user.profiles?.last_name].filter(Boolean).join(' ');
+    return user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      fullName.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   if (loading) {
     return (
@@ -279,7 +286,7 @@ export const UserManagement = () => {
                   </div>
                   <div>
                     <h4 className="font-semibold text-lg">
-                      {user.profiles?.full_name || user.email}
+                      {[user.profiles?.first_name, user.profiles?.last_name].filter(Boolean).join(' ') || user.email}
                     </h4>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Mail className="h-3 w-3" />
@@ -360,17 +367,32 @@ export const UserManagement = () => {
             </DialogHeader>
 
             <form onSubmit={handleEditSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="edit_full_name">Koko nimi</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="edit_full_name"
-                    value={editFormData.full_name}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                    className="pl-10"
-                    placeholder="Koko nimi"
-                  />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit_first_name">Etunimi</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="edit_first_name"
+                      value={editFormData.first_name}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, first_name: e.target.value }))}
+                      className="pl-10"
+                      placeholder="Etunimi"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="edit_last_name">Sukunimi</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="edit_last_name"
+                      value={editFormData.last_name}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, last_name: e.target.value }))}
+                      className="pl-10"
+                      placeholder="Sukunimi"
+                    />
+                  </div>
                 </div>
               </div>
 

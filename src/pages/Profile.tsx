@@ -39,7 +39,8 @@ interface Order {
 
 interface Profile {
   id: string;
-  full_name: string;
+  first_name: string | null;
+  last_name: string | null;
   email: string;
   phone?: string;
   profile_image?: number;
@@ -66,9 +67,9 @@ export const Profile = () => {
     last_name: '',
     email: '',
     phone: '',
-    profile_image: 1,
     address: ''
   });
+  const [selectedImage, setSelectedImage] = useState(1);
 
   useEffect(() => {
     fetchProfile();
@@ -89,15 +90,16 @@ export const Profile = () => {
 
       if (data) {
         setProfile(data);
-        const { firstName, lastName } = parseFullName(data.full_name || '');
         setFormData({
-          first_name: firstName,
-          last_name: lastName,
+          first_name: data.first_name || '',
+          last_name: data.last_name || '',
           email: data.email || '',
           phone: data.phone || '',
-          profile_image: data.profile_image || 1,
           address: data.address || ''
         });
+        if (data.profile_image !== null && data.profile_image !== undefined) {
+          setSelectedImage(data.profile_image);
+        }
       }
     } catch (error: any) {
       console.error('Error fetching profile:', error);
@@ -131,14 +133,14 @@ export const Profile = () => {
 
     setLoading(true);
     try {
-      const fullName = `${formData.first_name} ${formData.last_name}`.trim();
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: fullName,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
           email: formData.email,
           phone: formData.phone,
-          profile_image: formData.profile_image,
+          profile_image: selectedImage,
           address: formData.address
         })
         .eq('user_id', user.id);
@@ -262,12 +264,12 @@ export const Profile = () => {
               <CardHeader className="text-center">
                 <div className="w-24 h-24 mx-auto mb-4 relative">
                   <img 
-                    src={profileImages[formData.profile_image - 1]?.src} 
+                    src={profileImages[selectedImage - 1]?.src} 
                     alt="Profiilikuva" 
                     className="w-full h-full rounded-full object-cover border-4 border-primary/20"
                   />
                 </div>
-                <CardTitle>{`${formData.first_name} ${formData.last_name}`.trim() || user.email}</CardTitle>
+                <CardTitle>{[formData.first_name, formData.last_name].filter(Boolean).join(' ') || user.email}</CardTitle>
                 <CardDescription className="flex items-center justify-center gap-2">
                   <Badge variant="secondary" className="capitalize">
                     {userRole}
@@ -290,9 +292,9 @@ export const Profile = () => {
                         <button
                           key={img.id}
                           type="button"
-                          onClick={() => handleInputChange('profile_image', img.id)}
+                          onClick={() => setSelectedImage(img.id)}
                           className={`w-12 h-12 rounded-full border-2 transition-all ${
-                            formData.profile_image === img.id
+                            selectedImage === img.id
                               ? 'border-primary ring-2 ring-primary/20'
                               : 'border-gray-200 hover:border-primary/50'
                           }`}

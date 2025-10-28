@@ -392,11 +392,11 @@ export const DriverPanel = () => {
       // Get current user's profile for the name
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('first_name, last_name')
         .eq('user_id', user?.id)
         .single();
 
-      const driverName = profile?.full_name || 'Tuntematon kuljettaja';
+      const driverName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : 'Tuntematon kuljettaja';
 
       // Insert rejection record
       const { error: rejectionError } = await supabase

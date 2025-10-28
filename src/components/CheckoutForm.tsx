@@ -75,7 +75,7 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
       try {
         const { data: profile, error } = await supabase
           .from('profiles')
-          .select('full_name, phone, address, email')
+          .select('first_name, last_name, phone, address, email')
           .eq('user_id', user.id)
           .single();
 

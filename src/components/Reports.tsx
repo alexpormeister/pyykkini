@@ -62,7 +62,8 @@ export const Reports = () => {
         .from('profiles')
         .select(`
           user_id,
-          full_name
+          first_name,
+          last_name
         `);
 
       if (driversError) throw driversError;
@@ -110,7 +111,7 @@ export const Reports = () => {
         const revenue = driverOrders.reduce((sum, order) => sum + (order.final_price || 0), 0);
 
         return {
-          driver_name: driver.full_name || 'Tuntematon',
+          driver_name: [driver.first_name, driver.last_name].filter(Boolean).join(' ') || 'Tuntematon',
           driver_id: driver.user_id,
           total_orders: total,
           completed_orders: completed,
