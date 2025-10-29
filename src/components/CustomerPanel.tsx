@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Calendar, Clock, Shirt, Sparkles, Zap, Star, CheckCircle, Package, Truck, ArrowRight, ShoppingCart as CartIcon } from "lucide-react";
 import { CheckoutForm } from "./CheckoutForm";
-import { ShoppingCart, CartItem } from "./ShoppingCart";
+import { ShoppingCart } from "./ShoppingCart";
 import { RugSelectionDialog } from "./RugSelectionDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useCart, CartItem } from "@/hooks/useCart";
 
 interface Service {
   id: string;
@@ -97,12 +98,12 @@ const getStatusColor = (status: string) => {
 export const CustomerPanel = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { cartItems, addItem, updateQuantity, removeItem, clearCart } = useCart();
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [currentView, setCurrentView] = useState<'services' | 'cart' | 'booking' | 'orders'>('services');
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [showRugDialog, setShowRugDialog] = useState(false);
   const [pendingService, setPendingService] = useState<Service | null>(null);
@@ -169,8 +170,7 @@ export const CustomerPanel = () => {
       metadata.rugDimensions = rugDimensions;
     }
 
-    const newItem: CartItem = {
-      id: `${service.id}-${Date.now()}`,
+    const newItem: Omit<CartItem, 'id'> = {
       type: 'service',
       serviceId: service.id,
       name: service.name,
@@ -180,7 +180,7 @@ export const CustomerPanel = () => {
       metadata
     };
     
-    setCartItems(prev => [...prev, newItem]);
+    addItem(newItem);
     setShowServiceModal(false);
     setCurrentView('cart');
     
@@ -286,8 +286,7 @@ export const CustomerPanel = () => {
                       </div>
                       <Button 
                         onClick={() => {
-                          const bundleItem = {
-                            id: `sheet-normal-bundle-${Date.now()}`,
+                          const bundleItem: Omit<CartItem, 'id'> = {
                             type: 'bundle' as const,
                             serviceId: 'sheet-normal-bundle',
                             name: 'Lakanapyykki + Normaali pesu',
@@ -295,7 +294,7 @@ export const CustomerPanel = () => {
                             price: 39.99,
                             quantity: 1
                           };
-                          setCartItems(prev => [...prev, bundleItem]);
+                          addItem(bundleItem);
                           setCurrentView('cart');
                         }}
                         className="w-full bg-gradient-primary hover:opacity-90"
@@ -318,8 +317,7 @@ export const CustomerPanel = () => {
                       </div>
                       <Button 
                         onClick={() => {
-                          const bundleItem = {
-                            id: `shoes-normal-bundle-${Date.now()}`,
+                          const bundleItem: Omit<CartItem, 'id'> = {
                             type: 'bundle' as const,
                             serviceId: 'shoes-normal-bundle',
                             name: 'Kenkäpesu + Normaali pesu',
@@ -327,7 +325,7 @@ export const CustomerPanel = () => {
                             price: 39.99,
                             quantity: 1
                           };
-                          setCartItems(prev => [...prev, bundleItem]);
+                          addItem(bundleItem);
                           setCurrentView('cart');
                         }}
                         className="w-full bg-gradient-primary hover:opacity-90"
@@ -467,7 +465,9 @@ export const CustomerPanel = () => {
             <h2 className="text-2xl font-semibold mb-6 text-center">Ostoskori</h2>
             <ShoppingCart
               cartItems={cartItems}
-              onUpdateCart={setCartItems}
+              onAddItem={addItem}
+              onUpdateQuantity={updateQuantity}
+              onRemoveItem={removeItem}
               onProceedToCheckout={handleProceedToCheckout}
               appliedCoupon={appliedCoupon}
               onCouponApplied={setAppliedCoupon}
@@ -483,7 +483,7 @@ export const CustomerPanel = () => {
             appliedCoupon={appliedCoupon}
             onBack={() => setCurrentView('cart')}
             onSuccess={() => {
-              setCartItems([]);
+              clearCart();
               setAppliedCoupon(null);
               setCurrentView('orders');
               fetchOrders();
