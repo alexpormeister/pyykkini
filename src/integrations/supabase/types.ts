@@ -14,68 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      cart_items: {
-        Row: {
-          cart_id: string
-          created_at: string
-          id: string
-          metadata: Json | null
-          quantity: number
-          service_name: string
-          service_type: string
-          unit_price: number
-        }
-        Insert: {
-          cart_id: string
-          created_at?: string
-          id?: string
-          metadata?: Json | null
-          quantity?: number
-          service_name: string
-          service_type: string
-          unit_price: number
-        }
-        Update: {
-          cart_id?: string
-          created_at?: string
-          id?: string
-          metadata?: Json | null
-          quantity?: number
-          service_name?: string
-          service_type?: string
-          unit_price?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cart_items_cart_id_fkey"
-            columns: ["cart_id"]
-            isOneToOne: false
-            referencedRelation: "carts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      carts: {
-        Row: {
-          created_at: string
-          id: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       coupons: {
         Row: {
           code: string

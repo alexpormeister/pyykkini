@@ -8,13 +8,28 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ShoppingCart as CartIcon, Plus, Minus, Trash2, Package, Sparkles, Tag } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { CartItem } from '@/hooks/useCart';
+
+export interface CartItem {
+  id: string;
+  type: 'service' | 'addon' | 'bundle';
+  serviceId: string;
+  name: string;
+  description: string;
+  price: number;
+  quantity: number;
+  metadata?: {
+    rugDimensions?: {
+      length: number;
+      width: number;
+    };
+    sockColor?: string;
+    sockPairs?: number;
+  };
+}
 
 interface ShoppingCartProps {
   cartItems: CartItem[];
-  onAddItem: (item: Omit<CartItem, 'id'>) => void;
-  onUpdateQuantity: (itemId: string, quantity: number) => void;
-  onRemoveItem: (itemId: string) => void;
+  onUpdateCart: (items: CartItem[]) => void;
   onProceedToCheckout: (items: CartItem[], total: number) => void;
   appliedCoupon?: {
     code: string;
@@ -81,9 +96,7 @@ const addonItems = [
 
 export const ShoppingCart = ({ 
   cartItems, 
-  onAddItem,
-  onUpdateQuantity,
-  onRemoveItem,
+  onUpdateCart, 
   onProceedToCheckout,
   appliedCoupon,
   onCouponApplied,
@@ -94,12 +107,34 @@ export const ShoppingCart = ({
   const [showBundles, setShowBundles] = useState(false);
   const [rugDimensions, setRugDimensions] = useState({ length: '', width: '' });
   const [showRugDialog, setShowRugDialog] = useState(false);
-  const [pendingRugItem, setPendingRugItem] = useState<Omit<CartItem, 'id'> | null>(null);
+  const [pendingRugItem, setPendingRugItem] = useState<CartItem | null>(null);
+
+  const updateQuantity = (itemId: string, newQuantity: number) => {
+    if (newQuantity === 0) {
+      removeItem(itemId);
+      return;
+    }
+    
+    const updatedItems = cartItems.map(item =>
+      item.id === itemId ? { ...item, quantity: newQuantity } : item
+    );
+    onUpdateCart(updatedItems);
+  };
+
+  const removeItem = (itemId: string) => {
+    const updatedItems = cartItems.filter(item => item.id !== itemId);
+    onUpdateCart(updatedItems);
+    toast({
+      title: "Tuote poistettu",
+      description: "Tuote on poistettu ostoskorista"
+    });
+  };
 
   const addService = (service: any) => {
     // Check if it's a rug wash service that needs dimensions
     if (service.id === 'carpets') {
-      const rugItem: Omit<CartItem, 'id'> = {
+      const rugItem: CartItem = {
+        id: `${service.id}-${Date.now()}`,
         type: 'service',
         serviceId: service.id,
         name: service.name,
@@ -112,7 +147,8 @@ export const ShoppingCart = ({
       return;
     }
 
-    const newItem: Omit<CartItem, 'id'> = {
+    const newItem: CartItem = {
+      id: `${service.id}-${Date.now()}`,
       type: 'service',
       serviceId: service.id,
       name: service.name,
@@ -121,7 +157,11 @@ export const ShoppingCart = ({
       quantity: 1
     };
     
-    onAddItem(newItem);
+    onUpdateCart([...cartItems, newItem]);
+    toast({
+      title: "Palvelu lisätty",
+      description: `${service.name} lisätty ostoskoriin`
+    });
   };
 
   const addRugWithDimensions = () => {
@@ -134,7 +174,7 @@ export const ShoppingCart = ({
       return;
     }
 
-    const rugItem: Omit<CartItem, 'id'> = {
+    const rugItem = {
       ...pendingRugItem,
       metadata: {
         rugDimensions: {
@@ -144,14 +184,20 @@ export const ShoppingCart = ({
       }
     };
 
-    onAddItem(rugItem);
+    onUpdateCart([...cartItems, rugItem]);
     setShowRugDialog(false);
     setPendingRugItem(null);
     setRugDimensions({ length: '', width: '' });
+    
+    toast({
+      title: "Mattopesu lisätty",
+      description: `Mattopesu (${rugDimensions.length}x${rugDimensions.width} cm) lisätty ostoskoriin`
+    });
   };
 
   const addAddon = (addon: any) => {
-    const newItem: Omit<CartItem, 'id'> = {
+    const newItem: CartItem = {
+      id: `${addon.id}-${Date.now()}`,
       type: 'addon',
       serviceId: addon.id,
       name: addon.name,
@@ -164,11 +210,16 @@ export const ShoppingCart = ({
       }
     };
     
-    onAddItem(newItem);
+    onUpdateCart([...cartItems, newItem]);
+    toast({
+      title: "Lisätuote lisätty",
+      description: `${addon.name} lisätty ostoskoriin`
+    });
   };
 
   const addBundle = (bundle: any) => {
-    const newItem: Omit<CartItem, 'id'> = {
+    const newItem: CartItem = {
+      id: `${bundle.id}-${Date.now()}`,
       type: 'bundle',
       serviceId: bundle.id,
       name: bundle.name,
@@ -177,7 +228,11 @@ export const ShoppingCart = ({
       quantity: 1
     };
     
-    onAddItem(newItem);
+    onUpdateCart([...cartItems, newItem]);
+    toast({
+      title: "Paketti lisätty",
+      description: `${bundle.name} lisätty ostoskoriin`
+    });
   };
 
   const getSubtotal = () => {
@@ -260,7 +315,7 @@ export const ShoppingCart = ({
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
                   >
                     <Minus className="h-3 w-3" />
                   </Button>
@@ -268,7 +323,7 @@ export const ShoppingCart = ({
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
                   >
                     <Plus className="h-3 w-3" />
                   </Button>
@@ -282,7 +337,7 @@ export const ShoppingCart = ({
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => onRemoveItem(item.id)}
+                  onClick={() => removeItem(item.id)}
                   className="text-destructive hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
