@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { UserManagement } from "@/components/UserManagement";
 import { Reports } from "@/components/Reports";
 import { CouponManagement } from "@/components/CouponManagement";
+import { ProductManagement } from "@/components/ProductManagement";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
@@ -633,6 +634,12 @@ export const AdminPanel = () => {
                           Käyttäjien hallinta
                         </button>
                         <button
+                          onClick={() => setActiveTab('products')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'products' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Tuotteiden hallinta
+                        </button>
+                        <button
                           onClick={() => setActiveTab('coupons')}
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'coupons' ? 'bg-primary/10 text-primary font-medium' : ''}`}
                         >
@@ -1068,6 +1075,11 @@ export const AdminPanel = () => {
           {/* Users Tab */}
           <TabsContent value="customers" className="animate-fade-in">
             <UserManagement />
+          </TabsContent>
+
+          {/* Products Tab */}
+          <TabsContent value="products" className="animate-fade-in">
+            <ProductManagement />
           </TabsContent>
 
           {/* Coupons Tab */}
