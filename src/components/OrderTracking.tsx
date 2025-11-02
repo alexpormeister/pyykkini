@@ -14,6 +14,12 @@ interface Order {
   created_at: string;
   address: string;
   final_price: number;
+  pickup_weight_kg: number | null;
+  return_weight_kg: number | null;
+  pickup_date: string | null;
+  pickup_time: string | null;
+  return_date: string | null;
+  return_time: string | null;
 }
 
 export const OrderTracking = () => {
@@ -22,6 +28,27 @@ export const OrderTracking = () => {
 
   useEffect(() => {
     fetchOrders();
+    
+    // Set up real-time subscription for order changes
+    const channel = supabase
+      .channel('customer-orders-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders'
+        },
+        () => {
+          console.log('Order change detected, refreshing customer orders...');
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchOrders = async () => {
@@ -122,20 +149,50 @@ export const OrderTracking = () => {
                   <p className="font-medium">Kokonaishinta</p>
                   <p className="text-lg font-bold">{order.final_price.toFixed(2)} €</p>
                 </div>
-                {order.pickup_slot && (
+                {(order.pickup_slot || (order.pickup_date && order.pickup_time)) && (
                   <div>
                     <p className="font-medium">Noutoaika</p>
                     <p className="text-muted-foreground">
-                      {format(new Date(order.pickup_slot), "d.M.yyyy HH:mm", { locale: fi })}
+                      {order.pickup_slot 
+                        ? format(new Date(order.pickup_slot), "d.M.yyyy HH:mm", { locale: fi })
+                        : `${order.pickup_date} ${order.pickup_time}`
+                      }
                     </p>
                   </div>
                 )}
-                {order.delivery_slot && (
+                {(order.delivery_slot || (order.return_date && order.return_time)) && (
                   <div>
                     <p className="font-medium">Palautusaika</p>
                     <p className="text-muted-foreground">
-                      {format(new Date(order.delivery_slot), "d.M.yyyy HH:mm", { locale: fi })}
+                      {order.delivery_slot 
+                        ? format(new Date(order.delivery_slot), "d.M.yyyy HH:mm", { locale: fi })
+                        : `${order.return_date} ${order.return_time}`
+                      }
                     </p>
+                  </div>
+                )}
+                {(order.pickup_weight_kg || order.return_weight_kg) && (
+                  <div className="col-span-2 mt-2 p-3 bg-blue-50 rounded">
+                    <p className="font-medium mb-2">Painotiedot</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Noudossa:</span>{' '}
+                        <span className="font-medium">
+                          {order.pickup_weight_kg ? `${order.pickup_weight_kg} kg` : 'Ei vielä kirjattu'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Palautuksessa:</span>{' '}
+                        <span className="font-medium">
+                          {order.return_weight_kg ? `${order.return_weight_kg} kg` : 'Ei vielä kirjattu'}
+                        </span>
+                      </div>
+                    </div>
+                    {order.pickup_weight_kg && order.return_weight_kg && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Painoero: {Math.abs(order.return_weight_kg - order.pickup_weight_kg).toFixed(1)} kg
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

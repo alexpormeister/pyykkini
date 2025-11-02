@@ -261,7 +261,7 @@ export const DriverPanel = () => {
       if (assignedCustomerIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('user_id, full_name, phone')
+          .select('user_id, first_name, last_name, phone')
           .in('user_id', assignedCustomerIds);
         customerProfiles = profiles || [];
       }
@@ -683,11 +683,14 @@ export const DriverPanel = () => {
 
   const getCustomerName = (order: any) => {
     // Use profile name if available and not "Asiakas"
-    if (order.profiles?.full_name && 
-        order.profiles.full_name.trim() !== '' && 
-        order.profiles.full_name !== 'Asiakas' &&
-        order.profiles.full_name !== 'Asiakas Asiakas') {
-      return order.profiles.full_name;
+    const profileFirstName = order.profiles?.first_name;
+    const profileLastName = order.profiles?.last_name;
+    
+    if (profileFirstName || profileLastName) {
+      const fullName = `${profileFirstName || ''} ${profileLastName || ''}`.trim();
+      if (fullName && fullName !== 'Asiakas' && fullName !== 'Asiakas Asiakas') {
+        return fullName;
+      }
     }
     
     // Fallback to order names if they're not "Asiakas"
