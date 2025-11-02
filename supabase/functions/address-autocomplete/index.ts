@@ -46,9 +46,9 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const { data } = await supabaseClient.auth.getUser(token);
+    const { data: authData } = await supabaseClient.auth.getUser(token);
     
-    if (!data.user) {
+    if (!authData.user) {
       return new Response(
         JSON.stringify({ error: 'Invalid authentication' }), 
         { 
