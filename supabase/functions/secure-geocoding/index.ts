@@ -5,14 +5,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface GeocodeResponse {
-  status: string;
-  results: Array<{
+interface GeoapifyResponse {
+  features: Array<{
     geometry: {
-      location: {
-        lat: number;
-        lng: number;
-      };
+      coordinates: [number, number]; // [lng, lat]
+    };
+    properties: {
+      formatted: string;
+      country: string;
+      city?: string;
     };
   }>;
 }
@@ -39,9 +40,9 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
+    const apiKey = Deno.env.get('GEOAPIFY_API_KEY');
     if (!apiKey) {
-      console.error('❌ Google Maps API key not configured');
+      console.error('❌ Geoapify API key not configured');
       return new Response(
         JSON.stringify({ error: 'Geocoding service unavailable' }), 
         { 
@@ -51,20 +52,18 @@ serve(async (req) => {
       );
     }
 
-    // Add Finland as the region bias for better Finnish address results
-    const addressWithCountry = address.includes('Finland') || address.includes('Suomi') 
-      ? address 
-      : `${address}, Finland`;
-    
-    console.log('🌍 Geocoding with enhanced address:', addressWithCountry);
+    // Geoapify API works well with Finnish addresses
+    console.log('🌍 Geocoding address:', address);
 
-    // Make the geocoding request
-    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addressWithCountry)}&region=fi&key=${apiKey}`;
+    // Make the geocoding request to Geoapify
+    const geocodeUrl = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(address)}&filter=countrycode:fi&apiKey=${apiKey}`;
+    
+    console.log('🔗 API URL:', geocodeUrl.replace(apiKey, 'HIDDEN'));
     
     const response = await fetch(geocodeUrl);
     
     if (!response.ok) {
-      console.error('❌ Google Maps API request failed:', response.status, response.statusText);
+      console.error('❌ Geoapify API request failed:', response.status, response.statusText);
       return new Response(
         JSON.stringify({ error: 'Geocoding request failed' }), 
         { 
@@ -74,36 +73,39 @@ serve(async (req) => {
       );
     }
     
-    const data: GeocodeResponse = await response.json();
+    const data: GeoapifyResponse = await response.json();
     
-    console.log('📊 Google Maps API response status:', data.status);
-    console.log('📊 Results count:', data.results?.length || 0);
+    console.log('📊 Geoapify API response features count:', data.features?.length || 0);
     
-    if (data.status === 'OK' && data.results && data.results.length > 0) {
-      const location = data.results[0].geometry.location;
-      console.log('✅ Geocoding successful:', location);
+    if (data.features && data.features.length > 0) {
+      const feature = data.features[0];
+      const [lng, lat] = feature.geometry.coordinates;
+      
+      console.log('✅ Geocoding successful:', { lat, lng });
+      console.log('📍 Formatted address:', feature.properties.formatted);
+      
       return new Response(
         JSON.stringify({
           success: true,
           coordinates: {
-            lat: location.lat,
-            lng: location.lng
-          }
+            lat: lat,
+            lng: lng
+          },
+          formatted_address: feature.properties.formatted
         }), 
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     } else {
-      console.warn('⚠️ Address not found. API Status:', data.status);
-      console.warn('⚠️ Original address:', address);
-      console.warn('⚠️ Enhanced address:', addressWithCountry);
+      console.warn('⚠️ Address not found.');
+      console.warn('⚠️ Address searched:', address);
       
       return new Response(
         JSON.stringify({ 
           success: false, 
           error: 'Address not found',
-          details: `Google Maps API returned status: ${data.status}. Please check if the address is correct.`
+          details: 'Geoapify could not find the specified address. Please check if the address is correct.'
         }), 
         { 
           status: 404, 
@@ -112,13 +114,12 @@ serve(async (req) => {
       );
     }
   } catch (error) {
-    console.error('Error in secure-geocoding function:', error);
+    console.error('❌ Error in secure-geocoding function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }), 
+      JSON.stringify({ error: 'Internal server error', details: error.message }), 
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
   }
-});
