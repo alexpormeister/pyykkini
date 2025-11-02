@@ -1,15 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.0';
+import { z } from 'https://deno.land/x/zod@v3.23.8/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface CouponValidationRequest {
-  code: string;
-  orderTotal: number;
-}
+const couponSchema = z.object({
+  code: z.string().min(1).max(50),
+  orderTotal: z.number().positive().finite().max(1000000)
+});
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -40,20 +41,9 @@ serve(async (req) => {
       },
     });
 
-    const { code, orderTotal }: CouponValidationRequest = await req.json();
-    
-    if (!code || !code.trim()) {
-      return new Response(
-        JSON.stringify({ 
-          valid: false, 
-          error: 'Coupon code is required' 
-        }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
+    const body = await req.json();
+    const validated = couponSchema.parse(body);
+    const { code, orderTotal } = validated;
 
     // Validate the coupon with specific code lookup
     const { data: coupon, error } = await supabase

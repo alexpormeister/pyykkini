@@ -31,7 +31,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Attempting to delete user: ${userId}`);
+    // Redact user ID in logs for privacy
+    const redactedUserId = `${userId.substring(0, 8)}...${userId.substring(userId.length - 4)}`;
+    console.log('Attempting to delete user:', redactedUserId);
 
     // Verify the requesting user is an admin
     const authHeader = req.headers.get('Authorization');
@@ -69,7 +71,8 @@ Deno.serve(async (req) => {
       .single();
 
     if (roleError || roleData?.role !== 'admin') {
-      console.error('User is not admin:', user.id, roleData?.role);
+      const redactedRequesterId = `${user.id.substring(0, 8)}...${user.id.substring(user.id.length - 4)}`;
+      console.error('User is not admin:', redactedRequesterId, roleData?.role);
       return new Response(
         JSON.stringify({ error: 'Admin access required' }),
         { 
@@ -195,7 +198,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Successfully deleted user: ${userId}`);
+    console.log('Successfully deleted user:', redactedUserId);
 
     return new Response(
       JSON.stringify({ success: true, message: 'User deleted successfully' }),
