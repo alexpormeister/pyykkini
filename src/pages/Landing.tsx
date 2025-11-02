@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Shirt, Sparkles, Zap, Star, CheckCircle, ArrowRight, Truck, Clock, Phone, Mail, MapPin } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Shirt, Sparkles, Zap, Star, CheckCircle, ArrowRight, Truck, Clock, Phone, Mail, MapPin, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -56,11 +57,28 @@ const services: Service[] = [
   }
 ];
 
+const categories = [
+  { id: 'all', name: 'Kaikki palvelut' },
+  { id: 'normal', name: 'Normaali pesu' },
+  { id: 'shoes', name: 'Kenkäpesu' },
+  { id: 'sheets', name: 'Lakanapyykki' },
+  { id: 'carpets', name: 'Mattopesu' }
+];
+
 export const Landing = () => {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  const filteredServices = services.filter(service => {
+    const matchesSearch = service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         service.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || service.id === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   const handleOrderNow = (service: Service) => {
     if (user) {
@@ -152,8 +170,38 @@ export const Landing = () => {
             </p>
           </div>
 
+          {/* Search and Filter Section */}
+          <div className="max-w-3xl mx-auto mb-12 space-y-6">
+            {/* Search Field */}
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Hae palvelua..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-12 h-14 text-lg"
+              />
+            </div>
+
+            {/* Category Buttons */}
+            <div className="flex flex-wrap gap-3 justify-center">
+              {categories.map((category) => (
+                <Button
+                  key={category.id}
+                  variant={selectedCategory === category.id ? "hero" : "outline"}
+                  size="lg"
+                  onClick={() => setSelectedCategory(category.id)}
+                  className="font-fredoka font-bold btn-bounce-hover"
+                >
+                  {category.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-            {services.map((service, index) => {
+            {filteredServices.map((service, index) => {
               const Icon = service.icon;
               return (
                 <Card
