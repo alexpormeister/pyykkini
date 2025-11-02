@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Package, Plus, Trash2 } from "lucide-react";
+import { Package, Plus, Trash2, Pencil } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { logger } from "@/lib/logger";
 
@@ -34,12 +35,22 @@ export const ProductManagement = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     category_id: "",
     description: "",
     image_url: "",
     base_price: ""
+  });
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    category_id: "",
+    description: "",
+    image_url: "",
+    base_price: "",
+    is_active: true
   });
 
   useEffect(() => {
@@ -124,6 +135,60 @@ export const ProductManagement = () => {
         variant: "destructive",
         title: "Virhe",
         description: error.message || "Tuotteen lisääminen epäonnistui"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setEditFormData({
+      name: product.name,
+      category_id: product.category_id,
+      description: product.description || "",
+      image_url: product.image_url || "",
+      base_price: product.base_price.toString(),
+      is_active: product.is_active
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({
+          name: editFormData.name,
+          category_id: editFormData.category_id,
+          description: editFormData.description || null,
+          image_url: editFormData.image_url || null,
+          base_price: parseFloat(editFormData.base_price),
+          is_active: editFormData.is_active
+        })
+        .eq("id", editingProduct.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Tuote päivitetty",
+        description: "Tuotteen tiedot on päivitetty onnistuneesti"
+      });
+
+      setShowEditDialog(false);
+      setEditingProduct(null);
+      fetchProducts();
+    } catch (error: any) {
+      logger.error("Error updating product:", error);
+      toast({
+        variant: "destructive",
+        title: "Virhe",
+        description: error.message || "Tuotteen päivittäminen epäonnistui"
       });
     } finally {
       setLoading(false);
@@ -293,15 +358,25 @@ export const ProductManagement = () => {
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteProduct(product.id, product.name)}
-                        disabled={deleteLoading === product.id}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        {deleteLoading === product.id ? "Poistetaan..." : "Poista"}
-                      </Button>
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditProduct(product)}
+                        >
+                          <Pencil className="h-4 w-4 mr-1" />
+                          Muokkaa
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteProduct(product.id, product.name)}
+                          disabled={deleteLoading === product.id}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          {deleteLoading === product.id ? "Poistetaan..." : "Poista"}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -310,6 +385,113 @@ export const ProductManagement = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Muokkaa tuotetta</DialogTitle>
+            <DialogDescription>
+              Päivitä tuotteen tiedot
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateProduct} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Tuotteen nimi *</Label>
+              <Input
+                id="edit-name"
+                value={editFormData.name}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                placeholder="Esim. Mattopesuri S"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-category">Kategoria *</Label>
+              <Select
+                value={editFormData.category_id}
+                onValueChange={(value) => setEditFormData({ ...editFormData, category_id: value })}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Valitse kategoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.category_id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Kuvaus</Label>
+              <Textarea
+                id="edit-description"
+                value={editFormData.description}
+                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                placeholder="Tuotteen kuvaus"
+                rows={4}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-image_url">Kuvan URL</Label>
+              <Input
+                id="edit-image_url"
+                type="url"
+                value={editFormData.image_url}
+                onChange={(e) => setEditFormData({ ...editFormData, image_url: e.target.value })}
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-base_price">Hinta (€) *</Label>
+              <Input
+                id="edit-base_price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={editFormData.base_price}
+                onChange={(e) => setEditFormData({ ...editFormData, base_price: e.target.value })}
+                placeholder="0.00"
+                required
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="edit-is_active"
+                checked={editFormData.is_active}
+                onChange={(e) => setEditFormData({ ...editFormData, is_active: e.target.checked })}
+                className="w-4 h-4 rounded border-input"
+              />
+              <Label htmlFor="edit-is_active" className="cursor-pointer">
+                Tuote aktiivinen
+              </Label>
+            </div>
+
+            <div className="flex gap-2">
+              <Button type="submit" disabled={loading} className="flex-1">
+                {loading ? "Päivitetään..." : "Päivitä tuote"}
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setShowEditDialog(false)}
+                className="flex-1"
+              >
+                Peruuta
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

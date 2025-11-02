@@ -63,7 +63,8 @@ interface Order {
   customer_email?: string;
   driver_name?: string;
   profiles?: {
-    full_name?: string;
+    first_name?: string;
+    last_name?: string;
     phone?: string;
   };
 }
@@ -77,7 +78,8 @@ interface Stats {
 
 interface ActiveDriver {
   id: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
   phone?: string;
   started_at: string;
 }
@@ -156,7 +158,7 @@ export const AdminPanel = () => {
       if (customerIds.length > 0) {
         const { data: customerProfilesData } = await supabase
           .from('profiles')
-          .select('user_id, full_name, phone')
+          .select('user_id, first_name, last_name, phone')
           .in('user_id', customerIds);
         
         customerProfiles = customerProfilesData || [];
@@ -169,7 +171,7 @@ export const AdminPanel = () => {
       if (driverIds.length > 0) {
         const { data: profilesData } = await supabase
           .from('profiles')
-          .select('user_id, full_name, phone')
+          .select('user_id, first_name, last_name, phone')
           .in('user_id', driverIds);
         
         driverProfiles = profilesData || [];
@@ -182,26 +184,40 @@ export const AdminPanel = () => {
         // Get history with user names
         const historyWithProfiles = order.order_history?.map((history: any) => {
           const changedByProfile = [...customerProfiles, ...driverProfiles].find(p => p.user_id === history.changed_by);
+          const fullName = changedByProfile 
+            ? `${changedByProfile.first_name || ''} ${changedByProfile.last_name || ''}`.trim() 
+            : 'Tuntematon';
           return {
             ...history,
             profiles: {
-              full_name: changedByProfile?.full_name || 'Tuntematon'
+              first_name: changedByProfile?.first_name,
+              last_name: changedByProfile?.last_name,
+              full_name: fullName
             }
           };
         }) || [];
+        
+        const driverProfile = driverProfiles.find(d => d.user_id === order.driver_id);
+        const driverFullName = driverProfile 
+          ? `${driverProfile.first_name || ''} ${driverProfile.last_name || ''}`.trim() 
+          : null;
+        
+        const customerFullName = customerProfile 
+          ? `${customerProfile.first_name || ''} ${customerProfile.last_name || ''}`.trim() 
+          : `${order.first_name} ${order.last_name}`;
         
         return {
           ...order,
           // Use customer profile name if first_name is empty or "Asiakas"
           first_name: order.first_name === 'Asiakas' || !order.first_name 
-            ? customerProfile?.full_name?.split(' ')[0] || order.first_name 
+            ? customerProfile?.first_name || order.first_name 
             : order.first_name,
           last_name: order.last_name === 'Asiakas' || !order.last_name 
-            ? customerProfile?.full_name?.split(' ').slice(1).join(' ') || order.last_name 
+            ? customerProfile?.last_name || order.last_name 
             : order.last_name,
-          customer_name: customerProfile?.full_name || `${order.first_name} ${order.last_name}`,
+          customer_name: customerFullName,
           customer_phone: customerProfile?.phone || order.phone,
-          driver_name: driverProfiles.find(d => d.user_id === order.driver_id)?.full_name || null,
+          driver_name: driverFullName,
           order_history: historyWithProfiles
         };
       }) || [];
@@ -270,7 +286,7 @@ export const AdminPanel = () => {
       if (driverIds.length > 0) {
         const { data: profilesData } = await supabase
           .from('profiles')
-          .select('user_id, full_name, phone')
+          .select('user_id, first_name, last_name, phone')
           .in('user_id', driverIds);
         
         driverProfiles = profilesData || [];
@@ -280,7 +296,8 @@ export const AdminPanel = () => {
         const driverProfile = driverProfiles.find(p => p.user_id === shift.driver_id);
         return {
           id: shift.driver_id,
-          full_name: driverProfile?.full_name || 'Tuntematon kuljettaja',
+          first_name: driverProfile?.first_name || 'Tuntematon',
+          last_name: driverProfile?.last_name || 'kuljettaja',
           phone: driverProfile?.phone,
           started_at: shift.started_at
         };
@@ -815,7 +832,7 @@ export const AdminPanel = () => {
                             <Truck className="h-6 w-6 text-green-600" />
                           </div>
                           <div>
-                            <h3 className="font-semibold">{driver.full_name}</h3>
+                            <h3 className="font-semibold">{`${driver.first_name} ${driver.last_name}`}</h3>
                             {driver.phone && (
                               <p className="text-sm text-muted-foreground">Puh: {driver.phone}</p>
                             )}
@@ -1299,7 +1316,9 @@ export const AdminPanel = () => {
                      <div>
                        <span className="text-muted-foreground">Kuljettaja:</span>
                        <p className="font-medium">
-                         {selectedOrder.profiles?.full_name || 'Ei määritetty'}
+                         {selectedOrder.profiles?.first_name || selectedOrder.profiles?.last_name 
+                           ? `${selectedOrder.profiles.first_name || ''} ${selectedOrder.profiles.last_name || ''}`.trim()
+                           : 'Ei määritetty'}
                        </p>
                        {selectedOrder.profiles?.phone && (
                          <p className="text-xs text-muted-foreground">
