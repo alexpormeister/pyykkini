@@ -65,7 +65,16 @@ export function PaymentOptions({ cartItems, appliedCoupon, formData, amount, onP
     // Calculate subtotal
     const subtotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
     
-    // Create the main order first
+    // Parse pickup and delivery slots as timestamps
+    const pickupSlot = formData.selectedTimeSlot 
+      ? new Date(`${formData.selectedTimeSlot.date}T${formData.selectedTimeSlot.start}:00`).toISOString()
+      : null;
+    
+    const deliverySlot = formData.estimatedReturnSlot
+      ? new Date(`${formData.estimatedReturnSlot.date}T${formData.estimatedReturnSlot.start}:00`).toISOString()
+      : null;
+    
+    // Create the main order first with new schema
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .insert({
@@ -87,14 +96,19 @@ export function PaymentOptions({ cartItems, appliedCoupon, formData, amount, onP
         return_time: formData.estimatedReturnSlot?.start || currentTime,
         discount_code: appliedCoupon?.code || null,
         terms_accepted: true,
-        status: 'pending'
+        status: 'pending',
+        // New fields for updated schema
+        pickup_slot: pickupSlot,
+        delivery_slot: deliverySlot,
+        tracking_status: 'PENDING',
+        access_code: null // Can be added to form if needed
       })
       .select()
       .single();
 
     if (orderError) throw orderError;
 
-    // Create order items
+    // Create order items with new schema
     const orderItems = cartItems.map(item => ({
       order_id: orderData.id,
       service_type: item.serviceId,
@@ -105,7 +119,14 @@ export function PaymentOptions({ cartItems, appliedCoupon, formData, amount, onP
       metadata: item.metadata || null,
       rug_dimensions: item.metadata?.rugDimensions ? 
         `${item.metadata.rugDimensions.length}cm x ${item.metadata.rugDimensions.width}cm` : 
-        null
+        null,
+      // New fields for updated schema
+      product_name: item.name,
+      unit_price_charged: item.price,
+      dimensions_cm: item.metadata?.rugDimensions ? {
+        width: item.metadata.rugDimensions.width,
+        length: item.metadata.rugDimensions.length
+      } : null
     }));
 
     const { error: itemsError } = await supabase

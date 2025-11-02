@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      categories: {
+        Row: {
+          category_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       coupons: {
         Row: {
           code: string
@@ -169,39 +199,48 @@ export type Database = {
       order_items: {
         Row: {
           created_at: string
+          dimensions_cm: Json | null
           id: string
           metadata: Json | null
           order_id: string
+          product_name: string | null
           quantity: number
           rug_dimensions: string | null
           service_name: string
           service_type: string
           total_price: number
           unit_price: number
+          unit_price_charged: number | null
         }
         Insert: {
           created_at?: string
+          dimensions_cm?: Json | null
           id?: string
           metadata?: Json | null
           order_id: string
+          product_name?: string | null
           quantity?: number
           rug_dimensions?: string | null
           service_name: string
           service_type: string
           total_price: number
           unit_price: number
+          unit_price_charged?: number | null
         }
         Update: {
           created_at?: string
+          dimensions_cm?: Json | null
           id?: string
           metadata?: Json | null
           order_id?: string
+          product_name?: string | null
           quantity?: number
           rug_dimensions?: string | null
           service_name?: string
           service_type?: string
           total_price?: number
           unit_price?: number
+          unit_price_charged?: number | null
         }
         Relationships: [
           {
@@ -243,11 +282,13 @@ export type Database = {
       orders: {
         Row: {
           accepted_at: string | null
+          access_code: string | null
           actual_pickup_time: string | null
           actual_return_time: string | null
           address: string
           coupon_id: string | null
           created_at: string
+          delivery_slot: string | null
           discount_code: string | null
           driver_id: string | null
           final_price: number
@@ -261,6 +302,7 @@ export type Database = {
           phone: string
           pickup_date: string
           pickup_option: string | null
+          pickup_slot: string | null
           pickup_time: string
           pickup_weight_kg: number | null
           price: number
@@ -279,16 +321,21 @@ export type Database = {
           stripe_payment_intent_id: string | null
           stripe_session_id: string | null
           terms_accepted: boolean
+          tracking_status:
+            | Database["public"]["Enums"]["order_tracking_status"]
+            | null
           updated_at: string
           user_id: string
         }
         Insert: {
           accepted_at?: string | null
+          access_code?: string | null
           actual_pickup_time?: string | null
           actual_return_time?: string | null
           address: string
           coupon_id?: string | null
           created_at?: string
+          delivery_slot?: string | null
           discount_code?: string | null
           driver_id?: string | null
           final_price: number
@@ -302,6 +349,7 @@ export type Database = {
           phone: string
           pickup_date: string
           pickup_option?: string | null
+          pickup_slot?: string | null
           pickup_time: string
           pickup_weight_kg?: number | null
           price: number
@@ -320,16 +368,21 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
           terms_accepted?: boolean
+          tracking_status?:
+            | Database["public"]["Enums"]["order_tracking_status"]
+            | null
           updated_at?: string
           user_id: string
         }
         Update: {
           accepted_at?: string | null
+          access_code?: string | null
           actual_pickup_time?: string | null
           actual_return_time?: string | null
           address?: string
           coupon_id?: string | null
           created_at?: string
+          delivery_slot?: string | null
           discount_code?: string | null
           driver_id?: string | null
           final_price?: number
@@ -343,6 +396,7 @@ export type Database = {
           phone?: string
           pickup_date?: string
           pickup_option?: string | null
+          pickup_slot?: string | null
           pickup_time?: string
           pickup_weight_kg?: number | null
           price?: number
@@ -361,6 +415,9 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
           terms_accepted?: boolean
+          tracking_status?:
+            | Database["public"]["Enums"]["order_tracking_status"]
+            | null
           updated_at?: string
           user_id?: string
         }
@@ -371,6 +428,56 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "coupons"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          base_price: number
+          category_id: string
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          pricing_model: Database["public"]["Enums"]["pricing_model"]
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          base_price: number
+          category_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          pricing_model?: Database["public"]["Enums"]["pricing_model"]
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          base_price?: number
+          category_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          pricing_model?: Database["public"]["Enums"]["pricing_model"]
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["category_id"]
           },
         ]
       }
@@ -493,6 +600,14 @@ export type Database = {
         | "delivered"
         | "rejected"
         | "cancelled"
+      order_tracking_status:
+        | "PENDING"
+        | "PICKED_UP"
+        | "WASHING"
+        | "PACKAGING"
+        | "OUT_FOR_DELIVERY"
+        | "COMPLETED"
+      pricing_model: "FIXED" | "PER_M2"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -631,6 +746,15 @@ export const Constants = {
         "rejected",
         "cancelled",
       ],
+      order_tracking_status: [
+        "PENDING",
+        "PICKED_UP",
+        "WASHING",
+        "PACKAGING",
+        "OUT_FOR_DELIVERY",
+        "COMPLETED",
+      ],
+      pricing_model: ["FIXED", "PER_M2"],
     },
   },
 } as const

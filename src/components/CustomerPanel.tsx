@@ -1,209 +1,45 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, Clock, Shirt, Sparkles, Zap, Star, CheckCircle, Package, Truck, ArrowRight, ShoppingCart as CartIcon } from "lucide-react";
+import { ShoppingCart as CartIcon, Package, Shirt } from "lucide-react";
 import { CheckoutForm } from "./CheckoutForm";
 import { ShoppingCart } from "./ShoppingCart";
 import type { CartItem } from "./ShoppingCart";
-import { RugSelectionDialog } from "./RugSelectionDialog";
-import { supabase } from "@/integrations/supabase/client";
+import { ProductCatalog } from "./ProductCatalog";
+import { OrderTracking } from "./OrderTracking";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
-interface Service {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  icon: any;
-  duration: string;
-  requiresDimensions?: boolean;
+interface NewCartItem {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit_price_charged: number;
+  dimensions_cm?: { width: number; length: number };
 }
-
-const services: Service[] = [
-  {
-    id: 'normal',
-    name: '👕 Peruspyykki',
-    description: 'Arjen vaatteet puhtaaksi ja raikkaaksi. T-paidat, housut, sukat ja muut. Pesemme hellävaraisesti 40 °C asteessa, aina hajusteettomilla pesuaineilla.',
-    price: 25.90,
-    icon: Shirt,
-    duration: '24-48h'
-  },
-  {
-    id: 'shoes',
-    name: '👟 Kenkäpesu',
-    description: 'Lenkkarit tai tennarit puhdistetaan hellästi ja huolellisesti. Pesu tehdään käsin tai koneessa pesupussissa, 30 °C asteessa ja hajusteettomasti.',
-    price: 20,
-    icon: Sparkles,
-    duration: '48h'
-  },
-  {
-    id: 'sheets',
-    name: '🛏️ Lakanapesu',
-    description: 'Pehmeät lakanat ja pussilakanat puhtaiksi. Paremmat unet odottavat. Käytämme 60 °C pesua ja hajusteettomia aineita hygienian takaamiseksi.',
-    price: 25.90,
-    icon: Zap,
-    duration: '48-72h'
-  },
-  {
-    id: 'carpets',
-    name: '🧼 Mattopesu',
-    description: 'Pienet matot saavat uuden elämän. Värit kirkastuvat ja pöly katoaa. Matot pestään yksittäin, 30 °C lämpötilassa, ilman hajusteita.',
-    price: 29.90,
-    icon: Star,
-    duration: '72h'
-  }
-];
-
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'pending': return Clock;
-    case 'accepted': return CheckCircle;
-    case 'picking_up': return Truck;
-    case 'washing': return Sparkles;
-    case 'returning': return Truck;
-    case 'delivered': return Package;
-    default: return Clock;
-  }
-};
-
-const getStatusText = (status: string) => {
-  switch (status) {
-    case 'pending': return 'Odottaa hyväksyntää';
-    case 'accepted': return 'Hyväksytty';
-    case 'picking_up': return 'Noutamassa';
-    case 'washing': return 'Pesussa';
-    case 'returning': return 'Palautumassa';
-    case 'delivered': return 'Toimitettu';
-    case 'rejected': return 'Hylätty';
-    default: return status;
-  }
-};
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'pending': return 'bg-yellow-100 text-yellow-800';
-    case 'accepted': return 'bg-blue-100 text-blue-800';
-    case 'picking_up': return 'bg-purple-100 text-purple-800';
-    case 'washing': return 'bg-cyan-100 text-cyan-800';
-    case 'returning': return 'bg-orange-100 text-orange-800';
-    case 'delivered': return 'bg-green-100 text-green-800';
-    case 'rejected': return 'bg-red-100 text-red-800';
-    default: return 'bg-gray-100 text-gray-800';
-  }
-};
 
 export const CustomerPanel = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [currentView, setCurrentView] = useState<'services' | 'cart' | 'booking' | 'orders'>('services');
-  const [showServiceModal, setShowServiceModal] = useState(false);
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [newCartItems, setNewCartItems] = useState<NewCartItem[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
-  const [showRugDialog, setShowRugDialog] = useState(false);
-  const [pendingService, setPendingService] = useState<Service | null>(null);
 
-  useEffect(() => {
-    if (currentView === 'orders' && user) {
-      fetchOrders();
-    }
-  }, [currentView, user]);
-
-  const fetchOrders = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setOrders(data || []);
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Virhe",
-        description: "Tilausten lataaminen epäonnistui."
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleServiceSelect = (service: Service) => {
-    setSelectedService(service);
-    setShowServiceModal(true);
-  };
-
-  const handleOrderNow = () => {
-    setShowServiceModal(false);
-    setCurrentView('cart');
-  };
-
-  const handleAddToCart = (service: Service, rugDimensions?: { length: number; width: number }) => {
-    // Check if this is a carpet service and needs dimensions
-    if (service.id === 'carpets' && !rugDimensions) {
-      setPendingService(service);
-      setShowRugDialog(true);
-      return;
-    }
-
-    let finalPrice = service.price;
-    let metadata: any = {};
-
-    // Calculate carpet price based on dimensions
-    if (service.id === 'carpets' && rugDimensions) {
-      const area = (rugDimensions.length * rugDimensions.width) / 10000; // Convert to m²
-      if (area <= 0.54) finalPrice = 29.90;
-      else if (area <= 1.2) finalPrice = 39.90;
-      else if (area <= 2.16) finalPrice = 49.90;
-      else finalPrice = 59.90;
-      
-      metadata.rugDimensions = rugDimensions;
-    }
-
-    const newItem: CartItem = {
-      id: `${service.id}-${Date.now()}`,
+  const handleAddToCart = (item: NewCartItem) => {
+    // Convert new cart item format to old format for compatibility with existing checkout
+    const legacyItem: CartItem = {
+      id: `${item.product_id}-${Date.now()}`,
       type: 'service',
-      serviceId: service.id,
-      name: service.name,
-      description: service.description,
-      price: finalPrice,
-      quantity: 1,
-      metadata
+      serviceId: item.product_id,
+      name: item.product_name,
+      description: '',
+      price: item.unit_price_charged,
+      quantity: item.quantity,
+      metadata: item.dimensions_cm ? { rugDimensions: item.dimensions_cm } : undefined
     };
     
-    setCartItems(prev => [...prev, newItem]);
-    setShowServiceModal(false);
-    setCurrentView('cart');
-    
-    // Fun notification with emoji
-    const notifications = [
-      "🎉 Jes! Pesu matkalla koriin!",
-      "✨ Loistavaa! Lisätty koriin!",
-      "🧺 Hurraa! Pesu odottaa sinua!",
-      "💫 Mahtavaa! Korissa se on!"
-    ];
-    
-    toast({
-      title: notifications[Math.floor(Math.random() * notifications.length)],
-      description: `${service.name} lisätty ostoskoriin 💖`
-    });
-  };
-
-  const handleRugDimensions = (dimensions: { length: number; width: number }) => {
-    if (pendingService) {
-      handleAddToCart(pendingService, dimensions);
-      setPendingService(null);
-    }
+    setCartItems(prev => [...prev, legacyItem]);
+    setNewCartItems(prev => [...prev, item]);
   };
 
   const handleProceedToCheckout = (items: CartItem[], total: number) => {
@@ -266,315 +102,52 @@ export const CustomerPanel = () => {
           </div>
         </div>
 
-        {/* Services View */}
+        {/* Services View - Product Catalog */}
         {currentView === 'services' && (
           <div className="animate-fade-in">
-            <h2 className="text-2xl font-fredoka font-semibold mb-6 text-center">🎯 Valitse pesu!</h2>
-            
-            {/* Bundle Offers - More Prominent */}
-            <div className="mb-8">
-              <h3 className="text-xl font-fredoka font-semibold mb-4 text-center">🎉 Pakettitarjoukset - Säästä rahaa! 💰</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto mb-8">
-                <Card className="border-2 border-primary bg-gradient-to-br from-primary/5 to-primary/10 hover:shadow-elegant transition-all duration-300">
-                  <CardContent className="p-6">
-                    <div className="text-center">
-                      <h4 className="text-lg font-bold mb-2">Lakanapyykki + Normaali pesu</h4>
-                      <p className="text-sm text-muted-foreground mb-3">Säästä 10€ ostamalla yhdessä</p>
-                      <div className="flex items-center justify-center gap-2 mb-4">
-                        <span className="text-sm text-muted-foreground line-through">50€</span>
-                        <span className="text-2xl font-bold text-primary">39.99€</span>
-                        <Badge className="bg-green-100 text-green-800">Säästä 10€</Badge>
-                      </div>
-                      <Button 
-                        onClick={() => {
-                          const bundleItem = {
-                            id: `sheet-normal-bundle-${Date.now()}`,
-                            type: 'bundle' as const,
-                            serviceId: 'sheet-normal-bundle',
-                            name: 'Lakanapyykki + Normaali pesu',
-                            description: 'Säästä 10€ ostamalla yhdessä',
-                            price: 39.99,
-                            quantity: 1
-                          };
-                          setCartItems(prev => [...prev, bundleItem]);
-                          setCurrentView('cart');
-                        }}
-                        className="w-full bg-gradient-primary hover:opacity-90"
-                      >
-                        Lisää koriin
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card className="border-2 border-primary bg-gradient-to-br from-primary/5 to-primary/10 hover:shadow-elegant transition-all duration-300">
-                  <CardContent className="p-6">
-                    <div className="text-center">
-                      <h4 className="text-lg font-bold mb-2">Kenkäpesu + Normaali pesu</h4>
-                      <p className="text-sm text-muted-foreground mb-3">Säästä 5€ ostamalla yhdessä</p>
-                      <div className="flex items-center justify-center gap-2 mb-4">
-                        <span className="text-sm text-muted-foreground line-through">45€</span>
-                        <span className="text-2xl font-bold text-primary">39.99€</span>
-                        <Badge className="bg-green-100 text-green-800">Säästä 5€</Badge>
-                      </div>
-                      <Button 
-                        onClick={() => {
-                          const bundleItem = {
-                            id: `shoes-normal-bundle-${Date.now()}`,
-                            type: 'bundle' as const,
-                            serviceId: 'shoes-normal-bundle',
-                            name: 'Kenkäpesu + Normaali pesu',
-                            description: 'Säästä 5€ ostamalla yhdessä',
-                            price: 39.99,
-                            quantity: 1
-                          };
-                          setCartItems(prev => [...prev, bundleItem]);
-                          setCurrentView('cart');
-                        }}
-                        className="w-full bg-gradient-primary hover:opacity-90"
-                      >
-                        Lisää koriin
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-            
-            <h3 className="text-lg font-fredoka font-semibold mb-4 text-center">🧼 Yksittäiset palvelut</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {services.map((service) => {
-                const Icon = service.icon;
-                return (
-                    <Card 
-                      key={service.id} 
-                      className="cursor-pointer transition-all duration-300 hover:shadow-elegant hover:scale-105 group bg-gradient-to-br from-white to-primary/5 border-2 border-transparent hover:border-primary/20 flex flex-col h-full"
-                      onClick={() => handleAddToCart(service)}
-                    >
-                      <CardHeader className="text-center flex-grow">
-                        <Icon className="h-12 w-12 mx-auto mb-4 text-primary group-hover:scale-110 transition-transform" />
-                        <CardTitle className="text-lg font-fredoka">{service.name}</CardTitle>
-                        <CardDescription className="text-sm leading-relaxed">{service.description}</CardDescription>
-                      </CardHeader>
-                      <CardContent className="text-center mt-auto">
-                        <div className="text-2xl font-bold text-primary mb-2 font-fredoka">
-                          {service.id === 'carpets' ? 'alk. ' : ''}{service.price.toFixed(2)}€
-                          {service.id === 'normal' && <span className="text-sm text-muted-foreground"> / 5 kg</span>}
-                          {service.id === 'sheets' && <span className="text-sm text-muted-foreground"> / setti</span>}
-                          {service.id === 'shoes' && <span className="text-sm text-muted-foreground"> / pari</span>}
-                          {service.id === 'carpets' && <span className="text-sm text-muted-foreground"> / matto</span>}
-                        </div>
-                        <Badge variant="secondary" className="text-xs mb-4 rounded-full">
-                          ⏰ {service.duration}
-                        </Badge>
-                        <Button 
-                          variant="hero" 
-                          size="sm"
-                          className="w-full hover:scale-105 transition-all duration-300 font-fredoka"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAddToCart(service);
-                          }}
-                        >
-                          Lisää koriin! 
-                        </Button>
-                      </CardContent>
-                    </Card>
-                );
-              })}
-            </div>
+            <ProductCatalog onAddToCart={handleAddToCart} />
           </div>
         )}
-
-        {/* Service Selection Modal */}
-        <Dialog open={showServiceModal} onOpenChange={setShowServiceModal}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                {selectedService && <selectedService.icon className="h-6 w-6 text-primary" />}
-                {selectedService?.name}
-              </DialogTitle>
-              <DialogDescription>
-                {selectedService?.description}
-              </DialogDescription>
-            </DialogHeader>
-            
-            {selectedService && (
-              <div className="space-y-6">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-primary mb-2">
-                    {selectedService.price}€
-                  </div>
-                  <Badge variant="secondary">
-                    Toimitusaika: {selectedService.duration}
-                  </Badge>
-                </div>
-                
-                <div className="space-y-4">
-                  <h4 className="font-semibold">Palveluun sisältyy:</h4>
-                  <ul className="space-y-2">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-primary" />
-                      Nouto kotoa sovittuna aikana
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-primary" />
-                      Ammattimasta pesu
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-primary" />
-                      Palautus kotiin puhtaana
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-primary" />
-                      SMS-päivitykset tilauksesta
-                    </li>
-                  </ul>
-                </div>
-                
-                <div className="flex gap-3">
-                  <Button 
-                    variant="outline" 
-                    className="flex-1"
-                    onClick={() => setShowServiceModal(false)}
-                  >
-                    Peruuta
-                  </Button>
-                  <Button 
-                    variant="hero" 
-                    className="flex-1"
-                    onClick={() => handleAddToCart(selectedService)}
-                  >
-                    Lisää koriin
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Rug Selection Dialog */}
-        <RugSelectionDialog
-          open={showRugDialog}
-          onOpenChange={setShowRugDialog}
-          onConfirm={handleRugDimensions}
-          rugName={pendingService?.name || "Mattopesu"}
-        />
 
         {/* Shopping Cart View */}
         {currentView === 'cart' && (
           <div className="animate-fade-in">
-            <h2 className="text-2xl font-semibold mb-6 text-center">Ostoskori</h2>
             <ShoppingCart
               cartItems={cartItems}
+              appliedCoupon={appliedCoupon}
               onUpdateCart={setCartItems}
               onProceedToCheckout={handleProceedToCheckout}
-              appliedCoupon={appliedCoupon}
               onCouponApplied={setAppliedCoupon}
-              onNavigateToServices={() => setCurrentView('services')}
             />
           </div>
         )}
 
         {/* Booking/Checkout View */}
         {currentView === 'booking' && (
-          <CheckoutForm 
-            cartItems={cartItems}
-            appliedCoupon={appliedCoupon}
-            onBack={() => setCurrentView('cart')}
-            onSuccess={() => {
-              setCartItems([]);
-              setAppliedCoupon(null);
-              setCurrentView('orders');
-              fetchOrders();
-            }}
-            onApplyCoupon={setAppliedCoupon}
-          />
+          <div className="animate-fade-in">
+            <CheckoutForm
+              cartItems={cartItems}
+              appliedCoupon={appliedCoupon}
+              onBack={() => setCurrentView('cart')}
+              onSuccess={() => {
+                setCartItems([]);
+                setNewCartItems([]);
+                setAppliedCoupon(null);
+                setCurrentView('orders');
+                toast({
+                  title: "Tilaus onnistui!",
+                  description: "Kiitos tilauksesta! Näet tilauksen tiedot tilaushistoriassa."
+                });
+              }}
+              onApplyCoupon={setAppliedCoupon}
+            />
+          </div>
         )}
 
-        {/* Orders View */}
+        {/* Orders View - Order Tracking */}
         {currentView === 'orders' && (
           <div className="animate-fade-in">
-            <h2 className="text-2xl font-semibold mb-6 text-center">Omat tilaukset</h2>
-            
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                <p className="mt-4 text-muted-foreground">Ladataan tilauksia...</p>
-              </div>
-            ) : orders.length === 0 ? (
-              <div className="text-center py-12">
-                <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Ei tilauksia</h3>
-                <p className="text-muted-foreground mb-6">Et ole tehnyt vielä yhtään tilausta.</p>
-                <Button 
-                  variant="hero"
-                  onClick={() => setCurrentView('services')}
-                >
-                  Tee ensimmäinen tilaus
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4 max-w-3xl mx-auto">
-                {orders.map((order) => {
-                  const StatusIcon = getStatusIcon(order.status);
-                  return (
-                    <Card key={order.id} className="hover:shadow-elegant transition-all duration-300">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
-                              <StatusIcon className="h-6 w-6 text-primary" />
-                            </div>
-                            <div>
-                              <h3 className="font-semibold">{order.service_name}</h3>
-                              <p className="text-sm text-muted-foreground">Tilaus #{order.id.slice(0, 8)}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {new Date(order.created_at).toLocaleDateString('fi-FI')}
-                              </p>
-                              {order.discount_code && (
-                                <p className="text-sm text-green-600">Alennuskoodi: {order.discount_code}</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <Badge className={getStatusColor(order.status)}>
-                              {getStatusText(order.status)}
-                            </Badge>
-                            <div className="mt-2">
-                              {order.discount_code && order.final_price !== order.price && (
-                                <p className="text-sm text-muted-foreground line-through">{order.price}€</p>
-                              )}
-                              <p className="text-lg font-semibold">{order.final_price}€</p>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {order.status !== 'pending' && order.status !== 'rejected' && (
-                          <div className="mt-4 pt-4 border-t border-border">
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <p className="text-muted-foreground">Nouto:</p>
-                                <p className="font-medium">
-                                  {new Date(order.pickup_date).toLocaleDateString('fi-FI')} klo {order.pickup_time}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground">Palautus:</p>
-                                <p className="font-medium">
-                                  {new Date(order.return_date).toLocaleDateString('fi-FI')} klo {order.return_time}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
+            <OrderTracking />
           </div>
         )}
       </div>
