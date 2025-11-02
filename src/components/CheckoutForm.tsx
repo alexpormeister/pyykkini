@@ -15,6 +15,7 @@ import { PaymentOptions } from './PaymentOptions';
 import { TimeSlotSelector } from './TimeSlotSelector';
 import { SwipeToConfirm } from './SwipeToConfirm';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { AddressAutocomplete } from './AddressAutocomplete';
 
 interface CheckoutFormProps {
   cartItems: Array<{
@@ -58,6 +59,7 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
     specialInstructions: '',
     pickupOption: '' as 'asap' | 'choose_time' | ''
   });
+  const [addressCoordinates, setAddressCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<any>(null);
   const [estimatedReturnSlot, setEstimatedReturnSlot] = useState<any>(null);
   const [showRugDimensionsDialog, setShowRugDimensionsDialog] = useState(false);
@@ -416,18 +418,19 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
                           </Button>
                         )}
                       </Label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="address"
-                          className={`pl-10 ${!isAddressEditable ? 'bg-muted/30' : ''}`}
-                          value={formData.address}
-                          onChange={(e) => handleInputChange('address', e.target.value)}
-                          placeholder="Katu 1, 00100 Helsinki"
-                          required
-                          disabled={!isAddressEditable}
-                        />
-                        {isAddressEditable && (
+                      
+                      {isAddressEditable ? (
+                        <>
+                          <AddressAutocomplete
+                            value={formData.address}
+                            onChange={(address, coordinates) => {
+                              handleInputChange('address', address);
+                              if (coordinates) {
+                                setAddressCoordinates(coordinates);
+                              }
+                            }}
+                            disabled={false}
+                          />
                           <Button 
                             type="button"
                             variant="outline" 
@@ -455,16 +458,27 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
                                 });
                               }
                             }}
-                            className="absolute right-1 top-1 h-8 text-xs"
+                            className="mt-2"
                           >
-                            Tallenna
+                            Tallenna osoite
                           </Button>
-                        )}
-                      </div>
-                      {!isAddressEditable && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Osoite haettu profiilista. Klikkaa "Muokkaa" muuttaaksesi tämän tilauksen osoitetta.
-                        </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="relative">
+                            <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="address"
+                              className="pl-10 bg-muted/30"
+                              value={formData.address}
+                              disabled={true}
+                              placeholder="Katu 1, 00100 Helsinki"
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Osoite haettu profiilista. Klikkaa "Muokkaa" muuttaaksesi tämän tilauksen osoitetta.
+                          </p>
+                        </>
                       )}
                     </div>
 
