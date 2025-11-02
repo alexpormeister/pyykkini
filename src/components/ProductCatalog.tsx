@@ -4,8 +4,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ShoppingCart } from "lucide-react";
+
+// Valmiit mattokoot
+const PRESET_RUG_SIZES = [
+  { width: 60, length: 90, name: "Eteisen matto" },
+  { width: 80, length: 150, name: "Käytävän matto" },
+  { width: 133, length: 195, name: "Makuuhuoneen matto" },
+  { width: 170, length: 230, name: "Olohuoneen matto" },
+  { width: 200, length: 300, name: "Iso olohuoneen matto" },
+];
 
 interface Category {
   id: string;
@@ -44,6 +54,7 @@ export const ProductCatalog = ({ onAddToCart }: ProductCatalogProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [dimensions, setDimensions] = useState<{ [key: string]: { width: string; length: string } }>({});
+  const [selectedPreset, setSelectedPreset] = useState<{ [key: string]: number | null }>({});
 
   useEffect(() => {
     fetchCatalog();
@@ -104,6 +115,26 @@ export const ProductCatalog = ({ onAddToCart }: ProductCatalogProps) => {
         ...prev[productId],
         [field]: value
       }
+    }));
+    // Clear preset selection when manually editing
+    setSelectedPreset(prev => ({
+      ...prev,
+      [productId]: null
+    }));
+  };
+
+  const handlePresetSelect = (productId: string, presetIndex: number) => {
+    const preset = PRESET_RUG_SIZES[presetIndex];
+    setDimensions(prev => ({
+      ...prev,
+      [productId]: {
+        width: preset.width.toString(),
+        length: preset.length.toString()
+      }
+    }));
+    setSelectedPreset(prev => ({
+      ...prev,
+      [productId]: presetIndex
     }));
   };
 
@@ -227,28 +258,66 @@ export const ProductCatalog = ({ onAddToCart }: ProductCatalogProps) => {
                           </div>
                           
                           <div className="space-y-3">
+                            {/* Valmiit mattokoot */}
                             <div>
-                              <Label htmlFor={`width-${product.id}`}>Leveys (cm)</Label>
-                              <Input
-                                id={`width-${product.id}`}
-                                type="number"
-                                placeholder="esim. 170"
-                                value={dims.width}
-                                onChange={(e) => handleDimensionChange(product.id, "width", e.target.value)}
-                                min="1"
-                              />
+                              <Label className="text-sm font-medium mb-2 block">Valitse mattokoko tai syötä mitat</Label>
+                              <div className="grid grid-cols-1 gap-2 mb-3">
+                                {PRESET_RUG_SIZES.map((preset, index) => {
+                                  const presetPrice = calculatePrice(
+                                    product, 
+                                    preset.width.toString(), 
+                                    preset.length.toString()
+                                  );
+                                  const isSelected = selectedPreset[product.id] === index;
+                                  
+                                  return (
+                                    <Button
+                                      key={index}
+                                      type="button"
+                                      variant={isSelected ? "default" : "outline"}
+                                      className="justify-between h-auto py-2 px-3"
+                                      onClick={() => handlePresetSelect(product.id, index)}
+                                    >
+                                      <span className="text-left flex-1">
+                                        {preset.width}cm x {preset.length}cm | {preset.name}
+                                      </span>
+                                      <Badge variant="secondary" className="ml-2">
+                                        {presetPrice.toFixed(2)} €
+                                      </Badge>
+                                    </Button>
+                                  );
+                                })}
+                              </div>
                             </div>
-                            
-                            <div>
-                              <Label htmlFor={`length-${product.id}`}>Pituus (cm)</Label>
-                              <Input
-                                id={`length-${product.id}`}
-                                type="number"
-                                placeholder="esim. 210"
-                                value={dims.length}
-                                onChange={(e) => handleDimensionChange(product.id, "length", e.target.value)}
-                                min="1"
-                              />
+
+                            {/* Tai omat mitat */}
+                            <div className="pt-2 border-t">
+                              <Label className="text-sm font-medium mb-2 block">Tai syötä omat mitat</Label>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <Label htmlFor={`width-${product.id}`} className="text-xs">Leveys (cm)</Label>
+                                  <Input
+                                    id={`width-${product.id}`}
+                                    type="number"
+                                    placeholder="esim. 170"
+                                    value={dims.width}
+                                    onChange={(e) => handleDimensionChange(product.id, "width", e.target.value)}
+                                    min="1"
+                                  />
+                                </div>
+                                
+                                <div>
+                                  <Label htmlFor={`length-${product.id}`} className="text-xs">Pituus (cm)</Label>
+                                  <Input
+                                    id={`length-${product.id}`}
+                                    type="number"
+                                    placeholder="esim. 210"
+                                    value={dims.length}
+                                    onChange={(e) => handleDimensionChange(product.id, "length", e.target.value)}
+                                    min="1"
+                                  />
+                                </div>
+                              </div>
                             </div>
                             
                             {calculatedPrice > 0 && (
