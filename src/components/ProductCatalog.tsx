@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Search } from "lucide-react";
 
 // Valmiit mattokoot
 const PRESET_RUG_SIZES = [
@@ -45,9 +45,19 @@ interface CartItem {
 
 interface ProductCatalogProps {
   onAddToCart: (item: CartItem) => void;
+  searchQuery: string;
+  selectedCategory: string;
+  onSearchChange: (query: string) => void;
+  onCategoryChange: (category: string) => void;
 }
 
-export const ProductCatalog = ({ onAddToCart }: ProductCatalogProps) => {
+export const ProductCatalog = ({ 
+  onAddToCart,
+  searchQuery,
+  selectedCategory,
+  onSearchChange,
+  onCategoryChange
+}: ProductCatalogProps) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -197,14 +207,80 @@ export const ProductCatalog = ({ onAddToCart }: ProductCatalogProps) => {
     );
   }
 
-  return (
-    <div className="space-y-12">
-      {categories.map(category => {
-        const categoryProducts = products.filter(p => p.category_id === category.category_id);
-        
-        if (categoryProducts.length === 0) return null;
+  // Filter products based on search and category
+  const filteredCategories = categories.map(category => {
+    const categoryProducts = products.filter(p => {
+      const matchesCategory = selectedCategory === 'all' || p.category_id === selectedCategory;
+      const matchesSearch = 
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      
+      return p.category_id === category.category_id && matchesCategory && matchesSearch;
+    });
 
-        return (
+    return {
+      ...category,
+      products: categoryProducts
+    };
+  }).filter(cat => cat.products.length > 0);
+
+  return (
+    <div className="space-y-8">
+      {/* Search and Filter Section */}
+      <div className="max-w-3xl mx-auto space-y-4">
+        {/* Search Field */}
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Hae palvelua..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-12 h-14 text-lg"
+          />
+        </div>
+
+        {/* Category Buttons */}
+        <div className="flex flex-wrap gap-3 justify-center">
+          <Button
+            variant={selectedCategory === 'all' ? 'hero' : 'outline'}
+            size="lg"
+            onClick={() => onCategoryChange('all')}
+            className="font-fredoka font-bold btn-bounce-hover"
+          >
+            Kaikki palvelut
+          </Button>
+          {categories.map((category) => (
+            <Button
+              key={category.category_id}
+              variant={selectedCategory === category.category_id ? 'hero' : 'outline'}
+              size="lg"
+              onClick={() => onCategoryChange(category.category_id)}
+              className="font-fredoka font-bold btn-bounce-hover"
+            >
+              {category.name}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Product Categories */}
+      {filteredCategories.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-lg text-muted-foreground">Ei tuloksia haulle "{searchQuery}"</p>
+          <Button 
+            variant="outline" 
+            className="mt-4"
+            onClick={() => {
+              onSearchChange("");
+              onCategoryChange("all");
+            }}
+          >
+            Tyhjennä haku
+          </Button>
+        </div>
+      ) : (
+        filteredCategories.map(category => (
           <div key={category.id}>
             <h2 className="text-3xl font-bold mb-2">{category.name}</h2>
             {category.description && (
@@ -212,7 +288,7 @@ export const ProductCatalog = ({ onAddToCart }: ProductCatalogProps) => {
             )}
             
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {categoryProducts.map(product => {
+              {category.products.map(product => {
                 const dims = dimensions[product.id] || { width: "", length: "" };
                 const calculatedPrice = product.pricing_model === "PER_M2" 
                   ? calculatePrice(product, dims.width, dims.length)
@@ -341,8 +417,8 @@ export const ProductCatalog = ({ onAddToCart }: ProductCatalogProps) => {
               })}
             </div>
           </div>
-        );
-      })}
+        ))
+      )}
     </div>
   );
 };

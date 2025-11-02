@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart as CartIcon, Package, Shirt } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ShoppingCart as CartIcon, Package, Shirt, Search } from "lucide-react";
 import { CheckoutForm } from "./CheckoutForm";
 import { ShoppingCart } from "./ShoppingCart";
 import type { CartItem } from "./ShoppingCart";
@@ -24,6 +25,8 @@ export const CustomerPanel = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [newCartItems, setNewCartItems] = useState<NewCartItem[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
 
   const handleAddToCart = (item: NewCartItem) => {
     // Convert new cart item format to old format for compatibility with existing checkout
@@ -64,26 +67,6 @@ export const CustomerPanel = () => {
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto font-fredoka">
             Valitse palvelu, lisää ostoskoriin ja lähetä tilaus - me hoidamme loput!
           </p>
-          <div className="bg-primary/10 rounded-xl p-6 max-w-3xl mx-auto mb-8">
-            <h2 className="text-2xl font-fredoka font-bold mb-4 text-primary">📝 Näin se toimii:</h2>
-            <div className="grid md:grid-cols-3 gap-4 text-left">
-              <div className="bg-background rounded-lg p-4 shadow-sm">
-                <div className="text-3xl mb-2">1️⃣</div>
-                <h3 className="font-bold mb-1">Valitse palvelu</h3>
-                <p className="text-sm text-muted-foreground">Klikkaa "Tilaa pesu" ja valitse haluamasi pesupalvelu</p>
-              </div>
-              <div className="bg-background rounded-lg p-4 shadow-sm">
-                <div className="text-3xl mb-2">2️⃣</div>
-                <h3 className="font-bold mb-1">Lisää ostoskoriin</h3>
-                <p className="text-sm text-muted-foreground">Lisää tuotteet koriin ja siirry kassalle</p>
-              </div>
-              <div className="bg-background rounded-lg p-4 shadow-sm">
-                <div className="text-3xl mb-2">3️⃣</div>
-                <h3 className="font-bold mb-1">Lähetä tilaus</h3>
-                <p className="text-sm text-muted-foreground">Täytä yhteystiedot ja valitse nouto- ja palautusajat</p>
-              </div>
-            </div>
-          </div>
           
           {/* Quick Actions */}
           <div className="flex flex-wrap justify-center gap-4 mb-8">
@@ -125,7 +108,13 @@ export const CustomerPanel = () => {
         {/* Services View - Product Catalog */}
         {currentView === 'services' && (
           <div className="animate-fade-in">
-            <ProductCatalog onAddToCart={handleAddToCart} />
+            <ProductCatalog 
+              onAddToCart={handleAddToCart}
+              searchQuery={searchQuery}
+              selectedCategory={selectedCategory}
+              onSearchChange={setSearchQuery}
+              onCategoryChange={setSelectedCategory}
+            />
           </div>
         )}
 
