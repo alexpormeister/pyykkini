@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Mail, Lock, User, Phone, MapPin, ArrowLeft } from 'lucide-react';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 
 export const Auth = () => {
   const { signIn, signUp, user } = useAuth();
@@ -428,20 +429,11 @@ export const Auth = () => {
                     
                     <div className="space-y-2">
                       <Label htmlFor="signup-address">Osoite *</Label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signup-address"
-                          value={signUpAddress}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/[^a-zA-Z0-9äöåÄÖÅ\s.,\-()]/g, '');
-                            setSignUpAddress(value);
-                          }}
-                          className="pl-10"
-                          placeholder="Katu 1, 00100 Helsinki"
-                          required
-                        />
-                      </div>
+                      <AddressAutocomplete
+                        value={signUpAddress}
+                        onChange={(address) => setSignUpAddress(address)}
+                        placeholder="Katu 1, 00100 Helsinki"
+                      />
                     </div>
                     
                     <p className="text-xs text-muted-foreground">

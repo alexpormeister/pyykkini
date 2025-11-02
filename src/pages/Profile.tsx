@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { User, Mail, Phone, Trash2, Package, Hash, LogOut, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 
 // Import profile images
 import profile1 from '@/assets/profile-1.jpg';
@@ -384,16 +385,11 @@ export const Profile = () => {
                    {/* Address */}
                    <div>
                      <Label htmlFor="address">Osoite</Label>
-                     <div className="relative">
-                       <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                       <Input
-                         id="address"
-                         value={formData.address}
-                         onChange={(e) => handleInputChange('address', e.target.value)}
-                         className="pl-10"
-                         placeholder="Katu 1, 00100 Helsinki"
-                       />
-                     </div>
+                     <AddressAutocomplete
+                       value={formData.address}
+                       onChange={(address) => handleInputChange('address', address)}
+                       placeholder="Katu 1, 00100 Helsinki"
+                     />
                    </div>
 
                   <Button 
