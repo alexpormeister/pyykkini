@@ -59,11 +59,31 @@ export const CustomerPanel = () => {
             />
           </div>
           <h1 className="text-4xl md:text-5xl font-fredoka font-bold mb-4 bg-gradient-hero bg-clip-text text-transparent">
-            Pesupalvelu helposti! 
+            Tilaa Pesu Helposti! 
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto font-fredoka">
-            ✨ Tilaa pesupalvelu kotiin - me noudamme, pesemme ja tuomme takaisin puhtaana! 🏠💨
+            Valitse palvelu, lisää ostoskoriin ja lähetä tilaus - me hoidamme loput!
           </p>
+          <div className="bg-primary/10 rounded-xl p-6 max-w-3xl mx-auto mb-8">
+            <h2 className="text-2xl font-fredoka font-bold mb-4 text-primary">📝 Näin se toimii:</h2>
+            <div className="grid md:grid-cols-3 gap-4 text-left">
+              <div className="bg-background rounded-lg p-4 shadow-sm">
+                <div className="text-3xl mb-2">1️⃣</div>
+                <h3 className="font-bold mb-1">Valitse palvelu</h3>
+                <p className="text-sm text-muted-foreground">Klikkaa "Tilaa pesu" ja valitse haluamasi pesupalvelu</p>
+              </div>
+              <div className="bg-background rounded-lg p-4 shadow-sm">
+                <div className="text-3xl mb-2">2️⃣</div>
+                <h3 className="font-bold mb-1">Lisää ostoskoriin</h3>
+                <p className="text-sm text-muted-foreground">Lisää tuotteet koriin ja siirry kassalle</p>
+              </div>
+              <div className="bg-background rounded-lg p-4 shadow-sm">
+                <div className="text-3xl mb-2">3️⃣</div>
+                <h3 className="font-bold mb-1">Lähetä tilaus</h3>
+                <p className="text-sm text-muted-foreground">Täytä yhteystiedot ja valitse nouto- ja palautusajat</p>
+              </div>
+            </div>
+          </div>
           
           {/* Quick Actions */}
           <div className="flex flex-wrap justify-center gap-4 mb-8">

@@ -10,11 +10,9 @@ import { ShoppingCart } from "lucide-react";
 
 // Valmiit mattokoot
 const PRESET_RUG_SIZES = [
-  { width: 60, length: 90, name: "Eteisen matto" },
-  { width: 80, length: 150, name: "Käytävän matto" },
-  { width: 133, length: 195, name: "Makuuhuoneen matto" },
-  { width: 170, length: 230, name: "Olohuoneen matto" },
-  { width: 200, length: 300, name: "Iso olohuoneen matto" },
+  { width: 80, length: 150, name: "Pieni matto" },
+  { width: 133, length: 195, name: "Keskikokoinen matto" },
+  { width: 200, length: 300, name: "Iso matto" },
 ];
 
 interface Category {

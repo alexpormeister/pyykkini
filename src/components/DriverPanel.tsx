@@ -938,8 +938,8 @@ export const DriverPanel = () => {
                                     <StatusIcon className="h-6 w-6 text-primary" />
                                   </div>
                                   <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <h3 className="font-semibold">{getCustomerName(order)}</h3>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <h3 className="font-bold text-lg">👤 {getCustomerName(order)}</h3>
                                       <Badge className={getStatusColor(order.status)}>
                                         {getStatusText(order.status)}
                                       </Badge>
@@ -947,6 +947,10 @@ export const DriverPanel = () => {
                                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                                       <MapPin className="h-4 w-4" />
                                       {order.address}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                                      <Phone className="h-4 w-4" />
+                                      {order.phone}
                                     </div>
                                     <div className="text-sm text-muted-foreground">
                                       {order.service_name} - {order.final_price}€
