@@ -12,7 +12,6 @@ import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateC
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { DriverCalendar } from "./DriverCalendar";
 import { DriverTimeManager } from "./DriverTimeManager";
 
 const getStatusIcon = (status: string) => {
@@ -845,16 +844,12 @@ export const DriverPanel = () => {
         </div>
 
         {/* View Content */}
-        {currentView === 'calendar' ? (
-          <DriverCalendar />
-        ) : (
-          <>
-            {loading && (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                <p>Ladataan tilauksia...</p>
-              </div>
-            )}
+        {loading && (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>Ladataan tilauksia...</p>
+          </div>
+        )}
 
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'my' | 'free')} className="space-y-6">
               <TabsList className="w-full grid grid-cols-2 md:w-auto">
@@ -1095,8 +1090,6 @@ export const DriverPanel = () => {
                 <p className="text-muted-foreground">Tällä hetkellä ei ole uusia tilauksia saatavilla.</p>
               </div>
             )}
-          </>
-        )}
 
         {/* Time Setting Dialog */}
         <Dialog open={!!showTimeForm} onOpenChange={() => setShowTimeForm(null)}>
