@@ -26,7 +26,10 @@ serve(async (req) => {
   try {
     const { address } = await req.json();
     
+    console.log('📍 Geocoding request received for address:', address);
+    
     if (!address || !address.trim()) {
+      console.error('❌ Empty address provided');
       return new Response(
         JSON.stringify({ error: 'Address is required' }), 
         { 
@@ -38,7 +41,7 @@ serve(async (req) => {
 
     const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
     if (!apiKey) {
-      console.error('Google Maps API key not configured');
+      console.error('❌ Google Maps API key not configured');
       return new Response(
         JSON.stringify({ error: 'Geocoding service unavailable' }), 
         { 
@@ -48,13 +51,20 @@ serve(async (req) => {
       );
     }
 
+    // Add Finland as the region bias for better Finnish address results
+    const addressWithCountry = address.includes('Finland') || address.includes('Suomi') 
+      ? address 
+      : `${address}, Finland`;
+    
+    console.log('🌍 Geocoding with enhanced address:', addressWithCountry);
+
     // Make the geocoding request
-    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addressWithCountry)}&region=fi&key=${apiKey}`;
     
     const response = await fetch(geocodeUrl);
     
     if (!response.ok) {
-      console.error('Google Maps API request failed:', response.status);
+      console.error('❌ Google Maps API request failed:', response.status, response.statusText);
       return new Response(
         JSON.stringify({ error: 'Geocoding request failed' }), 
         { 
@@ -66,8 +76,12 @@ serve(async (req) => {
     
     const data: GeocodeResponse = await response.json();
     
+    console.log('📊 Google Maps API response status:', data.status);
+    console.log('📊 Results count:', data.results?.length || 0);
+    
     if (data.status === 'OK' && data.results && data.results.length > 0) {
       const location = data.results[0].geometry.location;
+      console.log('✅ Geocoding successful:', location);
       return new Response(
         JSON.stringify({
           success: true,
@@ -81,10 +95,15 @@ serve(async (req) => {
         }
       );
     } else {
+      console.warn('⚠️ Address not found. API Status:', data.status);
+      console.warn('⚠️ Original address:', address);
+      console.warn('⚠️ Enhanced address:', addressWithCountry);
+      
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Address not found' 
+          error: 'Address not found',
+          details: `Google Maps API returned status: ${data.status}. Please check if the address is correct.`
         }), 
         { 
           status: 404, 
