@@ -1,11 +1,19 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Validation schema
+const paymentSchema = z.object({
+  order_id: z.string().uuid(),
+  amount: z.number().positive().max(100000),
+  currency: z.string().length(3).optional().default("eur")
+});
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -30,12 +38,22 @@ serve(async (req) => {
       throw new Error("User not authenticated or email not available");
     }
 
-    // Parse request body
-    const { order_id, amount, currency = "eur" } = await req.json();
-
-    if (!order_id || !amount) {
-      throw new Error("Missing required fields: order_id and amount");
+    // Parse and validate request body
+    const body = await req.json();
+    const validationResult = paymentSchema.safeParse(body);
+    
+    if (!validationResult.success) {
+      console.error('Validation error:', validationResult.error);
+      return new Response(
+        JSON.stringify({ error: 'Invalid request data' }), 
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        }
+      );
     }
+
+    const { order_id, amount, currency } = validationResult.data;
 
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
@@ -98,7 +116,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Payment creation error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: 'Payment processing failed' }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });

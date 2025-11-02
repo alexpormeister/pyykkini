@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,6 +26,36 @@ serve(async (req) => {
   }
 
   try {
+    // Verify user is authenticated
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    );
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }), 
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data } = await supabaseClient.auth.getUser(token);
+    
+    if (!data.user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }), 
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     const { address } = await req.json();
     
     console.log('📍 Geocoding request received for address:', address);
@@ -116,7 +147,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('❌ Error in secure-geocoding function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }), 
+      JSON.stringify({ error: 'Geocoding service unavailable' }), 
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
