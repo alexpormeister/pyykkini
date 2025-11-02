@@ -5,15 +5,26 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface SimpleMapProps {
   address: string;
+  coordinates?: { lat: number; lng: number } | null;
 }
 
-export const SimpleMap = ({ address }: SimpleMapProps) => {
+export const SimpleMap = ({ address, coordinates: providedCoordinates }: SimpleMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(providedCoordinates || null);
 
   useEffect(() => {
+    // If coordinates are provided, use them directly
+    if (providedCoordinates) {
+      console.log('📍 Using provided coordinates:', providedCoordinates);
+      setCoordinates(providedCoordinates);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    // Otherwise, geocode the address
     const geocodeAddress = async () => {
       if (!address.trim()) {
         setError('Osoite puuttuu');
@@ -24,6 +35,8 @@ export const SimpleMap = ({ address }: SimpleMapProps) => {
       try {
         setLoading(true);
         setError(null);
+        
+        console.log('🔍 Geocoding address:', address);
         
         // Use secure geocoding edge function
         const { data, error } = await supabase.functions.invoke('secure-geocoding', {
@@ -51,7 +64,7 @@ export const SimpleMap = ({ address }: SimpleMapProps) => {
     };
 
     geocodeAddress();
-  }, [address]);
+  }, [address, providedCoordinates]);
 
   if (loading) {
     return (

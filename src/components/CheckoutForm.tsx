@@ -485,7 +485,7 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
                     {/* Map right below address */}
                     {formData.address && (
                       <div className="mt-4">
-                        <SimpleMap address={formData.address} />
+                        <SimpleMap address={formData.address} coordinates={addressCoordinates} />
                       </div>
                     )}
                   </div>
