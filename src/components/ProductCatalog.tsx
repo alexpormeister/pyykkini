@@ -51,18 +51,32 @@ export const ProductCatalog = ({ onAddToCart }: ProductCatalogProps) => {
 
   const fetchCatalog = async () => {
     try {
+      console.log('🔍 Fetching product catalog...');
+      
       const [categoriesRes, productsRes] = await Promise.all([
         supabase.from("categories").select("*").order("sort_order"),
         supabase.from("products").select("*").eq("is_active", true)
       ]);
 
-      if (categoriesRes.error) throw categoriesRes.error;
-      if (productsRes.error) throw productsRes.error;
+      console.log('📦 Categories response:', categoriesRes);
+      console.log('📦 Products response:', productsRes);
+
+      if (categoriesRes.error) {
+        console.error('❌ Categories error:', categoriesRes.error);
+        throw categoriesRes.error;
+      }
+      if (productsRes.error) {
+        console.error('❌ Products error:', productsRes.error);
+        throw productsRes.error;
+      }
 
       setCategories(categoriesRes.data || []);
       setProducts(productsRes.data || []);
+      
+      console.log('✅ Loaded categories:', categoriesRes.data?.length);
+      console.log('✅ Loaded products:', productsRes.data?.length);
     } catch (error) {
-      console.error("Error fetching catalog:", error);
+      console.error("❌ Error fetching catalog:", error);
       toast.error("Virhe tuotteiden lataamisessa");
     } finally {
       setLoading(false);
@@ -137,7 +151,21 @@ export const ProductCatalog = ({ onAddToCart }: ProductCatalogProps) => {
   };
 
   if (loading) {
-    return <div className="text-center py-8">Ladataan tuotteita...</div>;
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+        <p>Ladataan tuotteita...</p>
+      </div>
+    );
+  }
+
+  if (categories.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-lg text-muted-foreground">Ei tuotteita saatavilla.</p>
+        <p className="text-sm text-muted-foreground mt-2">Tuotteet lisätään pian!</p>
+      </div>
+    );
   }
 
   return (
