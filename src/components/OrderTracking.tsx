@@ -44,7 +44,23 @@ export const OrderTracking = () => {
     }
   };
 
-  const getStatusInfo = (status: string) => {
+  const getStatusInfo = (order: Order) => {
+    // Handle both old 'status' and new 'tracking_status' fields
+    let status = order.tracking_status;
+    
+    // Map old status values to new tracking_status values
+    if (!status) {
+      const oldStatusMap: Record<string, string> = {
+        'pending': 'PENDING',
+        'accepted': 'PICKED_UP',
+        'picking_up': 'PICKED_UP',
+        'washing': 'WASHING',
+        'returning': 'OUT_FOR_DELIVERY',
+        'delivered': 'COMPLETED'
+      };
+      status = oldStatusMap[(order as any).status] || 'PENDING';
+    }
+    
     const statusMap: Record<string, { label: string; icon: any; color: string }> = {
       PENDING: { label: "Tilaus vastaanotettu", icon: Clock, color: "bg-blue-500" },
       PICKED_UP: { label: "Noudettu", icon: Package, color: "bg-purple-500" },
@@ -76,8 +92,9 @@ export const OrderTracking = () => {
       <h2 className="text-2xl font-bold">Omat Tilaukset</h2>
       
       {orders.map(order => {
-        const statusInfo = getStatusInfo(order.tracking_status);
+        const statusInfo = getStatusInfo(order);
         const StatusIcon = statusInfo.icon;
+        const currentStatus = order.tracking_status || 'PENDING';
 
         return (
           <Card key={order.id}>
@@ -127,10 +144,10 @@ export const OrderTracking = () => {
               <div className="pt-4">
                 <div className="flex justify-between items-center">
                   {["PENDING", "PICKED_UP", "WASHING", "PACKAGING", "OUT_FOR_DELIVERY", "COMPLETED"].map((status, idx) => {
-                    const info = getStatusInfo(status);
+                    const info = getStatusInfo({ tracking_status: status } as Order);
                     const Icon = info.icon;
                     const statuses = ["PENDING", "PICKED_UP", "WASHING", "PACKAGING", "OUT_FOR_DELIVERY", "COMPLETED"];
-                    const currentIdx = statuses.indexOf(order.tracking_status);
+                    const currentIdx = statuses.indexOf(currentStatus);
                     const isActive = idx <= currentIdx;
 
                     return (
