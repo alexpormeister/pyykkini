@@ -513,7 +513,20 @@ export const DriverPanel = () => {
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
-      const updateData: any = { status: newStatus };
+      // Map status to tracking_status for customer visibility
+      const trackingStatusMap: Record<string, string> = {
+        'pending': 'PENDING',
+        'accepted': 'PICKED_UP',
+        'picking_up': 'PICKED_UP',
+        'washing': 'WASHING',
+        'returning': 'OUT_FOR_DELIVERY',
+        'delivered': 'COMPLETED'
+      };
+
+      const updateData: any = { 
+        status: newStatus,
+        tracking_status: trackingStatusMap[newStatus] || 'PENDING'
+      };
       
       // Add timestamps for specific status changes
       if (newStatus === 'picking_up') {
@@ -521,6 +534,8 @@ export const DriverPanel = () => {
       } else if (newStatus === 'delivered') {
         updateData.actual_return_time = new Date().toISOString();
       }
+
+      console.log('📝 Updating order status:', { orderId, newStatus, updateData });
 
       const { error } = await supabase
         .from('orders')
@@ -536,6 +551,7 @@ export const DriverPanel = () => {
 
       fetchOrders();
     } catch (error: any) {
+      console.error('❌ Error updating status:', error);
       toast({
         variant: "destructive",
         title: "Virhe",
@@ -577,12 +593,16 @@ export const DriverPanel = () => {
         ? { pickup_weight_kg: weight }
         : { return_weight_kg: weight };
 
+      console.log('💾 Saving weight:', { orderId: selectedOrderForWeight.id, weight, type: weightType });
+
       const { error } = await supabase
         .from('orders')
         .update(updateData)
         .eq('id', selectedOrderForWeight.id);
 
       if (error) throw error;
+
+      console.log('✅ Weight saved successfully');
 
       toast({
         title: "Paino tallennettu!",
@@ -591,6 +611,7 @@ export const DriverPanel = () => {
 
       setShowWeightDialog(false);
       setWeightInput('');
+      setSelectedOrderForWeight(null);
       
       // Refresh orders to show updated weight immediately
       await fetchOrders();
@@ -602,6 +623,7 @@ export const DriverPanel = () => {
         await updateOrderStatus(selectedOrderForWeight.id, 'delivered');
       }
     } catch (error: any) {
+      console.error('❌ Error saving weight:', error);
       toast({
         variant: "destructive",
         title: "Virhe",
