@@ -1,97 +1,24 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Shirt, Sparkles, Zap, Star, CheckCircle, ArrowRight, Truck, Clock, Phone, Mail, MapPin, Search } from "lucide-react";
+import { Phone, Mail, MapPin } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { ProductCatalog } from "@/components/ProductCatalog";
+import { useToast } from "@/hooks/use-toast";
 
-interface Service {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  icon: any;
-  duration: string;
-  features: string[];
-}
-
-const services: Service[] = [
-  {
-    id: 'normal',
-    name: 'Normaali pesu',
-    description: 'Arkivaatteiden perus pesu ja kuivaus',
-    price: 15,
-    icon: Shirt,
-    duration: '24-48h',
-    features: ['Pesu 40°C', 'Kuivaus', 'Taittelua', 'Nouto ja palautus']
-  },
-  {
-    id: 'shoes',
-    name: 'Kenkäpesu',
-    description: 'Erikoispesu kengille ja urheilujalkineille',
-    price: 20,
-    icon: Sparkles,
-    duration: '48h',
-    features: ['Syvä puhdistus', 'Hajunpoisto', 'Suojaus', 'Nouto ja palautus']
-  },
-  {
-    id: 'sheets',
-    name: 'Lakanapyykki',
-    description: 'Pesu, kuivaus ja huolellinen silitys',
-    price: 25,
-    icon: Zap,
-    duration: '48-72h',
-    features: ['Korkeatehopesu', 'Silitys', 'Taittelua', 'Nouto ja palautus']
-  },
-  {
-    id: 'carpets',
-    name: 'Mattopesu',
-    description: 'Ammattimainen mattojen pesu ja kuivaus',
-    price: 35,
-    icon: Star,
-    duration: '72h',
-    features: ['Ammattipesu', 'Kuivaus', 'Hajunpoisto', 'Nouto ja palautus']
-  }
-];
-
-const categories = [
-  { id: 'all', name: 'Kaikki palvelut' },
-  { id: 'normal', name: 'Normaali pesu' },
-  { id: 'shoes', name: 'Kenkäpesu' },
-  { id: 'sheets', name: 'Lakanapyykki' },
-  { id: 'carpets', name: 'Mattopesu' }
-];
 
 export const Landing = () => {
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("");
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const filteredServices = services.filter(service => {
-    const matchesSearch = service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         service.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || service.id === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  const handleOrderNow = (service: Service) => {
-    if (user) {
-      // Automatically redirect to app if logged in
-      navigate('/app');
-    } else {
-      setSelectedService(service);
-      setShowLoginDialog(true);
-    }
-  };
-
-  const handleLoginRedirect = () => {
-    setShowLoginDialog(false);
+  const handleAddToCart = () => {
+    toast({
+      title: "Kirjaudu sisään",
+      description: "Sinun täytyy kirjautua sisään voidaksesi lisätä tuotteita ostoskoriin.",
+    });
     navigate('/auth');
   };
 
@@ -158,7 +85,7 @@ export const Landing = () => {
         </div>
       </section>
 
-      {/* Services Section */}
+      {/* Products Section */}
       <section id="services" className="py-16 md:py-24 bg-background/50 backdrop-blur-sm">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12 md:mb-16 animate-fade-in">
@@ -170,87 +97,13 @@ export const Landing = () => {
             </p>
           </div>
 
-          {/* Search and Filter Section */}
-          <div className="max-w-3xl mx-auto mb-12 space-y-6">
-            {/* Search Field */}
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Hae palvelua..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 h-14 text-lg"
-              />
-            </div>
-
-            {/* Category Buttons */}
-            <div className="flex flex-wrap gap-3 justify-center">
-              {categories.map((category) => (
-                <Button
-                  key={category.id}
-                  variant={selectedCategory === category.id ? "hero" : "outline"}
-                  size="lg"
-                  onClick={() => setSelectedCategory(category.id)}
-                  className="font-fredoka font-bold btn-bounce-hover"
-                >
-                  {category.name}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-            {filteredServices.map((service, index) => {
-              const Icon = service.icon;
-              return (
-                <Card
-                  key={service.id}
-                  className="group cursor-pointer transition-all duration-300 hover:shadow-fun hover:scale-105 animate-fade-in border-2 hover:border-primary/30 bg-card/70 backdrop-blur-sm"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <CardHeader className="text-center pb-4">
-                    <div className="w-20 h-20 mx-auto mb-4 bg-gradient-fun rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-glow group-hover:animate-wiggle">
-                      <Icon className="h-10 w-10 text-white" />
-                    </div>
-                    <CardTitle className="text-xl md:text-2xl font-fredoka">{service.name}</CardTitle>
-                    <CardDescription className="text-base">
-                      {service.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="text-center">
-                      <div className="text-3xl md:text-4xl font-fredoka font-bold text-primary mb-2">
-                        {service.price}€
-                      </div>
-                      <Badge variant="secondary" className="text-sm font-semibold">
-                        ⏱️ {service.duration}
-                      </Badge>
-                    </div>
-
-                    <ul className="space-y-3 text-sm text-muted-foreground">
-                      {service.features.map((feature, i) => (
-                        <li key={i} className="flex items-center gap-2">
-                          <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
-                          <span className="font-medium">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <Button
-                      variant="hero"
-                      size="lg"
-                      className="w-full font-fredoka font-bold text-lg btn-bounce-hover h-12"
-                      onClick={() => handleOrderNow(service)}
-                    >
-                      TILAA NYT
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-
+          <ProductCatalog
+            onAddToCart={handleAddToCart}
+            searchQuery={searchQuery}
+            selectedCategory={selectedCategory}
+            onSearchChange={setSearchQuery}
+            onCategoryChange={setSelectedCategory}
+          />
         </div>
       </section>
 
@@ -305,34 +158,6 @@ export const Landing = () => {
         </div>
       </footer>
 
-      {/* Login Dialog */}
-      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-center">Kirjaudu sisään jatkaaksesi</DialogTitle>
-            <DialogDescription className="text-center">
-              Sinun täytyy kirjautua sisään tai rekisteröityä voidaksesi tilata palvelun.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 pt-4">
-            <Button
-              variant="hero"
-              className="w-full"
-              onClick={handleLoginRedirect}
-            >
-              Kirjaudu sisään tai rekisteröidy
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => setShowLoginDialog(false)}
-            >
-              Peruuta
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
