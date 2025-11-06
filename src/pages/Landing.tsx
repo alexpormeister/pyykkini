@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export const Landing = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
