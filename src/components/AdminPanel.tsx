@@ -15,6 +15,7 @@ import { UserManagement } from "@/components/UserManagement";
 import { Reports } from "@/components/Reports";
 import { CouponManagement } from "@/components/CouponManagement";
 import { ProductManagement } from "@/components/ProductManagement";
+import { ChatManagement } from "@/components/ChatManagement";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
@@ -32,7 +33,8 @@ import {
   ChevronRight,
   UserCheck,
   Filter,
-  RotateCcw
+  RotateCcw,
+  MessageSquare
 } from "lucide-react";
 
 interface Order {
@@ -662,6 +664,15 @@ export const AdminPanel = () => {
                         >
                           Kuponkien hallinta
                         </button>
+                        <button
+                          onClick={() => setActiveTab('chat')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'chat' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <MessageSquare className="h-4 w-4" />
+                            Viestit
+                          </div>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1102,6 +1113,11 @@ export const AdminPanel = () => {
           {/* Coupons Tab */}
           <TabsContent value="coupons" className="animate-fade-in">
             <CouponManagement />
+          </TabsContent>
+
+          {/* Chat Tab */}
+          <TabsContent value="chat" className="animate-fade-in">
+            <ChatManagement />
           </TabsContent>
 
           {/* Free Orders Tab */}

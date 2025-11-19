@@ -71,6 +71,41 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          chat_id: string
+          content: string
+          created_at: string
+          id: number
+          is_admin_message: boolean | null
+          sender_id: string
+        }
+        Insert: {
+          chat_id: string
+          content: string
+          created_at?: string
+          id?: number
+          is_admin_message?: boolean | null
+          sender_id: string
+        }
+        Update: {
+          chat_id?: string
+          content?: string
+          created_at?: string
+          id?: number
+          is_admin_message?: boolean | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "support_chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coupons: {
         Row: {
           code: string
@@ -110,45 +145,6 @@ export type Database = {
           usage_limit?: number | null
           valid_from?: string
           valid_until?: string | null
-        }
-        Relationships: []
-      }
-      driver_calendar_events: {
-        Row: {
-          created_at: string
-          description: string | null
-          driver_id: string
-          end_time: string | null
-          event_date: string
-          event_type: string
-          id: string
-          start_time: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          driver_id: string
-          end_time?: string | null
-          event_date: string
-          event_type?: string
-          id?: string
-          start_time: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          driver_id?: string
-          end_time?: string | null
-          event_date?: string
-          event_type?: string
-          id?: string
-          start_time?: string
-          title?: string
-          updated_at?: string
         }
         Relationships: []
       }
@@ -543,6 +539,30 @@ export type Database = {
           phone?: string | null
           profile_image?: number | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      support_chats: {
+        Row: {
+          created_at: string
+          id: string
+          last_message_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          status?: string
           user_id?: string
         }
         Relationships: []
