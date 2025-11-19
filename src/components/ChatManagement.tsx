@@ -26,6 +26,7 @@ interface SupportChat {
   status: string;
   created_at: string;
   last_message_at: string;
+  is_read: boolean;
   user_name?: string;
   messages?: ChatMessage[];
 }
@@ -148,6 +149,72 @@ export const ChatManagement = () => {
   const handleSelectChat = async (chat: SupportChat) => {
     setSelectedChat(chat);
     await fetchChatMessages(chat.id);
+    
+    // Mark chat as read when opened
+    if (!chat.is_read) {
+      await supabase
+        .from('support_chats')
+        .update({ is_read: true })
+        .eq('id', chat.id);
+      fetchChats();
+    }
+  };
+
+  const toggleChatStatus = async (chatId: string, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'open' ? 'closed' : 'open';
+      const { error } = await supabase
+        .from('support_chats')
+        .update({ status: newStatus })
+        .eq('id', chatId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Onnistui",
+        description: `Keskustelu ${newStatus === 'open' ? 'avattu' : 'suljettu'}`,
+      });
+
+      fetchChats();
+      if (selectedChat?.id === chatId) {
+        setSelectedChat({ ...selectedChat, status: newStatus });
+      }
+    } catch (error) {
+      console.error('Error updating chat status:', error);
+      toast({
+        title: "Virhe",
+        description: "Keskustelun tilan päivittäminen epäonnistui",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleReadStatus = async (chatId: string, currentIsRead: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('support_chats')
+        .update({ is_read: !currentIsRead })
+        .eq('id', chatId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Onnistui",
+        description: `Merkitty ${!currentIsRead ? 'luetuksi' : 'lukemattomaksi'}`,
+      });
+
+      fetchChats();
+      if (selectedChat?.id === chatId) {
+        setSelectedChat({ ...selectedChat, is_read: !currentIsRead });
+      }
+    } catch (error) {
+      console.error('Error updating read status:', error);
+      toast({
+        title: "Virhe",
+        description: "Lukutilan päivittäminen epäonnistui",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSendReply = async () => {
@@ -223,7 +290,7 @@ export const ChatManagement = () => {
             Keskustelut
           </CardTitle>
           <CardDescription>
-            {chats.length} keskustelua
+            {chats.length} keskustelua, {chats.filter(c => !c.is_read).length} lukematonta
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -242,12 +309,17 @@ export const ChatManagement = () => {
                       selectedChat?.id === chat.id
                         ? 'bg-primary/10 border-primary'
                         : 'bg-background hover:bg-muted border-border'
-                    }`}
+                    } ${!chat.is_read ? 'border-l-4 border-l-primary' : ''}`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">{chat.user_name}</span>
+                        {!chat.is_read && (
+                          <Badge variant="destructive" className="h-5 px-1.5 text-xs">
+                            Uusi
+                          </Badge>
+                        )}
                       </div>
                       {getStatusBadge(chat.status)}
                     </div>
@@ -277,7 +349,23 @@ export const ChatManagement = () => {
                     Keskustelu aloitettu {new Date(selectedChat.created_at).toLocaleDateString('fi-FI')}
                   </CardDescription>
                 </div>
-                {getStatusBadge(selectedChat.status)}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleReadStatus(selectedChat.id, selectedChat.is_read)}
+                  >
+                    {selectedChat.is_read ? 'Merkitse lukemattomaksi' : 'Merkitse luetuksi'}
+                  </Button>
+                  <Button
+                    variant={selectedChat.status === 'open' ? 'destructive' : 'default'}
+                    size="sm"
+                    onClick={() => toggleChatStatus(selectedChat.id, selectedChat.status)}
+                  >
+                    {selectedChat.status === 'open' ? 'Sulje' : 'Avaa'}
+                  </Button>
+                  {getStatusBadge(selectedChat.status)}
+                </div>
               </div>
             </CardHeader>
             <CardContent className="flex flex-col h-[calc(100vh-24rem)]">
