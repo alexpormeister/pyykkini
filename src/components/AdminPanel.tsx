@@ -116,12 +116,14 @@ export const AdminPanel = () => {
   const [driverSearch, setDriverSearch] = useState("");
   const [selectedDriverId, setSelectedDriverId] = useState<string>("");
   const [orderToAssign, setOrderToAssign] = useState<string>("");
+  const [unreadChatsCount, setUnreadChatsCount] = useState<number>(0);
 
   useEffect(() => {
     fetchOrders();
     fetchStats();
     fetchActiveDrivers();
     fetchAllDrivers();
+    fetchUnreadChatsCount();
     
     // Check for tab preference from Profile navigation
     const preferredTab = sessionStorage.getItem('adminTab');
@@ -132,6 +134,21 @@ export const AdminPanel = () => {
       setActiveTab('reports');
       sessionStorage.removeItem('adminTab');
     }
+
+    // Set up real-time subscription for support_chats updates
+    const chatsSubscription = supabase
+      .channel('support_chats_changes')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'support_chats' },
+        () => {
+          fetchUnreadChatsCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      chatsSubscription.unsubscribe();
+    };
   }, []);
 
   const fetchOrders = async () => {
@@ -351,6 +368,20 @@ export const AdminPanel = () => {
       setAllDrivers(driversWithShiftStatus);
     } catch (error) {
       console.error('Error fetching all drivers:', error);
+    }
+  };
+
+  const fetchUnreadChatsCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('support_chats')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_read', false);
+
+      if (error) throw error;
+      setUnreadChatsCount(count || 0);
+    } catch (error) {
+      console.error('Error fetching unread chats count:', error);
     }
   };
 
@@ -668,9 +699,16 @@ export const AdminPanel = () => {
                           onClick={() => setActiveTab('chat')}
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'chat' ? 'bg-primary/10 text-primary font-medium' : ''}`}
                         >
-                          <div className="flex items-center gap-2">
-                            <MessageSquare className="h-4 w-4" />
-                            Viestit
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <MessageSquare className="h-4 w-4" />
+                              Viestit
+                            </div>
+                            {unreadChatsCount > 0 && (
+                              <Badge variant="destructive" className="h-5 px-1.5 text-xs">
+                                {unreadChatsCount}
+                              </Badge>
+                            )}
                           </div>
                         </button>
                       </div>
