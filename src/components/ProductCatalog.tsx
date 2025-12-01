@@ -246,7 +246,7 @@ export const ProductCatalog = ({
             variant={selectedCategory === 'all' ? 'hero' : 'outline'}
             size="lg"
             onClick={() => onCategoryChange('all')}
-            className="font-fredoka font-bold btn-bounce-hover"
+            className="font-fredoka font-bold"
           >
             Kaikki palvelut
           </Button>
@@ -256,7 +256,7 @@ export const ProductCatalog = ({
               variant={selectedCategory === category.category_id ? 'hero' : 'outline'}
               size="lg"
               onClick={() => onCategoryChange(category.category_id)}
-              className="font-fredoka font-bold btn-bounce-hover"
+              className="font-fredoka font-bold"
             >
               {category.name}
             </Button>
@@ -295,13 +295,14 @@ export const ProductCatalog = ({
                   : product.base_price;
 
                 return (
-                  <Card key={product.id}>
+                   <Card key={product.id}>
                     {product.image_url && (
                       <div className="aspect-video overflow-hidden rounded-t-lg">
                         <img 
                           src={product.image_url} 
                           alt={product.name}
                           className="w-full h-full object-cover"
+                          loading="lazy"
                         />
                       </div>
                     )}
