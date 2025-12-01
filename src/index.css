@@ -187,24 +187,6 @@ All colors MUST be HSL.
     animation: float 3s ease-in-out infinite;
   }
 
-  /* Enhanced button hover effects */
-  .btn-glow-hover {
-    transition: var(--transition-smooth);
-  }
-
-  .btn-glow-hover:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-glow);
-  }
-
-  .btn-bounce-hover {
-    transition: var(--transition-bounce);
-  }
-
-  .btn-bounce-hover:hover {
-    transform: scale(1.05);
-  }
-
   /* Scroll-triggered intersection observer classes */
   .scroll-reveal {
     opacity: 0;

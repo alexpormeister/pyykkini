@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Phone, Mail, MapPin } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { ProductCatalog } from "@/components/ProductCatalog";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const ProductCatalog = lazy(() => import("@/components/ProductCatalog").then(module => ({ default: module.ProductCatalog })));
 
 
 export const Landing = () => {
@@ -39,10 +41,10 @@ export const Landing = () => {
             <div className="flex items-center space-x-3">
               {!user && (
                 <>
-                  <Button variant="ghost" size="sm" className="btn-bounce-hover" onClick={() => navigate('/auth')}>
+                  <Button variant="ghost" size="sm" onClick={() => navigate('/auth')}>
                     Kirjaudu sisään
                   </Button>
-                  <Button variant="hero" size="sm" className="btn-bounce-hover" onClick={() => navigate('/auth')}>
+                  <Button variant="hero" size="sm" onClick={() => navigate('/auth')}>
                     Rekisteröidy
                   </Button>
                 </>
@@ -54,41 +56,37 @@ export const Landing = () => {
 
       {/* Hero Section */}
       <section className="py-16 md:py-20 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-radial from-primary/10 via-transparent to-transparent"></div>
         <div className="container mx-auto px-4 relative">
           <div className="text-center max-w-4xl mx-auto">
-            <div className="animate-fade-in">
-              <h1 className="font-fredoka text-5xl md:text-7xl lg:text-8xl font-bold mb-6 text-foreground leading-none tracking-tight">
-                PUHTAAT PYYKIT
-              </h1>
-              <div className="text-2xl md:text-4xl lg:text-5xl font-fredoka font-bold mb-8 text-primary">
-                YHDELLÄ TILAUKSELLA KAAPPI PUHTAAKSI.
-              </div>
-
-              <p className="text-lg md:text-xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
-                Tilaa ammattimainen pesupalvelu kotiin. Sinun ei tarvitse tehdä muuta kuin nauttia vapaa-ajastasi.
-              </p>
-
-              <div className="mb-12">
-                <Button
-                  variant="hero"
-                  size="lg"
-                  className="text-xl px-12 py-6 h-auto font-fredoka font-bold btn-glow-hover"
-                  onClick={() => !user && navigate('/auth')}
-                >
-                  {user ? 'TILAA PESU' : 'ALOITA NYT'}
-                </Button>
-              </div>
+            <h1 className="font-fredoka text-5xl md:text-7xl lg:text-8xl font-bold mb-6 text-foreground leading-none tracking-tight">
+              PUHTAAT PYYKIT
+            </h1>
+            <div className="text-2xl md:text-4xl lg:text-5xl font-fredoka font-bold mb-8 text-primary">
+              YHDELLÄ TILAUKSELLA KAAPPI PUHTAAKSI.
             </div>
 
+            <p className="text-lg md:text-xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
+              Tilaa ammattimainen pesupalvelu kotiin. Sinun ei tarvitse tehdä muuta kuin nauttia vapaa-ajastasi.
+            </p>
+
+            <div className="mb-12">
+              <Button
+                variant="hero"
+                size="lg"
+                className="text-xl px-12 py-6 h-auto font-fredoka font-bold"
+                onClick={() => !user && navigate('/auth')}
+              >
+                {user ? 'TILAA PESU' : 'ALOITA NYT'}
+              </Button>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Products Section */}
-      <section id="services" className="py-16 md:py-24 bg-background/50 backdrop-blur-sm">
+      <section id="services" className="py-16 md:py-24 bg-background/50">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-12 md:mb-16 animate-fade-in">
+          <div className="text-center mb-12 md:mb-16">
             <h2 className="font-fredoka text-4xl md:text-5xl font-bold mb-6 text-foreground">
               Valitse palvelusi
             </h2>
@@ -97,13 +95,23 @@ export const Landing = () => {
             </p>
           </div>
 
-          <ProductCatalog
-            onAddToCart={handleAddToCart}
-            searchQuery={searchQuery}
-            selectedCategory={selectedCategory}
-            onSearchChange={setSearchQuery}
-            onCategoryChange={setSelectedCategory}
-          />
+          <Suspense fallback={
+            <div className="space-y-8">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Skeleton key={i} className="h-96 rounded-lg" />
+                ))}
+              </div>
+            </div>
+          }>
+            <ProductCatalog
+              onAddToCart={handleAddToCart}
+              searchQuery={searchQuery}
+              selectedCategory={selectedCategory}
+              onSearchChange={setSearchQuery}
+              onCategoryChange={setSelectedCategory}
+            />
+          </Suspense>
         </div>
       </section>
 
