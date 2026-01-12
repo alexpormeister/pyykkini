@@ -19,8 +19,10 @@ const getStatusIcon = (status: string) => {
     case 'pending': return Clock;
     case 'accepted': return CheckCircle;
     case 'picking_up': return Truck;
+    case 'arrived_pickup': return MapPin;
     case 'washing': return Sparkles;
     case 'returning': return Truck;
+    case 'arrived_return': return MapPin;
     case 'delivered': return Package;
     default: return Clock;
   }
@@ -31,8 +33,10 @@ const getStatusText = (status: string) => {
     case 'pending': return 'Odottaa hyväksyntää';
     case 'accepted': return 'Hyväksytty';
     case 'picking_up': return 'Noutamassa';
+    case 'arrived_pickup': return 'Saapunut noutamaan';
     case 'washing': return 'Pesussa';
     case 'returning': return 'Palautumassa';
+    case 'arrived_return': return 'Saapunut paluuseen';
     case 'delivered': return 'Toimitettu';
     case 'rejected': return 'Hylätty';
     default: return status;
@@ -44,8 +48,10 @@ const getStatusColor = (status: string) => {
     case 'pending': return 'bg-yellow-100 text-yellow-800';
     case 'accepted': return 'bg-blue-100 text-blue-800';
     case 'picking_up': return 'bg-purple-100 text-purple-800';
+    case 'arrived_pickup': return 'bg-indigo-100 text-indigo-800';
     case 'washing': return 'bg-cyan-100 text-cyan-800';
     case 'returning': return 'bg-orange-100 text-orange-800';
+    case 'arrived_return': return 'bg-amber-100 text-amber-800';
     case 'delivered': return 'bg-green-100 text-green-800';
     case 'rejected': return 'bg-red-100 text-red-800';
     default: return 'bg-gray-100 text-gray-800';
@@ -69,7 +75,7 @@ export const DriverPanel = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [currentView, setCurrentView] = useState<'orders' | 'calendar'>('orders');
   const [activeTab, setActiveTab] = useState<'my' | 'free'>('my');
-  const [myStatusFilter, setMyStatusFilter] = useState<'all' | 'accepted' | 'picking_up' | 'washing' | 'returning' | 'delivered'>('all');
+  const [myStatusFilter, setMyStatusFilter] = useState<'all' | 'accepted' | 'picking_up' | 'arrived_pickup' | 'washing' | 'returning' | 'arrived_return' | 'delivered'>('all');
   const [mySort, setMySort] = useState<'newest' | 'oldest'>('newest');
   const [showWeightDialog, setShowWeightDialog] = useState(false);
   const [selectedOrderForWeight, setSelectedOrderForWeight] = useState<any>(null);
@@ -488,8 +494,8 @@ export const DriverPanel = () => {
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     const order = myOrders.find(o => o.id === orderId);
     
-    // For pickup - show weight dialog if weight is missing
-    if (newStatus === 'picking_up' && !order?.pickup_weight_kg) {
+    // For arrived_pickup - show weight dialog for pickup weight
+    if (newStatus === 'arrived_pickup' && !order?.pickup_weight_kg) {
       setSelectedOrderForWeight(order);
       setWeightType('pickup');
       setWeightInput('');
@@ -497,8 +503,8 @@ export const DriverPanel = () => {
       return;
     }
     
-    // For delivery - show weight dialog if return weight is missing
-    if (newStatus === 'delivered' && !order?.return_weight_kg) {
+    // For arrived_return - show weight dialog for return weight
+    if (newStatus === 'arrived_return' && !order?.return_weight_kg) {
       setSelectedOrderForWeight(order);
       setWeightType('return');
       setWeightInput('');
@@ -515,10 +521,12 @@ export const DriverPanel = () => {
       // Map status to tracking_status for customer visibility
       const trackingStatusMap: Record<string, string> = {
         'pending': 'PENDING',
-        'accepted': 'PICKED_UP',
-        'picking_up': 'PICKED_UP',
+        'accepted': 'ACCEPTED',
+        'picking_up': 'PICKING_UP',
+        'arrived_pickup': 'ARRIVED_PICKUP',
         'washing': 'WASHING',
-        'returning': 'OUT_FOR_DELIVERY',
+        'returning': 'RETURNING',
+        'arrived_return': 'ARRIVED_RETURN',
         'delivered': 'COMPLETED'
       };
 
@@ -528,7 +536,7 @@ export const DriverPanel = () => {
       };
       
       // Add timestamps for specific status changes
-      if (newStatus === 'picking_up') {
+      if (newStatus === 'arrived_pickup') {
         updateData.actual_pickup_time = new Date().toISOString();
       } else if (newStatus === 'delivered') {
         updateData.actual_return_time = new Date().toISOString();
@@ -617,9 +625,9 @@ export const DriverPanel = () => {
       
       // If this was for status transition, proceed with the status update
       if (weightType === 'pickup') {
-        await updateOrderStatus(selectedOrderForWeight.id, 'picking_up');
+        await updateOrderStatus(selectedOrderForWeight.id, 'arrived_pickup');
       } else if (weightType === 'return') {
-        await updateOrderStatus(selectedOrderForWeight.id, 'delivered');
+        await updateOrderStatus(selectedOrderForWeight.id, 'arrived_return');
       }
     } catch (error: any) {
       console.error('❌ Error saving weight:', error);
@@ -669,19 +677,23 @@ export const DriverPanel = () => {
   const getNextStatus = (currentStatus: string) => {
     switch (currentStatus) {
       case 'accepted': return 'picking_up';
-      case 'picking_up': return 'washing';
+      case 'picking_up': return 'arrived_pickup';
+      case 'arrived_pickup': return 'washing';
       case 'washing': return 'returning';
-      case 'returning': return 'delivered';
+      case 'returning': return 'arrived_return';
+      case 'arrived_return': return 'delivered';
       default: return currentStatus;
     }
   };
 
   const getNextStatusText = (currentStatus: string) => {
     switch (currentStatus) {
-      case 'accepted': return 'Aloita nouto';
-      case 'picking_up': return 'Merkitse pesussa';
-      case 'washing': return 'Aloita palautus';
-      case 'returning': return 'Merkitse toimitettu';
+      case 'accepted': return 'Noutamassa';
+      case 'picking_up': return 'Saapunut noutamaan';
+      case 'arrived_pickup': return 'Pesuun';
+      case 'washing': return 'Palautumassa';
+      case 'returning': return 'Saapunut paluuseen';
+      case 'arrived_return': return 'Toimitettu';
       default: return 'Valmis';
     }
   };
