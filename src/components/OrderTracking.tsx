@@ -79,10 +79,12 @@ export const OrderTracking = () => {
     if (!status) {
       const oldStatusMap: Record<string, string> = {
         'pending': 'PENDING',
-        'accepted': 'PICKED_UP',
-        'picking_up': 'PICKED_UP',
+        'accepted': 'ACCEPTED',
+        'picking_up': 'PICKING_UP',
+        'arrived_pickup': 'ARRIVED_PICKUP',
         'washing': 'WASHING',
-        'returning': 'OUT_FOR_DELIVERY',
+        'returning': 'RETURNING',
+        'arrived_return': 'ARRIVED_RETURN',
         'delivered': 'COMPLETED'
       };
       status = oldStatusMap[(order as any).status] || 'PENDING';
@@ -90,10 +92,12 @@ export const OrderTracking = () => {
     
     const statusMap: Record<string, { label: string; icon: any; color: string }> = {
       PENDING: { label: "Tilaus vastaanotettu", icon: Clock, color: "bg-blue-500" },
-      PICKED_UP: { label: "Noudettu", icon: Package, color: "bg-purple-500" },
+      ACCEPTED: { label: "Hyväksytty", icon: CheckCircle, color: "bg-green-500" },
+      PICKING_UP: { label: "Noutamassa", icon: Truck, color: "bg-purple-500" },
+      ARRIVED_PICKUP: { label: "Saapunut noutamaan", icon: Package, color: "bg-indigo-500" },
       WASHING: { label: "Pesussa", icon: Sparkles, color: "bg-cyan-500" },
-      PACKAGING: { label: "Pakataan", icon: Box, color: "bg-orange-500" },
-      OUT_FOR_DELIVERY: { label: "Matkalla sinulle", icon: Truck, color: "bg-indigo-500" },
+      RETURNING: { label: "Palautumassa", icon: Truck, color: "bg-orange-500" },
+      ARRIVED_RETURN: { label: "Saapunut paluuseen", icon: Box, color: "bg-amber-500" },
       COMPLETED: { label: "Toimitettu", icon: CheckCircle, color: "bg-green-500" }
     };
     return statusMap[status] || statusMap.PENDING;
@@ -200,19 +204,19 @@ export const OrderTracking = () => {
               {/* Progress tracker */}
               <div className="pt-4">
                 <div className="flex justify-between items-center">
-                  {["PENDING", "PICKED_UP", "WASHING", "PACKAGING", "OUT_FOR_DELIVERY", "COMPLETED"].map((status, idx) => {
+                  {["PENDING", "ACCEPTED", "PICKING_UP", "ARRIVED_PICKUP", "WASHING", "RETURNING", "ARRIVED_RETURN", "COMPLETED"].map((status, idx) => {
                     const info = getStatusInfo({ tracking_status: status } as Order);
                     const Icon = info.icon;
-                    const statuses = ["PENDING", "PICKED_UP", "WASHING", "PACKAGING", "OUT_FOR_DELIVERY", "COMPLETED"];
+                    const statuses = ["PENDING", "ACCEPTED", "PICKING_UP", "ARRIVED_PICKUP", "WASHING", "RETURNING", "ARRIVED_RETURN", "COMPLETED"];
                     const currentIdx = statuses.indexOf(currentStatus);
                     const isActive = idx <= currentIdx;
 
                     return (
                       <div key={status} className="flex flex-col items-center flex-1">
-                        <div className={`rounded-full p-2 ${isActive ? info.color : "bg-gray-300"} text-white`}>
-                          <Icon className="h-4 w-4" />
+                        <div className={`rounded-full p-1.5 sm:p-2 ${isActive ? info.color : "bg-gray-300"} text-white`}>
+                          <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
                         </div>
-                        {idx < 5 && (
+                        {idx < 7 && (
                           <div className={`h-1 w-full ${idx < currentIdx ? info.color : "bg-gray-300"}`} />
                         )}
                       </div>
