@@ -507,6 +507,7 @@ export type Database = {
       profiles: {
         Row: {
           address: string | null
+          avatar_url: string | null
           created_at: string
           email: string
           first_name: string | null
@@ -519,6 +520,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          avatar_url?: string | null
           created_at?: string
           email: string
           first_name?: string | null
@@ -531,6 +533,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          avatar_url?: string | null
           created_at?: string
           email?: string
           first_name?: string | null
@@ -657,6 +660,7 @@ export type Database = {
         | "PACKAGING"
         | "OUT_FOR_DELIVERY"
         | "COMPLETED"
+        | "pending"
       pricing_model: "FIXED" | "PER_M2"
     }
     CompositeTypes: {
@@ -803,6 +807,7 @@ export const Constants = {
         "PACKAGING",
         "OUT_FOR_DELIVERY",
         "COMPLETED",
+        "pending",
       ],
       pricing_model: ["FIXED", "PER_M2"],
     },
