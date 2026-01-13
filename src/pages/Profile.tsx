@@ -9,8 +9,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { User, Mail, Phone, Trash2, Package, Hash, LogOut, MapPin } from 'lucide-react';
+import { User, Mail, Phone, Trash2, Package, Hash, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { PointsDisplay } from '@/components/PointsDisplay';
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 
 // Import profile images
@@ -432,6 +433,13 @@ export const Profile = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Points Display for Customers */}
+          {userRole === 'customer' && (
+            <div className="lg:col-span-2">
+              <PointsDisplay />
+            </div>
+          )}
 
           {/* Role-specific Content */}
           <div className="lg:col-span-2">

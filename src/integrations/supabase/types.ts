@@ -454,6 +454,47 @@ export type Database = {
           },
         ]
       }
+      points_transactions: {
+        Row: {
+          created_at: string
+          description: string | null
+          expires_at: string | null
+          id: string
+          order_id: string | null
+          points: number
+          transaction_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          order_id?: string | null
+          points: number
+          transaction_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          order_id?: string | null
+          points?: number
+          transaction_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "points_transactions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           base_price: number
@@ -514,6 +555,7 @@ export type Database = {
           id: string
           last_name: string | null
           phone: string | null
+          points_balance: number
           profile_image: number | null
           updated_at: string
           user_id: string
@@ -527,6 +569,7 @@ export type Database = {
           id?: string
           last_name?: string | null
           phone?: string | null
+          points_balance?: number
           profile_image?: number | null
           updated_at?: string
           user_id: string
@@ -540,6 +583,7 @@ export type Database = {
           id?: string
           last_name?: string | null
           phone?: string | null
+          points_balance?: number
           profile_image?: number | null
           updated_at?: string
           user_id?: string
@@ -599,6 +643,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      award_order_points: {
+        Args: { p_amount: number; p_order_id: string; p_user_id: string }
+        Returns: number
+      }
       get_driver_orders: {
         Args: never
         Returns: {
@@ -620,6 +668,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_user_points_balance: { Args: { p_user_id: string }; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -636,6 +685,10 @@ export type Database = {
           p_order_id: string
         }
         Returns: string
+      }
+      redeem_points: {
+        Args: { p_description?: string; p_points: number; p_user_id: string }
+        Returns: boolean
       }
       validate_data_access: {
         Args: { operation: string; table_name: string }

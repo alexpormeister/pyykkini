@@ -146,13 +146,14 @@ Deno.serve(async (req) => {
       throw new Error('Failed to create order items');
     }
 
+    // Create service role client for privileged operations
+    const serviceRoleClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     // Update coupon usage if applied
     if (validatedOrder.coupon) {
-      const serviceRoleClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
-
       const { data: currentCoupon } = await serviceRoleClient
         .from('coupons')
         .select('usage_count')
@@ -167,7 +168,41 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update user profile
+    // Award points for the order (1 € = 1 point)
+    const pointsToAward = Math.floor(validatedOrder.finalPrice);
+    if (pointsToAward > 0) {
+      // Insert points transaction with 12 month expiration
+      await serviceRoleClient
+        .from('points_transactions')
+        .insert({
+          user_id: user.id,
+          order_id: orderData.id,
+          points: pointsToAward,
+          transaction_type: 'earned',
+          description: 'Pisteet tilauksesta',
+          expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+        });
+
+      // Update user's points balance
+      const { data: currentProfile } = await serviceRoleClient
+        .from('profiles')
+        .select('points_balance')
+        .eq('user_id', user.id)
+        .single();
+
+      if (currentProfile) {
+        await serviceRoleClient
+          .from('profiles')
+          .update({ 
+            points_balance: (currentProfile.points_balance || 0) + pointsToAward 
+          })
+          .eq('user_id', user.id);
+      }
+
+      console.log(`Awarded ${pointsToAward} points to user ${user.id} for order ${orderData.id}`);
+    }
+
+    // Update user profile address/phone
     const { data: currentProfile } = await supabaseClient
       .from('profiles')
       .select('address, phone')
