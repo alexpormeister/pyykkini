@@ -647,6 +647,11 @@ export type Database = {
         Args: { p_amount: number; p_order_id: string; p_user_id: string }
         Returns: number
       }
+      deduct_points: {
+        Args: { amount_to_deduct: number; user_id_param: string }
+        Returns: undefined
+      }
+      delete_user_account: { Args: never; Returns: undefined }
       get_driver_orders: {
         Args: never
         Returns: {

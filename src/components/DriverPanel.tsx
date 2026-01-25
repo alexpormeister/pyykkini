@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut, Calendar, Scale, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut, Scale, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -67,7 +67,7 @@ export const DriverPanel = () => {
   });
   const [showRejectDialog, setShowRejectDialog] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [currentView, setCurrentView] = useState<'orders' | 'calendar'>('orders');
+  // Calendar view removed - only orders view now
   const [activeTab, setActiveTab] = useState<'my' | 'free'>('my');
   const [myStatusFilter, setMyStatusFilter] = useState<'all' | 'accepted' | 'picking_up' | 'washing' | 'returning' | 'delivered'>('all');
   const [mySort, setMySort] = useState<'newest' | 'oldest'>('newest');
@@ -763,81 +763,64 @@ export const DriverPanel = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         {/* Header */}
-        <div className="text-center mb-8 animate-fade-in">
-          <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent text-center sm:text-left">
-              Kuljettajapaneeli
-            </h1>
-            <div className="flex flex-wrap gap-2 justify-center sm:justify-end">
-              <Button
-                variant={currentView === 'orders' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setCurrentView('orders')}
-                className="text-xs px-3"
-              >
-                Tilaukset
-              </Button>
-              <Button
-                variant={currentView === 'calendar' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setCurrentView('calendar')}
-                className="text-xs px-3"
-              >
-                <Calendar className="h-4 w-4 mr-1" />
-                Kalenteri
-              </Button>
+        <div className="mb-4 sm:mb-8">
+          <div className="flex flex-col gap-3 mb-4">
+            <div className="flex items-center justify-between">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">
+                Kuljettajapaneeli
+              </h1>
               <Button
                 onClick={toggleShift}
                 disabled={shiftLoading}
                 variant="outline"
                 size="sm"
-                className="text-xs px-3"
+                className="text-xs px-2 sm:px-3"
               >
-                <LogOut className="h-4 w-4 mr-1" />
-                {shiftLoading ? 'Lopetetaan...' : 'Lopeta vuoro'}
+                <LogOut className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">{shiftLoading ? 'Lopetetaan...' : 'Lopeta vuoro'}</span>
               </Button>
             </div>
           </div>
           
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-lg text-muted-foreground">
-              Vuorossa - {pendingOrders.length} uutta tilausta odottaa
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-sm sm:text-base text-muted-foreground">
+              Vuorossa - {pendingOrders.length} tilausta odottaa
             </span>
           </div>
           
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
+          {/* Quick Stats - Mobile optimized grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 max-w-2xl mx-auto">
             <Card className="text-center">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-yellow-600">{pendingOrders.length}</div>
-                <div className="text-sm text-muted-foreground">Odottaa</div>
+              <CardContent className="p-2 sm:p-4">
+                <div className="text-lg sm:text-2xl font-bold text-yellow-600">{pendingOrders.length}</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Odottaa</div>
               </CardContent>
             </Card>
             <Card className="text-center">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-blue-600">
+              <CardContent className="p-2 sm:p-4">
+                <div className="text-lg sm:text-2xl font-bold text-blue-600">
                   {myOrders.filter(o => o.status === 'accepted').length}
                 </div>
-                <div className="text-sm text-muted-foreground">Hyväksytty</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Hyväksytty</div>
               </CardContent>
             </Card>
             <Card className="text-center">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-purple-600">
+              <CardContent className="p-2 sm:p-4">
+                <div className="text-lg sm:text-2xl font-bold text-purple-600">
                   {myOrders.filter(o => ['picking_up', 'washing', 'returning'].includes(o.status)).length}
                 </div>
-                <div className="text-sm text-muted-foreground">Käsittelyssä</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Käsittelyssä</div>
               </CardContent>
             </Card>
             <Card className="text-center">
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-green-600">
+              <CardContent className="p-2 sm:p-4">
+                <div className="text-lg sm:text-2xl font-bold text-green-600">
                   {myOrders.filter(o => o.status === 'delivered').length}
                 </div>
-                <div className="text-sm text-muted-foreground">Toimitettu</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Toimitettu</div>
               </CardContent>
             </Card>
           </div>
@@ -851,19 +834,19 @@ export const DriverPanel = () => {
           </div>
         )}
 
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'my' | 'free')} className="space-y-6">
-              <TabsList className="w-full grid grid-cols-2 md:w-auto">
-                <TabsTrigger value="my">Omat keikat</TabsTrigger>
-                <TabsTrigger value="free">Vapaat keikat</TabsTrigger>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'my' | 'free')} className="space-y-4 sm:space-y-6">
+              <TabsList className="w-full grid grid-cols-2">
+                <TabsTrigger value="my" className="text-xs sm:text-sm">Omat keikat</TabsTrigger>
+                <TabsTrigger value="free" className="text-xs sm:text-sm">Vapaat keikat</TabsTrigger>
               </TabsList>
 
               <TabsContent value="my">
-                <Card className="mb-6">
-                  <CardContent className="p-4 flex flex-col md:flex-row gap-4">
-                    <div className="w-full md:w-56">
-                      <Label>Tila</Label>
+                <Card className="mb-4 sm:mb-6">
+                  <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:gap-4">
+                    <div className="flex-1">
+                      <Label className="text-xs sm:text-sm">Tila</Label>
                       <Select value={myStatusFilter} onValueChange={(v) => setMyStatusFilter(v as any)}>
-                        <SelectTrigger><SelectValue placeholder="Kaikki" /></SelectTrigger>
+                        <SelectTrigger className="text-xs sm:text-sm"><SelectValue placeholder="Kaikki" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Kaikki</SelectItem>
                           <SelectItem value="accepted">Hyväksytty</SelectItem>
@@ -874,10 +857,10 @@ export const DriverPanel = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="w-full md:w-56">
-                      <Label>Järjestys</Label>
+                    <div className="flex-1">
+                      <Label className="text-xs sm:text-sm">Järjestys</Label>
                       <Select value={mySort} onValueChange={(v) => setMySort(v as any)}>
-                        <SelectTrigger><SelectValue placeholder="Uusimmat ensin" /></SelectTrigger>
+                        <SelectTrigger className="text-xs sm:text-sm"><SelectValue placeholder="Uusimmat ensin" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="newest">Uusimmat ensin</SelectItem>
                           <SelectItem value="oldest">Vanhimmat ensin</SelectItem>
@@ -888,11 +871,11 @@ export const DriverPanel = () => {
                 </Card>
 
                 {myOrders.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Pagination controls for my orders */}
-                    <div className="flex justify-between items-center">
-                      <div className="text-sm text-muted-foreground">
-                        Näytetään {myOrdersPage * 3 + 1}-{Math.min((myOrdersPage + 1) * 3, myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length)} / {myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length} tilausta
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                      <div className="text-xs sm:text-sm text-muted-foreground">
+                        {myOrdersPage * 3 + 1}-{Math.min((myOrdersPage + 1) * 3, myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length)} / {myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length}
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -900,17 +883,19 @@ export const DriverPanel = () => {
                           size="sm"
                           onClick={() => setMyOrdersPage(Math.max(0, myOrdersPage - 1))}
                           disabled={myOrdersPage === 0}
+                          className="text-xs px-2 sm:px-3"
                         >
                           <ChevronLeft className="h-4 w-4" />
-                          Edellinen
+                          <span className="hidden sm:inline">Edellinen</span>
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setMyOrdersPage(myOrdersPage + 1)}
                           disabled={(myOrdersPage + 1) * 3 >= myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length}
+                          className="text-xs px-2 sm:px-3"
                         >
-                          Seuraava
+                          <span className="hidden sm:inline">Seuraava</span>
                           <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
@@ -925,58 +910,76 @@ export const DriverPanel = () => {
                         // Can progress if status isn't delivered
                         const canProgress = order.status !== 'delivered';
                         return (
-                          <Card key={order.id} className="hover:shadow-elegant transition-all duration-300">
-                            <CardContent className="p-6">
-                              <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-4">
-                                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
-                                    <StatusIcon className="h-6 w-6 text-primary" />
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <h3 className="font-bold text-lg">👤 {getCustomerName(order)}</h3>
-                                      <Badge className={getStatusColor(order.status)}>
+                          <Card key={order.id} className="hover:shadow-elegant transition-all duration-300 overflow-hidden">
+                            <CardContent className="p-3 sm:p-6">
+                              {/* Mobile-first layout */}
+                              <div className="flex flex-col gap-3">
+                                {/* Header with status */}
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                    <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-primary/10">
+                                      <StatusIcon className="h-4 w-4 sm:h-6 sm:w-6 text-primary" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <h3 className="font-bold text-sm sm:text-lg truncate">👤 {getCustomerName(order)}</h3>
+                                      <Badge className={`${getStatusColor(order.status)} text-xs`}>
                                         {getStatusText(order.status)}
                                       </Badge>
                                     </div>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                                      <MapPin className="h-4 w-4" />
-                                      {order.address}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                                      <Phone className="h-4 w-4" />
-                                      {order.phone}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground">
-                                      {order.service_name} - {order.final_price}€
-                                    </div>
-                                    {order.special_instructions && (
-                                      <div className="text-sm text-muted-foreground mt-1">
-                                        <strong>Lisätiedot:</strong> {order.special_instructions}
-                                      </div>
-                                    )}
-                                    {renderRugDimensions(order.order_items || [])}
-                                    {renderWeightInfo(order)}
+                                  </div>
+                                  <div className="text-right flex-shrink-0">
+                                    <div className="font-bold text-sm sm:text-base">{order.final_price}€</div>
                                   </div>
                                 </div>
-                                <div className="flex flex-col gap-2">
+                                
+                                {/* Order details */}
+                                <div className="space-y-1">
+                                  <div className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground">
+                                    <MapPin className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 mt-0.5" />
+                                    <span className="break-words">{order.address}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                                    <Phone className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                    {order.phone}
+                                  </div>
+                                  <div className="text-xs sm:text-sm text-muted-foreground">
+                                    {order.service_name}
+                                  </div>
+                                  {order.special_instructions && (
+                                    <div className="text-xs sm:text-sm text-muted-foreground mt-1 p-2 bg-muted rounded">
+                                      <strong>Lisätiedot:</strong> {order.special_instructions}
+                                    </div>
+                                  )}
+                                  {renderRugDimensions(order.order_items || [])}
+                                  {renderWeightInfo(order)}
+                                </div>
+                                
+                                {/* Action buttons - stacked on mobile */}
+                                <div className="flex flex-col sm:flex-row gap-2 pt-2">
                                   {canProgress && (
                                     <Button 
                                       variant="default" 
                                       size="sm"
                                       onClick={() => handleStatusUpdate(order.id, getNextStatus(order.status))}
-                                      className="w-36"
+                                      className="w-full sm:w-auto text-xs sm:text-sm"
                                     >
                                       {getNextStatusText(order.status)}
                                     </Button>
                                   )}
-                                  <Button variant="ghost" size="sm" onClick={() => window.open(`tel:${order.phone}`)} className="w-36 text-xs">
-                                    <Phone className="h-4 w-4 mr-1" />
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => window.open(`tel:${order.phone}`)} 
+                                    className="w-full sm:w-auto text-xs sm:text-sm"
+                                  >
+                                    <Phone className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                                     Soita asiakkaalle
                                   </Button>
                                 </div>
                               </div>
-                              <div className="border-t pt-4">
+                              
+                              {/* Time Manager */}
+                              <div className="border-t mt-3 pt-3 sm:mt-4 sm:pt-4">
                                 <DriverTimeManager 
                                   order={order} 
                                   onOrderUpdate={fetchOrders}
@@ -998,11 +1001,11 @@ export const DriverPanel = () => {
 
               <TabsContent value="free">
                 {pendingOrders.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Pagination controls */}
-                    <div className="flex justify-between items-center">
-                      <div className="text-sm text-muted-foreground">
-                        Näytetään {pendingPage * ordersPerPage + 1}-{Math.min((pendingPage + 1) * ordersPerPage, pendingOrders.length)} / {pendingOrders.length} tilausta
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                      <div className="text-xs sm:text-sm text-muted-foreground">
+                        {pendingPage * ordersPerPage + 1}-{Math.min((pendingPage + 1) * ordersPerPage, pendingOrders.length)} / {pendingOrders.length}
                       </div>
                       <div className="flex gap-2">
                         <Button
@@ -1010,16 +1013,20 @@ export const DriverPanel = () => {
                           size="sm"
                           onClick={() => setPendingPage(Math.max(0, pendingPage - 1))}
                           disabled={pendingPage === 0}
+                          className="text-xs px-2 sm:px-3"
                         >
-                          Edellinen
+                          <ChevronLeft className="h-4 w-4" />
+                          <span className="hidden sm:inline">Edellinen</span>
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setPendingPage(pendingPage + 1)}
                           disabled={(pendingPage + 1) * ordersPerPage >= pendingOrders.length}
+                          className="text-xs px-2 sm:px-3"
                         >
-                          Seuraava
+                          <span className="hidden sm:inline">Seuraava</span>
+                          <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -1027,30 +1034,40 @@ export const DriverPanel = () => {
                     {pendingOrders
                       .slice(pendingPage * ordersPerPage, (pendingPage + 1) * ordersPerPage)
                       .map((order) => (
-                      <Card key={order.id} className="hover:shadow-elegant transition-all duration-300">
-                        <CardContent className="p-6">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-yellow-100">
-                                <Clock className="h-6 w-6 text-yellow-600" />
+                      <Card key={order.id} className="hover:shadow-elegant transition-all duration-300 overflow-hidden">
+                        <CardContent className="p-3 sm:p-6">
+                          {/* Mobile-first layout */}
+                          <div className="flex flex-col gap-3">
+                            {/* Header */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-yellow-100">
+                                  <Clock className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-600" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <h3 className="font-semibold text-sm sm:text-base truncate">{getCustomerName(order)}</h3>
+                                  <Badge variant="outline" className="text-xs">{order.service_name}</Badge>
+                                </div>
                               </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="font-semibold">{getCustomerName(order)}</h3>
-                                  <Badge variant="outline">{order.service_name}</Badge>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                                  <MapPin className="h-4 w-4" />
-                                  {order.address}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  Tilattu: {new Date(order.created_at).toLocaleString('fi-FI')}
-                                </div>
-                                {renderRugDimensions(order.order_items || [])}
-                                <div className="text-lg font-semibold text-primary mt-2">{order.final_price}€</div>
+                              <div className="text-right flex-shrink-0">
+                                <div className="font-bold text-base sm:text-lg text-primary">{order.final_price}€</div>
                               </div>
                             </div>
-                            <div className="flex flex-col gap-2">
+                            
+                            {/* Details */}
+                            <div className="space-y-1">
+                              <div className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground">
+                                <MapPin className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 mt-0.5" />
+                                <span className="break-words">{order.address}</span>
+                              </div>
+                              <div className="text-xs sm:text-sm text-muted-foreground">
+                                Tilattu: {new Date(order.created_at).toLocaleString('fi-FI')}
+                              </div>
+                              {renderRugDimensions(order.order_items || [])}
+                            </div>
+                            
+                            {/* Actions - stacked on mobile */}
+                            <div className="flex flex-col gap-2 pt-2 border-t">
                               <DriverTimeManager 
                                 order={order} 
                                 onOrderUpdate={async () => {
@@ -1059,14 +1076,26 @@ export const DriverPanel = () => {
                                   await fetchOrders();
                                 }}
                               />
-                              <Button variant="outline" size="sm" onClick={() => setShowRejectDialog(order.id)} className="w-28">
-                                <X className="h-4 w-4 mr-1" />
-                                Hylkää
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => window.open(`tel:${order.phone}`)} className="w-28 text-xs">
-                                <Phone className="h-4 w-4 mr-1" />
-                                Soita
-                              </Button>
+                              <div className="flex gap-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => setShowRejectDialog(order.id)} 
+                                  className="flex-1 text-xs sm:text-sm"
+                                >
+                                  <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                                  Hylkää
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => window.open(`tel:${order.phone}`)} 
+                                  className="flex-1 text-xs sm:text-sm"
+                                >
+                                  <Phone className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                                  Soita
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </CardContent>
