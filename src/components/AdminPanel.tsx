@@ -624,13 +624,9 @@ export const AdminPanel = () => {
       <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         {/* Header */}
         <div className="mb-4 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-4 bg-gradient-hero bg-clip-text text-transparent text-center">
-            Ylläpitäjäpaneeli
-          </h1>
           <p className="text-sm sm:text-base text-muted-foreground text-center">
             Hallitse tilauksia ja seuraa liiketoimintaa
           </p>
-          
         </div>
 
         {/* Mobile Navigation - Dropdown */}
