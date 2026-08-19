@@ -639,6 +639,24 @@ export const UserManagement = () => {
           onOpenChange={setShowCreateDialog}
           onUserCreated={fetchUsers}
         />
+
+        {/* Laundry pricing dialog */}
+        <Dialog open={!!pricingLaundry} onOpenChange={(o) => !o && setPricingLaundry(null)}>
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Euro className="h-5 w-5" />
+                Hinnasto – {pricingLaundry?.name}
+              </DialogTitle>
+              <DialogDescription>
+                Määritä pesulan veloittamat hinnat. Vain aktivoidut tuotteet ovat pesulalla käytössä.
+              </DialogDescription>
+            </DialogHeader>
+            {pricingLaundry && (
+              <LaundryPricingManagement laundryId={pricingLaundry.id} hideHeader />
+            )}
+          </DialogContent>
+        </Dialog>
         </>
         )}
       </CardContent>
