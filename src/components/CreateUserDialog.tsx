@@ -57,7 +57,7 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
           // Update the role if different from default customer role
           const { error: roleError } = await supabase
             .from('user_roles')
-            .update({ role: formData.role as 'admin' | 'driver' | 'customer' })
+            .update({ role: formData.role as 'admin' | 'driver' | 'customer' | 'laundry' })
             .eq('user_id', data.user.id);
 
           if (roleError) throw roleError;
