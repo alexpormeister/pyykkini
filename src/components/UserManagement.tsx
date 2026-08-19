@@ -283,6 +283,8 @@ export const UserManagement = () => {
     const term = searchTerm.toLowerCase();
     return user.email.toLowerCase().includes(term) ||
       fullName.toLowerCase().includes(term) ||
+      (user.profiles?.company_name || '').toLowerCase().includes(term) ||
+      (user.profiles?.business_id || '').toLowerCase().includes(term) ||
       phone.toLowerCase().includes(term);
   });
 
