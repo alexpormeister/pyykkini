@@ -36,6 +36,8 @@ export const UserManagement = () => {
   const [group, setGroup] = useState<'admin' | 'customer' | 'driver' | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const USERS_PER_PAGE = 5;
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -52,6 +54,10 @@ export const UserManagement = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, group]);
 
   const fetchUsers = async () => {
     try {
@@ -237,9 +243,18 @@ export const UserManagement = () => {
     const role = user.user_roles?.[0]?.role || 'customer';
     if (group && role !== group) return false;
     const fullName = [user.profiles?.first_name, user.profiles?.last_name].filter(Boolean).join(' ');
-    return user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      fullName.toLowerCase().includes(searchTerm.toLowerCase());
+    const phone = user.profiles?.phone || '';
+    const term = searchTerm.toLowerCase();
+    return user.email.toLowerCase().includes(term) ||
+      fullName.toLowerCase().includes(term) ||
+      phone.toLowerCase().includes(term);
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE));
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * USERS_PER_PAGE,
+    currentPage * USERS_PER_PAGE
+  );
 
   if (loading) {
     return (
@@ -298,7 +313,7 @@ export const UserManagement = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Hae käyttäjiä (sähköposti, nimi...)"
+              placeholder="Hae sähköpostilla, nimellä tai puhelinnumerolla"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -315,7 +330,7 @@ export const UserManagement = () => {
 
         {/* Users List */}
         <div className="space-y-4">
-          {filteredUsers.map((user) => (
+          {paginatedUsers.map((user) => (
             <div key={user.id} className="border rounded-xl p-6 hover:shadow-elegant transition-all duration-300 bg-card">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -383,6 +398,35 @@ export const UserManagement = () => {
             </div>
           ))}
         </div>
+
+        {filteredUsers.length > 0 && (
+          <div className="flex items-center justify-between pt-4 border-t mt-4">
+            <p className="text-sm text-muted-foreground">
+              Näytetään {((currentPage - 1) * USERS_PER_PAGE) + 1}–{Math.min(currentPage * USERS_PER_PAGE, filteredUsers.length)} / {filteredUsers.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                Edellinen
+              </Button>
+              <span className="text-sm px-2">
+                Sivu {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Seuraava
+              </Button>
+            </div>
+          </div>
+        )}
 
         {filteredUsers.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
