@@ -117,14 +117,32 @@ Deno.serve(async (req) => {
       throw new Error('Failed to create order');
     }
 
+    // Fetch platform commission per product (product_id -> commission_percent)
+    const productIds = [...new Set(cartItems.map((item: any) => item.serviceId).filter(Boolean))];
+    const commissionByProduct = new Map<string, number>();
+    if (productIds.length > 0) {
+      const { data: productRows } = await supabaseClient
+        .from('products')
+        .select('product_id, commission_percent')
+        .in('product_id', productIds as string[]);
+      for (const p of productRows ?? []) {
+        commissionByProduct.set(p.product_id, Number(p.commission_percent ?? 15));
+      }
+    }
+
     // Create order items
-    const orderItems = cartItems.map((item: any) => ({
+    const orderItems = cartItems.map((item: any) => {
+      const commission = commissionByProduct.get(item.serviceId) ?? 15;
+      const lineTotal = item.price * item.quantity;
+      return {
       order_id: orderData.id,
       service_type: item.serviceId,
       service_name: item.name,
       quantity: item.quantity,
       unit_price: item.price,
-      total_price: item.price * item.quantity,
+      total_price: lineTotal,
+      commission_percent: commission,
+      driver_payout: Math.round(lineTotal * (1 - commission / 100) * 100) / 100,
       metadata: item.metadata || null,
       rug_dimensions: item.metadata?.rugDimensions ? 
         `${item.metadata.rugDimensions.length}cm x ${item.metadata.rugDimensions.width}cm` : 
@@ -135,7 +153,8 @@ Deno.serve(async (req) => {
         width: item.metadata.rugDimensions.width,
         length: item.metadata.rugDimensions.length
       } : null
-    }));
+      };
+    });
 
     const { error: itemsError } = await supabaseClient
       .from('order_items')

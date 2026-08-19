@@ -221,8 +221,10 @@ export type Database = {
       }
       order_items: {
         Row: {
+          commission_percent: number
           created_at: string
           dimensions_cm: Json | null
+          driver_payout: number | null
           id: string
           metadata: Json | null
           order_id: string
@@ -236,8 +238,10 @@ export type Database = {
           unit_price_charged: number | null
         }
         Insert: {
+          commission_percent?: number
           created_at?: string
           dimensions_cm?: Json | null
+          driver_payout?: number | null
           id?: string
           metadata?: Json | null
           order_id: string
@@ -251,8 +255,10 @@ export type Database = {
           unit_price_charged?: number | null
         }
         Update: {
+          commission_percent?: number
           created_at?: string
           dimensions_cm?: Json | null
+          driver_payout?: number | null
           id?: string
           metadata?: Json | null
           order_id?: string
@@ -499,6 +505,7 @@ export type Database = {
         Row: {
           base_price: number
           category_id: string
+          commission_percent: number
           created_at: string
           description: string | null
           id: string
@@ -512,6 +519,7 @@ export type Database = {
         Insert: {
           base_price: number
           category_id: string
+          commission_percent?: number
           created_at?: string
           description?: string | null
           id?: string
@@ -525,6 +533,7 @@ export type Database = {
         Update: {
           base_price?: number
           category_id?: string
+          commission_percent?: number
           created_at?: string
           description?: string | null
           id?: string
