@@ -757,6 +757,69 @@ export type Database = {
         }
         Relationships: []
       }
+      settlements: {
+        Row: {
+          created_at: string
+          gross_amount: number
+          id: string
+          net_amount: number
+          notes: string | null
+          order_ids: string[]
+          orders_count: number
+          paid_at: string | null
+          paid_by: string | null
+          paid_by_name: string | null
+          payee_id: string | null
+          payee_name: string
+          payee_type: string
+          period_end: string | null
+          period_start: string | null
+          platform_commission: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          order_ids?: string[]
+          orders_count?: number
+          paid_at?: string | null
+          paid_by?: string | null
+          paid_by_name?: string | null
+          payee_id?: string | null
+          payee_name: string
+          payee_type: string
+          period_end?: string | null
+          period_start?: string | null
+          platform_commission?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          order_ids?: string[]
+          orders_count?: number
+          paid_at?: string | null
+          paid_by?: string | null
+          paid_by_name?: string | null
+          payee_id?: string | null
+          payee_name?: string
+          payee_type?: string
+          period_end?: string | null
+          period_start?: string | null
+          platform_commission?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       support_chats: {
         Row: {
           created_at: string
