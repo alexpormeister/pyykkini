@@ -20,6 +20,7 @@ const createOrderSchema = z.object({
     address: z.string(),
     specialInstructions: z.string().optional(),
     pickupOption: z.string(),
+    laundryId: z.string().uuid().optional(),
     selectedTimeSlot: z.object({
       date: z.string(),
       start: z.string(),
