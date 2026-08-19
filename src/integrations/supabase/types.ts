@@ -658,6 +658,7 @@ export type Database = {
           address: string
           created_at: string
           driver_id: string
+          final_price: number
           first_name: string
           id: string
           last_name: string
