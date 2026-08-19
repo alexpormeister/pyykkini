@@ -16,6 +16,7 @@ const orderValidationSchema = z.object({
   address: z.string().min(5).max(500),
   specialInstructions: z.string().max(1000).optional(),
   pickupOption: z.string().min(1).max(50),
+  laundryId: z.string().uuid().optional(),
   selectedTimeSlot: z.object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     start: z.string().regex(/^\d{2}:\d{2}$/),
