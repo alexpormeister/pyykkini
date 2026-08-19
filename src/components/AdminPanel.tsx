@@ -630,18 +630,6 @@ export const AdminPanel = () => {
             Hallitse tilauksia ja seuraa liiketoimintaa
           </p>
           
-          {/* Contact Information - Mobile optimized */}
-          <div className="mt-4 p-3 sm:p-4 bg-card rounded-lg shadow-sm border">
-            <h3 className="text-sm sm:text-base font-semibold mb-2 text-primary text-center">Yhteystiedot</h3>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center items-center text-xs sm:text-sm">
-              <a href="mailto:alex@alexsites.com" className="text-primary hover:underline">
-                📧 alex@alexsites.com
-              </a>
-              <a href="tel:+358401422449" className="text-primary hover:underline">
-                📞 +358 40 1422449
-              </a>
-            </div>
-          </div>
         </div>
 
         {/* Mobile Navigation - Dropdown */}
