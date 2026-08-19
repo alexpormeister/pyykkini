@@ -16,6 +16,7 @@ const orderValidationSchema = z.object({
   address: z.string().min(5).max(500),
   specialInstructions: z.string().max(1000).optional(),
   pickupOption: z.string().min(1).max(50),
+  laundryId: z.string().uuid().optional(),
   selectedTimeSlot: z.object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     start: z.string().regex(/^\d{2}:\d{2}$/),
@@ -75,7 +76,7 @@ Deno.serve(async (req) => {
     for (const item of validated.cartItems) {
       const { data: product, error: productError } = await supabaseClient
         .from('products')
-        .select('product_id, name, base_price, is_active')
+        .select('product_id, name, base_price, is_active, platform_fee_type, platform_fee_value, driver_fee_type, driver_fee_value')
         .eq('product_id', item.serviceId)
         .eq('is_active', true)
         .single();
@@ -87,13 +88,40 @@ Deno.serve(async (req) => {
         });
       }
 
-      const itemTotal = product.base_price * item.quantity;
+      // Resolve laundry-specific purchase price (fallback: product base price)
+      let laundryPrice = Number(product.base_price);
+      if (validated.laundryId) {
+        const { data: laundryPriceRow } = await supabaseClient
+          .from('product_laundry_prices')
+          .select('price')
+          .eq('product_id', product.product_id)
+          .eq('laundry_id', validated.laundryId)
+          .eq('is_active', true)
+          .maybeSingle();
+        if (laundryPriceRow) laundryPrice = Number(laundryPriceRow.price);
+      }
+
+      const platformFeeType = product.platform_fee_type ?? 'percent';
+      const platformFeeValue = Number(product.platform_fee_value ?? 15);
+      const driverFeeType = product.driver_fee_type ?? 'percent';
+      const driverFeeValue = Number(product.driver_fee_value ?? 10);
+
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const platformFee = round2(platformFeeType === 'fixed' ? platformFeeValue : laundryPrice * platformFeeValue / 100);
+      const driverPayout = round2(driverFeeType === 'fixed' ? driverFeeValue : laundryPrice * driverFeeValue / 100);
+      const unitPrice = round2(laundryPrice + platformFee + driverPayout);
+
+      const itemTotal = round2(unitPrice * item.quantity);
       subtotal += itemTotal;
 
       validatedItems.push({
         serviceId: product.product_id,
         name: product.name,
-        price: product.base_price,
+        price: unitPrice,
+        laundryId: validated.laundryId ?? null,
+        laundryPrice,
+        platformFee,
+        driverPayout,
         quantity: item.quantity,
         total: itemTotal
       });

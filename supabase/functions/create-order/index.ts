@@ -20,6 +20,7 @@ const createOrderSchema = z.object({
     address: z.string(),
     specialInstructions: z.string().optional(),
     pickupOption: z.string(),
+    laundryId: z.string().uuid().optional(),
     selectedTimeSlot: z.object({
       date: z.string(),
       start: z.string(),
@@ -103,6 +104,7 @@ Deno.serve(async (req) => {
         discount_code: validatedOrder.coupon?.code || null,
         terms_accepted: true,
         status: 'pending',
+        laundry_id: formData.laundryId ?? null,
         pickup_slot: pickupSlot,
         delivery_slot: deliverySlot,
         tracking_status: 'PENDING',
@@ -117,38 +119,45 @@ Deno.serve(async (req) => {
       throw new Error('Failed to create order');
     }
 
-    // Fetch platform commission per product (product_id -> commission_percent)
-    const productIds = [...new Set(cartItems.map((item: any) => item.serviceId).filter(Boolean))];
-    const commissionByProduct = new Map<string, number>();
-    if (productIds.length > 0) {
-      const { data: productRows } = await supabaseClient
-        .from('products')
-        .select('product_id, commission_percent')
-        .in('product_id', productIds as string[]);
-      for (const p of productRows ?? []) {
-        commissionByProduct.set(p.product_id, Number(p.commission_percent ?? 15));
-      }
+    // Server-validated pricing per product (laundry price + platform fee + driver payout)
+    const validatedByService = new Map<string, any>();
+    for (const v of validatedOrder.validatedItems as any[]) {
+      validatedByService.set(v.serviceId, v);
     }
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
 
     // Create order items
     const orderItems = cartItems.map((item: any) => {
-      const commission = commissionByProduct.get(item.serviceId) ?? 15;
-      const lineTotal = item.price * item.quantity;
+      const v = validatedByService.get(item.serviceId);
+      const unitPrice = Number(v?.price ?? item.price);
+      const lineTotal = round2(unitPrice * item.quantity);
+      const laundryPrice = v?.laundryPrice != null ? round2(Number(v.laundryPrice) * item.quantity) : null;
+      const platformFee = v?.platformFee != null ? round2(Number(v.platformFee) * item.quantity) : null;
+      const driverPayout = v?.driverPayout != null
+        ? round2(Number(v.driverPayout) * item.quantity)
+        : round2(lineTotal * 0.85);
+      const commission = laundryPrice && platformFee !== null && lineTotal > 0
+        ? round2((platformFee / lineTotal) * 100)
+        : 15;
       return {
       order_id: orderData.id,
       service_type: item.serviceId,
       service_name: item.name,
       quantity: item.quantity,
-      unit_price: item.price,
+      unit_price: unitPrice,
       total_price: lineTotal,
+      laundry_id: formData.laundryId ?? null,
+      laundry_price: laundryPrice,
+      platform_fee: platformFee,
       commission_percent: commission,
-      driver_payout: Math.round(lineTotal * (1 - commission / 100) * 100) / 100,
+      driver_payout: driverPayout,
       metadata: item.metadata || null,
       rug_dimensions: item.metadata?.rugDimensions ? 
         `${item.metadata.rugDimensions.length}cm x ${item.metadata.rugDimensions.width}cm` : 
         null,
       product_name: item.name,
-      unit_price_charged: item.price,
+      unit_price_charged: unitPrice,
       dimensions_cm: item.metadata?.rugDimensions ? {
         width: item.metadata.rugDimensions.width,
         length: item.metadata.rugDimensions.length

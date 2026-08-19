@@ -13,7 +13,15 @@ const productSchema = z.object({
   description: z.string().max(2000, "Description too long").optional(),
   image_url: z.string().url("Must be valid URL").startsWith('https://', "Must use HTTPS").max(500).optional().or(z.literal('')),
   base_price: z.number().positive("Price must be positive").min(0.01, "Minimum price is 0.01€").max(10000, "Maximum price is 10000€"),
-  commission_percent: z.number().min(0, "Commission must be 0-100").max(100, "Commission must be 0-100").optional()
+  commission_percent: z.number().min(0, "Commission must be 0-100").max(100, "Commission must be 0-100").optional(),
+  platform_fee_type: z.enum(['percent', 'fixed']).optional(),
+  platform_fee_value: z.number().min(0).max(10000).optional(),
+  driver_fee_type: z.enum(['percent', 'fixed']).optional(),
+  driver_fee_value: z.number().min(0).max(10000).optional(),
+  laundry_prices: z.array(z.object({
+    laundry_id: z.string().uuid(),
+    price: z.number().min(0).max(10000)
+  })).max(50).optional()
 });
 
 Deno.serve(async (req) => {
@@ -108,6 +116,10 @@ Deno.serve(async (req) => {
         image_url: validated.image_url || null,
         base_price: validated.base_price,
         commission_percent: validated.commission_percent ?? 15,
+        platform_fee_type: validated.platform_fee_type ?? 'percent',
+        platform_fee_value: validated.platform_fee_value ?? validated.commission_percent ?? 15,
+        driver_fee_type: validated.driver_fee_type ?? 'percent',
+        driver_fee_value: validated.driver_fee_value ?? 10,
         is_active: true,
         pricing_model: 'FIXED'
       })
@@ -117,6 +129,25 @@ Deno.serve(async (req) => {
     if (productError) {
       console.error('Product creation error:', productError);
       throw new Error('Failed to create product');
+    }
+
+    // Store per-laundry price list
+    if (validated.laundry_prices?.length) {
+      const { error: priceError } = await supabaseClient
+        .from('product_laundry_prices')
+        .upsert(
+          validated.laundry_prices.map((p) => ({
+            product_id,
+            laundry_id: p.laundry_id,
+            price: p.price
+          })),
+          { onConflict: 'product_id,laundry_id' }
+        );
+
+      if (priceError) {
+        console.error('Laundry price creation error:', priceError);
+        throw new Error('Failed to save laundry prices');
+      }
     }
 
     return new Response(

@@ -178,6 +178,45 @@ export type Database = {
         }
         Relationships: []
       }
+      laundries: {
+        Row: {
+          address: string | null
+          city: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_history: {
         Row: {
           change_description: string | null
@@ -226,8 +265,11 @@ export type Database = {
           dimensions_cm: Json | null
           driver_payout: number | null
           id: string
+          laundry_id: string | null
+          laundry_price: number | null
           metadata: Json | null
           order_id: string
+          platform_fee: number | null
           product_name: string | null
           quantity: number
           rug_dimensions: string | null
@@ -243,8 +285,11 @@ export type Database = {
           dimensions_cm?: Json | null
           driver_payout?: number | null
           id?: string
+          laundry_id?: string | null
+          laundry_price?: number | null
           metadata?: Json | null
           order_id: string
+          platform_fee?: number | null
           product_name?: string | null
           quantity?: number
           rug_dimensions?: string | null
@@ -260,8 +305,11 @@ export type Database = {
           dimensions_cm?: Json | null
           driver_payout?: number | null
           id?: string
+          laundry_id?: string | null
+          laundry_price?: number | null
           metadata?: Json | null
           order_id?: string
+          platform_fee?: number | null
           product_name?: string | null
           quantity?: number
           rug_dimensions?: string | null
@@ -272,6 +320,13 @@ export type Database = {
           unit_price_charged?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "order_items_laundry_id_fkey"
+            columns: ["laundry_id"]
+            isOneToOne: false
+            referencedRelation: "laundries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
@@ -324,6 +379,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          laundry_id: string | null
           paid_at: string | null
           payment_amount: number | null
           payment_method: string | null
@@ -371,6 +427,7 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          laundry_id?: string | null
           paid_at?: string | null
           payment_amount?: number | null
           payment_method?: string | null
@@ -418,6 +475,7 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          laundry_id?: string | null
           paid_at?: string | null
           payment_amount?: number | null
           payment_method?: string | null
@@ -456,6 +514,13 @@ export type Database = {
             columns: ["coupon_id"]
             isOneToOne: false
             referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_laundry_id_fkey"
+            columns: ["laundry_id"]
+            isOneToOne: false
+            referencedRelation: "laundries"
             referencedColumns: ["id"]
           },
         ]
@@ -501,6 +566,51 @@ export type Database = {
           },
         ]
       }
+      product_laundry_prices: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          laundry_id: string
+          price: number
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          laundry_id: string
+          price?: number
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          laundry_id?: string
+          price?: number
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_laundry_prices_laundry_id_fkey"
+            columns: ["laundry_id"]
+            isOneToOne: false
+            referencedRelation: "laundries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_laundry_prices_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["product_id"]
+          },
+        ]
+      }
       products: {
         Row: {
           base_price: number
@@ -508,10 +618,14 @@ export type Database = {
           commission_percent: number
           created_at: string
           description: string | null
+          driver_fee_type: string
+          driver_fee_value: number
           id: string
           image_url: string | null
           is_active: boolean
           name: string
+          platform_fee_type: string
+          platform_fee_value: number
           pricing_model: Database["public"]["Enums"]["pricing_model"]
           product_id: string
           updated_at: string
@@ -522,10 +636,14 @@ export type Database = {
           commission_percent?: number
           created_at?: string
           description?: string | null
+          driver_fee_type?: string
+          driver_fee_value?: number
           id?: string
           image_url?: string | null
           is_active?: boolean
           name: string
+          platform_fee_type?: string
+          platform_fee_value?: number
           pricing_model?: Database["public"]["Enums"]["pricing_model"]
           product_id: string
           updated_at?: string
@@ -536,10 +654,14 @@ export type Database = {
           commission_percent?: number
           created_at?: string
           description?: string | null
+          driver_fee_type?: string
+          driver_fee_value?: number
           id?: string
           image_url?: string | null
           is_active?: boolean
           name?: string
+          platform_fee_type?: string
+          platform_fee_value?: number
           pricing_model?: Database["public"]["Enums"]["pricing_model"]
           product_id?: string
           updated_at?: string
@@ -717,6 +839,17 @@ export type Database = {
           service_type: string
           status: Database["public"]["Enums"]["order_status"]
           user_id: string
+        }[]
+      }
+      get_product_pricing: {
+        Args: { p_laundry_id?: string; p_product_id: string }
+        Returns: {
+          customer_price: number
+          driver_payout: number
+          laundry_id: string
+          laundry_price: number
+          platform_fee: number
+          product_id: string
         }[]
       }
       get_user_points_balance: { Args: { p_user_id: string }; Returns: number }
