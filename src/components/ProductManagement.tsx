@@ -38,7 +38,7 @@ const emptyFees = {
   platform_fee_type: "percent",
   platform_fee_value: "15",
   driver_fee_type: "percent",
-  driver_fee_value: "10"
+  driver_fee_value: "85"
 };
 
 const feeSum = (base: number, type: string, value: string) => {
@@ -54,55 +54,42 @@ const FeeFields = ({
   idPrefix: string;
   values: { platform_fee_type: string; platform_fee_value: string; driver_fee_type: string; driver_fee_value: string };
   onChange: (patch: Partial<typeof values>) => void;
-}) => (
-  <div className="grid gap-4 sm:grid-cols-2">
+}) => {
+  const platformPct = Math.min(100, Math.max(0, parseFloat(values.platform_fee_value || "0") || 0));
+  const driverPct = Math.round((100 - platformPct) * 100) / 100;
+  return (
+  <div className="grid gap-4">
     <div className="space-y-2 rounded-lg border p-3">
-      <Label>Alustamaksu / komissio *</Label>
+      <Label>Alustan komissio (%) *</Label>
       <div className="flex gap-2">
-        <Select value={values.platform_fee_type} onValueChange={(v) => onChange({ platform_fee_type: v })}>
-          <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="percent">%</SelectItem>
-            <SelectItem value="fixed">€</SelectItem>
-          </SelectContent>
-        </Select>
         <Input
           id={`${idPrefix}-platform_fee_value`}
           type="number"
           step="0.01"
           min="0"
+          max="100"
           value={values.platform_fee_value}
-          onChange={(e) => onChange({ platform_fee_value: e.target.value })}
+          onChange={(e) => {
+            const pct = Math.min(100, Math.max(0, parseFloat(e.target.value || "0") || 0));
+            onChange({
+              platform_fee_type: "percent",
+              platform_fee_value: e.target.value,
+              driver_fee_type: "percent",
+              driver_fee_value: String(Math.round((100 - pct) * 100) / 100)
+            });
+          }}
           required
         />
+        <span className="flex items-center text-sm text-muted-foreground">%</span>
       </div>
-      <p className="text-xs text-muted-foreground">Alustan kate pesulan hinnan päälle.</p>
-    </div>
-
-    <div className="space-y-2 rounded-lg border p-3">
-      <Label>Kuljettajan palkkio *</Label>
-      <div className="flex gap-2">
-        <Select value={values.driver_fee_type} onValueChange={(v) => onChange({ driver_fee_type: v })}>
-          <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="percent">%</SelectItem>
-            <SelectItem value="fixed">€</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input
-          id={`${idPrefix}-driver_fee_value`}
-          type="number"
-          step="0.01"
-          min="0"
-          value={values.driver_fee_value}
-          onChange={(e) => onChange({ driver_fee_value: e.target.value })}
-          required
-        />
-      </div>
-      <p className="text-xs text-muted-foreground">Tuotteesta kuljettajalle maksettava toimitusosuus.</p>
+      <p className="text-xs text-muted-foreground">
+        Alustan osuus katteesta (asiakashinta − pesulan hinta). Kuljettajille jää automaattisesti {driverPct} %,
+        joka jakautuu tasan nouto- ja palautuskeikan kesken.
+      </p>
     </div>
   </div>
-);
+  );
+};
 
 export const ProductManagement = () => {
   const { toast } = useToast();
