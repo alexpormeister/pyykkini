@@ -1161,6 +1161,7 @@ export type Database = {
         Returns: undefined
       }
       delete_user_account: { Args: never; Returns: undefined }
+      driver_complete_pickup: { Args: { p_task_id: string }; Returns: Json }
       get_driver_orders: {
         Args: never
         Returns: {
@@ -1205,6 +1206,10 @@ export type Database = {
       is_laundry_member: {
         Args: { _laundry_id: string; _user_id: string }
         Returns: boolean
+      }
+      laundry_confirm_receipt: {
+        Args: { p_code: string; p_laundry_id: string; p_order_id: string }
+        Returns: Json
       }
       laundry_decide_order: {
         Args: { p_decision: string; p_laundry_id: string; p_order_id: string }
