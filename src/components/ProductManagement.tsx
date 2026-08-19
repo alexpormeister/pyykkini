@@ -227,6 +227,7 @@ export const ProductManagement = () => {
   const { toast } = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [view, setView] = useState<"menu" | "new" | "list">("menu");
   const [laundries, setLaundries] = useState<Laundry[]>([]);
   const [priceRows, setPriceRows] = useState<LaundryPriceRow[]>([]);
   const [editPriceRows, setEditPriceRows] = useState<LaundryPriceRow[]>([]);
