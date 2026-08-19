@@ -1206,6 +1206,10 @@ export type Database = {
         Args: { _laundry_id: string; _user_id: string }
         Returns: boolean
       }
+      laundry_decide_order: {
+        Args: { p_decision: string; p_laundry_id: string; p_order_id: string }
+        Returns: Json
+      }
       log_order_change: {
         Args: {
           p_change_type: string
@@ -1215,6 +1219,10 @@ export type Database = {
           p_order_id: string
         }
         Returns: string
+      }
+      recalculate_order_payouts: {
+        Args: { p_order_id: string }
+        Returns: number
       }
       redeem_points: {
         Args: { p_description?: string; p_points: number; p_user_id: string }
