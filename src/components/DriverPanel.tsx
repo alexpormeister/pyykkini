@@ -1029,26 +1029,6 @@ export const DriverPanel = () => {
                                   )}
                                   {renderRugDimensions(order.order_items || [])}
                                   {renderWeightInfo(order)}
-                                  <div className="mt-2 rounded-lg border bg-muted/40 p-2 space-y-1 text-xs">
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Tilauksen loppusumma</span>
-                                      <span>{formatEuro(earnings.orderTotal)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Palvelut komission jälkeen</span>
-                                      <span>{formatEuro(earnings.itemsPayout)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">
-                                        Osuus toimitusmaksusta ({Math.round(DRIVER_DELIVERY_FEE_SHARE * 100)} % / {formatEuro(earnings.deliveryFee)})
-                                      </span>
-                                      <span>{formatEuro(earnings.deliveryShare)}</span>
-                                    </div>
-                                    <div className="flex justify-between font-semibold pt-1 border-t">
-                                      <span>Kuljettajan palkkio</span>
-                                      <span className="text-primary">{formatEuro(earnings.total)}</span>
-                                    </div>
-                                  </div>
                                 </div>
                                 
                                 {/* Action buttons - stacked on mobile */}
@@ -1121,24 +1101,6 @@ export const DriverPanel = () => {
                                 {formatEuro(earnings.total)}
                               </div>
                               <div className="text-[11px] text-muted-foreground mt-1">Palkkiosi</div>
-                            </div>
-                          </div>
-
-                          {/* Palkkioerittely */}
-                          <div className="rounded-lg border bg-muted/40 p-2 space-y-1 text-xs">
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Palvelut komission jälkeen</span>
-                              <span>{formatEuro(earnings.itemsPayout)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">
-                                Osuus toimitusmaksusta ({Math.round(DRIVER_DELIVERY_FEE_SHARE * 100)} % / {formatEuro(earnings.deliveryFee)})
-                              </span>
-                              <span>{formatEuro(earnings.deliveryShare)}</span>
-                            </div>
-                            <div className="flex justify-between font-semibold pt-1 border-t">
-                              <span>Yhteensä sinulle</span>
-                              <span className="text-primary">{formatEuro(earnings.total)}</span>
                             </div>
                           </div>
 
