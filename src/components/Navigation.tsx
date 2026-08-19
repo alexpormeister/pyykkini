@@ -1,28 +1,23 @@
 import { Button } from "@/components/ui/button";
-import { User, Truck, Settings, LogOut, UserCircle, WashingMachine } from "lucide-react";
+import { Truck, Settings, LogOut, UserCircle, WashingMachine } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 // Logo removed - using image directly from uploads
 
 interface NavigationProps {
-  activePanel: 'customer' | 'driver' | 'admin' | 'laundry';
-  onPanelChange: (panel: 'customer' | 'driver' | 'admin' | 'laundry') => void;
+  activePanel: 'driver' | 'admin' | 'laundry';
+  onPanelChange: (panel: 'driver' | 'admin' | 'laundry') => void;
 }
 
 export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
   const { userRole, signOut } = useAuth();
   
   const panels = [
-    { id: "customer" as const, label: "Asiakas", icon: User, roles: ["customer", "admin"] },
     { id: "driver" as const, label: "Kuljettaja", icon: Truck, roles: ["driver", "admin"] },
     { id: "laundry" as const, label: "Pesula", icon: WashingMachine, roles: ["laundry", "admin"] },
     { id: "admin" as const, label: "Ylläpito", icon: Settings, roles: ["admin"] },
   ];
 
-  const availablePanels = panels.filter(panel => {
-    // Hide "Customer" option for customer role users on all screens
-    if (panel.id === "customer" && userRole === "customer") return false;
-    return panel.roles.includes(userRole as string || "customer");
-  });
+  const availablePanels = panels.filter(panel => panel.roles.includes(userRole as string));
 
   return (
     <nav className="bg-card border-b border-border shadow-sm">
@@ -40,7 +35,7 @@ export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
                   key={panel.id}
                   variant={activePanel === panel.id ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => onPanelChange(panel.id as 'customer' | 'driver' | 'admin' | 'laundry')}
+                  onClick={() => onPanelChange(panel.id)}
                   className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
                 >
                   <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
