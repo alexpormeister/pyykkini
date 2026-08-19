@@ -238,7 +238,11 @@ export const DispatchTaskBoard = () => {
       fetchAll();
     } catch (error) {
       console.error(error);
-      toast({ title: "Virhe", description: "Hylkäys epäonnistui", variant: "destructive" });
+      toast({
+        title: "Virhe",
+        description: (error as { message?: string })?.message || "Hylkäys epäonnistui",
+        variant: "destructive",
+      });
     }
   };
 
