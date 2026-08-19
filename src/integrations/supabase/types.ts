@@ -1161,6 +1161,11 @@ export type Database = {
         Returns: undefined
       }
       delete_user_account: { Args: never; Returns: undefined }
+      driver_claim_task: {
+        Args: { p_take_return?: boolean; p_task_id: string }
+        Returns: Json
+      }
+      driver_complete_delivery: { Args: { p_task_id: string }; Returns: Json }
       driver_complete_pickup: { Args: { p_task_id: string }; Returns: Json }
       get_driver_orders: {
         Args: never
@@ -1183,6 +1188,23 @@ export type Database = {
           service_type: string
           status: Database["public"]["Enums"]["order_status"]
           user_id: string
+        }[]
+      }
+      get_open_delivery_tasks: {
+        Args: never
+        Returns: {
+          area: string
+          driver_payout: number
+          id: string
+          items: string[]
+          laundry_name: string
+          order_id: string
+          pickup_claimed: boolean
+          pickup_done: boolean
+          scheduled_date: string
+          scheduled_time_slot: string
+          status: string
+          task_type: string
         }[]
       }
       get_product_pricing: {
