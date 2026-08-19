@@ -15,7 +15,7 @@ import { UserManagement } from "@/components/UserManagement";
 import { Reports } from "@/components/Reports";
 import { CouponManagement } from "@/components/CouponManagement";
 import { ProductManagement } from "@/components/ProductManagement";
-import { ChatManagement } from "@/components/ChatManagement";
+import { CustomerServicePanel } from "@/components/CustomerServicePanel";
 import { ServiceAreaManagement } from "@/components/ServiceAreaManagement";
 import { SettlementManagement } from "@/components/SettlementManagement";
 import { useToast } from "@/hooks/use-toast";
@@ -1146,7 +1146,7 @@ export const AdminPanel = () => {
 
           {/* Chat Tab */}
           <TabsContent value="chat" className="animate-fade-in">
-            <ChatManagement />
+            <CustomerServicePanel />
           </TabsContent>
 
           {/* Service Areas Tab */}
