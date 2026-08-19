@@ -260,6 +260,9 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
           const orderInfo = info[task.order_id];
           const code = orderInfo?.access_code;
           const awaiting = task.status === "awaiting_laundry";
+          const track = orderInfo?.tracking_status;
+          const laundryReady = !isPickup && (track === "PACKAGING" || track === "OUT_FOR_DELIVERY" || track === "COMPLETED");
+          const onTheWay = !isPickup && task.status === "in_progress";
           return (
             <Card key={task.id} className="overflow-hidden">
               <CardContent className="p-4 space-y-3">
@@ -330,7 +333,29 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
                   </Button>
                 </div>
 
-                {task.status === "assigned" ? (
+                {!isPickup && !laundryReady ? (
+                  <div className="rounded-lg border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
+                    Odottaa pesulaa. Saat ilmoituksen kun tilaus on pesty ja valmiina noudettavaksi.
+                  </div>
+                ) : !isPickup ? (
+                  onTheWay ? (
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        setWeight("");
+                        setWeighMode("return");
+                        setWeighTask(task);
+                      }}
+                      disabled={busy === task.id}
+                    >
+                      <Scale className="h-4 w-4 mr-1.5" /> Punnitse ja kuittaa toimitus
+                    </Button>
+                  ) : (
+                    <Button className="w-full" onClick={() => pickupFromLaundry(task)} disabled={busy === task.id}>
+                      <Package className="h-4 w-4 mr-1.5" /> Noudettu pesulalta
+                    </Button>
+                  )
+                ) : task.status === "assigned" ? (
                   <Button className="w-full" onClick={() => startTask(task)} disabled={busy === task.id}>
                     <Truck className="h-4 w-4 mr-1.5" /> Aloita tehtävä
                   </Button>
@@ -343,17 +368,14 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
                   <Button
                     className="w-full"
                     onClick={() => {
-                      if (isPickup) {
-                        setWeight("");
-                        setWeighTask(task);
-                      } else {
-                        completeTask(task);
-                      }
+                      setWeight("");
+                      setWeighMode("pickup");
+                      setWeighTask(task);
                     }}
                     disabled={busy === task.id}
                   >
                     <CheckCircle className="h-4 w-4 mr-1.5" />
-                    {isPickup ? "Punnitse ja kuittaa nouto" : "Merkitse toimitetuksi"}
+                    Punnitse ja kuittaa nouto
                   </Button>
                 )}
               </CardContent>
@@ -366,10 +388,12 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Scale className="h-4 w-4" /> Punnitse noutopaino
+              <Scale className="h-4 w-4" /> {weighMode === "pickup" ? "Punnitse noutopaino" : "Punnitse palautuspaino"}
             </DialogTitle>
             <DialogDescription>
-              Kirjaa pyykkien paino kiloina. Saat tämän jälkeen luovutuskoodin pesulalle.
+              {weighMode === "pickup"
+                ? "Kirjaa pyykkien paino kiloina. Saat tämän jälkeen luovutuskoodin pesulalle."
+                : "Kirjaa palautettavien pyykkien paino kiloina. Tilaus merkitään tämän jälkeen suoritetuksi."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -391,7 +415,7 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
               onClick={() => weighTask && completeTask(weighTask)}
               disabled={!weight || busy === weighTask?.id}
             >
-              Kuittaa nouto
+              {weighMode === "pickup" ? "Kuittaa nouto" : "Kuittaa toimitus"}
             </Button>
           </DialogFooter>
         </DialogContent>
