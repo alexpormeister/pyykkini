@@ -668,28 +668,43 @@ export const SettlementManagement = () => {
             </SheetDescription>
           </SheetHeader>
           <div className="mt-4 space-y-3">
-            {detailRows.map(({ order, orderItems }) => (
-              <div key={order?.id} className="rounded-lg border p-3">
+            {detailRows.map(({ orderId, order, orderItems, tasks }) => (
+              <div key={orderId} className="rounded-lg border p-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">#{order?.id.slice(0, 8)}</span>
-                  <span className="text-muted-foreground">{fmtDate(order?.created_at ?? null)}</span>
+                  <span className="font-medium">#{orderId.slice(0, 8)}</span>
+                  <span className="text-muted-foreground">
+                    {fmtDate(order?.created_at ?? tasks[0]?.completed_at ?? null)}
+                  </span>
                 </div>
-                <div className="mt-2 space-y-1 text-sm">
-                  {orderItems.map((it) => (
+                {detail?.type === "driver" ? (
+                  <div className="mt-2 space-y-1 text-sm">
+                    {tasks.map((t) => (
+                      <div key={t.id} className="flex items-center justify-between gap-2">
+                        <span className="truncate">{t.task_type === "pickup" ? "Noutokeikka" : "Palautuskeikka"}</span>
+                        <span className="font-medium flex items-center gap-1">
+                          <Euro className="h-3 w-3 text-muted-foreground" />
+                          {Number(t.driver_payout || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                    {tasks.length === 0 && <p className="text-xs text-muted-foreground">Ei keikkoja</p>}
+                  </div>
+                ) : (
+                  <div className="mt-2 space-y-1 text-sm">
+                    {orderItems.map((it) => (
                     <div key={it.id} className="flex items-center justify-between gap-2">
                       <span className="truncate">
                         {it.product_name || it.service_name} × {it.quantity}
                       </span>
                       <span className="font-medium flex items-center gap-1">
                         <Euro className="h-3 w-3 text-muted-foreground" />
-                        {detail?.type === "laundry"
-                          ? Number(it.laundry_price || 0).toFixed(2)
-                          : Number(it.driver_payout || 0).toFixed(2)}
+                        {Number(it.laundry_price || 0).toFixed(2)}
                       </span>
                     </div>
-                  ))}
-                  {orderItems.length === 0 && <p className="text-xs text-muted-foreground">Ei tuoterivejä</p>}
-                </div>
+                    ))}
+                    {orderItems.length === 0 && <p className="text-xs text-muted-foreground">Ei tuoterivejä</p>}
+                  </div>
+                )}
               </div>
             ))}
             {detailRows.length === 0 && <p className="text-sm text-muted-foreground">Ei tilauksia</p>}
