@@ -3,9 +3,10 @@ import { Navigation } from "@/components/Navigation";
 import { CustomerPanel } from "@/components/CustomerPanel";
 import { DriverPanel } from "@/components/DriverPanel";
 import { AdminPanel } from "@/components/AdminPanel";
+import { LaundryPanel } from "@/components/LaundryPanel";
 import { useAuth } from "@/contexts/AuthContext";
 
-type Panel = 'customer' | 'driver' | 'admin';
+type Panel = 'customer' | 'driver' | 'admin' | 'laundry';
 
 const Index = () => {
   const { userRole } = useAuth();
@@ -13,7 +14,7 @@ const Index = () => {
 
   // Set panel based on user role
   useEffect(() => {
-    if (userRole && ['customer', 'driver', 'admin'].includes(userRole)) {
+    if (userRole && ['customer', 'driver', 'admin', 'laundry'].includes(userRole)) {
       setActivePanel(userRole as Panel);
     }
   }, [userRole]);
@@ -26,6 +27,8 @@ const Index = () => {
         return <DriverPanel />;
       case 'admin':
         return <AdminPanel />;
+      case 'laundry':
+        return <LaundryPanel />;
       default:
         return <CustomerPanel />;
     }
