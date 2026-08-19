@@ -70,7 +70,7 @@ interface Contract {
 
 const eur = (n: number) => `${(n || 0).toFixed(2).replace(".", ",")} €`;
 
-const orderRef = (o: LaundryOrder) => o.access_code || o.id.slice(0, 8).toUpperCase();
+const orderRef = (o: LaundryOrder) => o.id.slice(0, 8).toUpperCase();
 
 const fmtDateTime = (date: string, time: string) => {
   const d = new Date(`${date}T${time}`);
@@ -309,69 +309,54 @@ export const LaundryPanel = () => {
     action,
     actionLabel,
     actionIcon,
-    secondaryAction,
-    secondaryLabel,
+    actionDisabled,
+    extra,
   }: {
     order: LaundryOrder;
     action?: () => void;
     actionLabel?: string;
     actionIcon?: React.ReactNode;
-    secondaryAction?: () => void;
-    secondaryLabel?: string;
+    actionDisabled?: boolean;
+    extra?: React.ReactNode;
   }) => (
     <Card className="border-2">
       <CardContent className="p-4 space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <div className="text-lg font-bold">#{orderRef(order)}</div>
+        <div className="flex items-start justify-between gap-2 min-w-0">
+          <div className="min-w-0">
+            <div className="truncate text-lg font-bold">#{orderRef(order)}</div>
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              Valmis {fmtDateTime(order.return_date, order.return_time)}
+              <Clock className="h-4 w-4 shrink-0" />
+              <span className="truncate">Valmis {fmtDateTime(order.return_date, order.return_time)}</span>
             </div>
           </div>
-          <div className="text-right text-sm font-semibold">{eur(laundryTotal(order))}</div>
+          <div className="shrink-0 text-right text-sm font-semibold">{eur(laundryTotal(order))}</div>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
           {order.order_items.map((it) => (
-            <Badge key={it.id} variant="secondary" className="text-sm py-1">
+            <Badge key={it.id} variant="secondary" className="max-w-full truncate py-1 text-sm">
               {(it.product_name || it.service_name)} × {it.quantity}
             </Badge>
           ))}
         </div>
 
         {order.special_instructions && (
-          <p className="rounded-lg bg-muted p-3 text-sm">{order.special_instructions}</p>
+          <p className="break-words rounded-lg bg-muted p-3 text-sm">{order.special_instructions}</p>
         )}
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          {action && (
-            <Button size="lg" className="h-14 flex-1 text-base" onClick={action}>
-              {actionIcon}
-              {actionLabel}
-            </Button>
-          )}
-          {secondaryAction && (
-            <Button
-              size="lg"
-              variant="ghost"
-              className="h-14 text-base text-muted-foreground sm:w-auto"
-              onClick={secondaryAction}
-            >
-              <XCircle className="mr-2 h-5 w-5" />
-              {secondaryLabel}
-            </Button>
-          )}
+        {extra}
+
+        {action && (
           <Button
             size="lg"
-            variant="outline"
-            className="h-14 sm:w-auto"
-            onClick={() => setNoteOrder(order)}
+            className="h-12 w-full text-sm sm:text-base"
+            onClick={action}
+            disabled={actionDisabled}
           >
-            <Camera className="mr-2 h-5 w-5" />
-            Huomio
+            {actionIcon}
+            <span className="truncate">{actionLabel}</span>
           </Button>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -383,8 +368,7 @@ export const LaundryPanel = () => {
     action,
     actionLabel,
     actionIcon,
-    secondaryAction,
-    secondaryLabel,
+    renderCard,
   }: {
     title: string;
     icon: React.ReactNode;
@@ -392,8 +376,7 @@ export const LaundryPanel = () => {
     action?: (o: LaundryOrder) => void;
     actionLabel?: string;
     actionIcon?: React.ReactNode;
-    secondaryAction?: (o: LaundryOrder) => void;
-    secondaryLabel?: string;
+    renderCard?: (o: LaundryOrder) => React.ReactNode;
   }) => (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -405,6 +388,8 @@ export const LaundryPanel = () => {
         <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
           Ei tilauksia
         </div>
+      ) : renderCard ? (
+        items.map((o) => <div key={o.id}>{renderCard(o)}</div>)
       ) : (
         items.map((o) => (
           <OrderCard
@@ -413,8 +398,6 @@ export const LaundryPanel = () => {
             action={action ? () => action(o) : undefined}
             actionLabel={actionLabel}
             actionIcon={actionIcon}
-            secondaryAction={secondaryAction ? () => secondaryAction(o) : undefined}
-            secondaryLabel={secondaryLabel}
           />
         ))
       )}
