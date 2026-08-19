@@ -585,57 +585,6 @@ export const LaundryPanel = () => {
         </TabsContent>
 
         <TabsContent value="money" className="mt-4 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-primary/40">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Tulossa tilitykseen</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 text-3xl font-bold">
-                  <Euro className="h-6 w-6 text-primary" />
-                  {eur(upcomingPayout)}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {upcomingOrders.length} toimitettua tilausta odottaa tilityserää
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Odottaa maksua</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 text-3xl font-bold">
-                  <Euro className="h-6 w-6 text-primary" />
-                  {eur(pendingPayout)}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">Avoimet tilityserät</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Maksettu tässä kuussa</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 text-3xl font-bold">
-                  <Euro className="h-6 w-6 text-primary" />
-                  {eur(paidThisMonth)}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Maksettu yhteensä</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 text-3xl font-bold">
-                  <Euro className="h-6 w-6 text-primary" />
-                  {eur(paidTotal)}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Tulossa tilitykseen</CardTitle>
