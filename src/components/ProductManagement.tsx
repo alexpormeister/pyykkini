@@ -759,7 +759,7 @@ export const ProductManagement = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-base_price">Hinta (€) *</Label>
+              <Label htmlFor="edit-base_price">Perushinta / pesulan oletushinta (€) *</Label>
               <Input
                 id="edit-base_price"
                 type="number"
@@ -772,23 +772,19 @@ export const ProductManagement = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-commission_percent">Alustan komissio (%) *</Label>
-              <Input
-                id="edit-commission_percent"
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
-                value={editFormData.commission_percent}
-                onChange={(e) => setEditFormData({ ...editFormData, commission_percent: e.target.value })}
-                placeholder="15"
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Käytetään tilauksen rivikohtaisessa komissiolaskennassa (suositus 15–20 %).
-              </p>
-            </div>
+            <FeeFields
+              idPrefix="edit"
+              values={editFormData}
+              onChange={(patch) => setEditFormData({ ...editFormData, ...patch })}
+            />
+
+            <LaundryPriceEditor
+              laundries={laundries}
+              rows={editPriceRows}
+              setRows={setEditPriceRows}
+              fees={editFormData}
+              onAddLaundry={() => setShowLaundryDialog(true)}
+            />
 
             <div className="flex items-center space-x-2">
               <input
