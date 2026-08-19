@@ -107,6 +107,7 @@ export const SettlementManagement = () => {
   const [items, setItems] = useState<OrderItemRow[]>([]);
   const [laundries, setLaundries] = useState<Record<string, string>>({});
   const [drivers, setDrivers] = useState<Record<string, string>>({});
+  const [driverTasks, setDriverTasks] = useState<DriverTaskRow[]>([]);
   const [settlements, setSettlements] = useState<SettlementRow[]>([]);
   const [detail, setDetail] = useState<{ title: string; type: "laundry" | "driver"; group: Group } | null>(null);
 
@@ -115,7 +116,7 @@ export const SettlementManagement = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [ordersRes, laundriesRes, profilesRes, settlementsRes] = await Promise.all([
+      const [ordersRes, laundriesRes, profilesRes, settlementsRes, tasksRes] = await Promise.all([
         supabase
           .from("orders")
           .select("id, driver_id, laundry_id, status, final_price, created_at, first_name, last_name")
@@ -124,6 +125,11 @@ export const SettlementManagement = () => {
         supabase.from("laundries").select("id, name"),
         supabase.from("profiles").select("user_id, first_name, last_name, email"),
         supabase.from("settlements").select("*").order("paid_at", { ascending: false }),
+        supabase
+          .from("delivery_tasks")
+          .select("id, order_id, driver_id, task_type, driver_payout, completed_at")
+          .eq("status", "completed")
+          .not("driver_id", "is", null),
       ]);
 
       if (ordersRes.error) throw ordersRes.error;
@@ -151,6 +157,7 @@ export const SettlementManagement = () => {
         )
       );
       setSettlements((settlementsRes.data || []) as SettlementRow[]);
+      setDriverTasks((tasksRes.data || []) as DriverTaskRow[]);
     } catch (error: any) {
       toast({ title: "Virhe", description: error.message || "Tietojen lataus epäonnistui", variant: "destructive" });
     } finally {
