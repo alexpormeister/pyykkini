@@ -261,8 +261,9 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
           const code = orderInfo?.access_code;
           const awaiting = task.status === "awaiting_laundry";
           const track = orderInfo?.tracking_status;
-          const laundryReady = !isPickup && (track === "PACKAGING" || track === "OUT_FOR_DELIVERY" || track === "COMPLETED");
-          const onTheWay = !isPickup && task.status === "in_progress";
+          const onTheWay = !isPickup && (track === "OUT_FOR_DELIVERY" || track === "COMPLETED");
+          const laundryReady = !isPickup && (track === "PACKAGING" || onTheWay);
+          const navigateToDestination = isPickup ? task.status === "in_progress" : onTheWay;
           return (
             <Card key={task.id} className="overflow-hidden">
               <CardContent className="p-4 space-y-3">
@@ -323,7 +324,7 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
                   <Button variant="outline" size="sm" asChild>
                     <a
                       href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                        (task.status === "in_progress" ? task.destination_address : task.origin_address) || ""
+                        (navigateToDestination ? task.destination_address : task.origin_address) || ""
                       )}`}
                       target="_blank"
                       rel="noreferrer"
