@@ -112,6 +112,7 @@ export const AdminPanel = () => {
   const [expandedMenus, setExpandedMenus] = useState<{[key: string]: boolean}>({
     management: true,
     orders: false,
+    support: true,
     analytics: false
   });
   const [allDrivers, setAllDrivers] = useState<any[]>([]);
@@ -715,6 +716,21 @@ export const AdminPanel = () => {
                         >
                           Maksuliikenne
                         </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Customer Support Section */}
+                  <div>
+                    <button
+                      onClick={() => toggleMenu('support')}
+                      className="flex items-center justify-between w-full p-2 text-left hover:bg-muted rounded-lg"
+                    >
+                      <span className="font-medium text-primary">Asiakaspalvelu</span>
+                      {expandedMenus.support ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                    {expandedMenus.support && (
+                      <div className="ml-4 mt-2 space-y-1">
                         <button
                           onClick={() => setActiveTab('chat')}
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'chat' ? 'bg-primary/10 text-primary font-medium' : ''}`}
