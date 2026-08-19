@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, User, Mail, Shield, Edit, UserPlus, Phone, MapPin, Trash2, Users, Truck, Briefcase, ArrowLeft, WashingMachine } from 'lucide-react';
+import { Search, User, Mail, Shield, Edit, UserPlus, Phone, MapPin, Trash2, Users, Truck, Briefcase, ArrowLeft, WashingMachine, Euro, Building2, Hash } from 'lucide-react';
 import { CreateUserDialog } from './CreateUserDialog';
 import { LaundryPricingManagement } from './LaundryPricingManagement';
 
@@ -20,6 +20,8 @@ interface UserWithRole {
     last_name?: string;
     phone?: string;
     address?: string;
+    company_name?: string;
+    business_id?: string;
   };
   user_roles?: {
     role: string;
@@ -45,12 +47,16 @@ export const UserManagement = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deletingUser, setDeletingUser] = useState<string | null>(null);
+  const [laundryByUser, setLaundryByUser] = useState<Record<string, { id: string; name: string }>>({});
+  const [pricingLaundry, setPricingLaundry] = useState<{ id: string; name: string } | null>(null);
   const [editFormData, setEditFormData] = useState({
     first_name: '',
     last_name: '',
     email: '',
     phone: '',
-    address: ''
+    address: '',
+    company_name: '',
+    business_id: ''
   });
 
   useEffect(() => {
@@ -72,7 +78,9 @@ export const UserManagement = () => {
           first_name,
           last_name,
           phone,
-          address
+          address,
+          company_name,
+          business_id
         `);
 
       if (error) throw error;
@@ -84,6 +92,16 @@ export const UserManagement = () => {
         .select('user_id, role')
         .in('user_id', userIds);
 
+      const { data: laundryUsers } = await supabase
+        .from('laundry_users')
+        .select('user_id, laundry_id, laundries(id, name)')
+        .in('user_id', userIds);
+      const laundryMap: Record<string, { id: string; name: string }> = {};
+      (laundryUsers || []).forEach((lu: any) => {
+        if (lu.laundries) laundryMap[lu.user_id] = { id: lu.laundries.id, name: lu.laundries.name };
+      });
+      setLaundryByUser(laundryMap);
+
       // Transform data structure
       const transformedUsers = data?.map(profile => ({
         id: profile.user_id,
@@ -92,7 +110,9 @@ export const UserManagement = () => {
           first_name: profile.first_name,
           last_name: profile.last_name,
           phone: profile.phone,
-          address: profile.address
+          address: profile.address,
+          company_name: profile.company_name,
+          business_id: profile.business_id
         },
         user_roles: rolesData?.filter(r => r.user_id === profile.user_id).map(r => ({ role: r.role })) || []
       })) || [];
@@ -155,7 +175,9 @@ export const UserManagement = () => {
       last_name: user.profiles?.last_name || '',
       email: user.email,
       phone: user.profiles?.phone || '',
-      address: user.profiles?.address || ''
+      address: user.profiles?.address || '',
+      company_name: user.profiles?.company_name || '',
+      business_id: user.profiles?.business_id || ''
     });
     setShowEditDialog(true);
   };
@@ -172,11 +194,22 @@ export const UserManagement = () => {
           last_name: editFormData.last_name,
           email: editFormData.email,
           phone: editFormData.phone,
-          address: editFormData.address
+          address: editFormData.address,
+          company_name: editFormData.company_name || null,
+          business_id: editFormData.business_id || null
         })
         .eq('user_id', editingUser.id);
 
       if (error) throw error;
+
+      // Keep laundry name in sync with company name
+      const laundry = laundryByUser[editingUser.id];
+      if (laundry && editFormData.company_name) {
+        await supabase
+          .from('laundries')
+          .update({ name: editFormData.company_name, business_id: editFormData.business_id || null })
+          .eq('id', laundry.id);
+      }
 
       toast({
         title: 'Käyttäjä päivitetty',
@@ -250,6 +283,8 @@ export const UserManagement = () => {
     const term = searchTerm.toLowerCase();
     return user.email.toLowerCase().includes(term) ||
       fullName.toLowerCase().includes(term) ||
+      (user.profiles?.company_name || '').toLowerCase().includes(term) ||
+      (user.profiles?.business_id || '').toLowerCase().includes(term) ||
       phone.toLowerCase().includes(term);
   });
 
@@ -311,7 +346,6 @@ export const UserManagement = () => {
           </div>
         ) : (
         <>
-        {group === 'laundry' && <LaundryPricingManagement />}
         {/* Search and Create User */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
@@ -334,17 +368,26 @@ export const UserManagement = () => {
 
         {/* Users List */}
         <div className="space-y-4">
-          {paginatedUsers.map((user) => (
+          {paginatedUsers.map((user) => {
+            const role = user.user_roles?.[0]?.role || 'customer';
+            const isLaundry = role === 'laundry';
+            const laundry = laundryByUser[user.id];
+            const personName = [user.profiles?.first_name, user.profiles?.last_name].filter(Boolean).join(' ');
+            const title = isLaundry
+              ? (user.profiles?.company_name || laundry?.name || personName || user.email)
+              : (personName || user.email);
+            return (
             <div key={user.id} className="border rounded-xl p-6 hover:shadow-elegant transition-all duration-300 bg-card">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0">
                   <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-primary">
-                    <User className="h-6 w-6 text-white" />
+                    {isLaundry ? <WashingMachine className="h-6 w-6 text-primary-foreground" /> : <User className="h-6 w-6 text-primary-foreground" />}
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-lg">
-                      {[user.profiles?.first_name, user.profiles?.last_name].filter(Boolean).join(' ') || user.email}
-                    </h4>
+                  <div className="min-w-0">
+                    <h4 className="font-semibold text-lg truncate">{title}</h4>
+                    {isLaundry && user.profiles?.business_id && (
+                      <div className="text-xs text-muted-foreground">Y-tunnus: {user.profiles.business_id}</div>
+                    )}
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Mail className="h-3 w-3" />
                       {user.email}
@@ -357,13 +400,24 @@ export const UserManagement = () => {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <div className="text-right">
-                    <Badge className={getRoleColor(user.user_roles?.[0]?.role || 'customer')} variant="secondary">
+                    <Badge className={getRoleColor(role)} variant="secondary">
                       <Shield className="h-3 w-3 mr-1" />
-                      {user.user_roles?.[0]?.role || 'customer'}
+                      {role}
                     </Badge>
                   </div>
+                  {isLaundry && laundry && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPricingLaundry(laundry)}
+                      className="flex items-center gap-2"
+                    >
+                      <Euro className="h-3 w-3" />
+                      Hinnasto
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -384,7 +438,7 @@ export const UserManagement = () => {
                     {deletingUser === user.id ? 'Poistetaan...' : 'Poista'}
                   </Button>
                   <Select
-                    value={user.user_roles?.[0]?.role || 'customer'}
+                    value={role}
                     onValueChange={(newRole) => updateUserRole(user.id, newRole)}
                     disabled={updatingRole === user.id}
                   >
@@ -401,7 +455,8 @@ export const UserManagement = () => {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {filteredUsers.length > 0 && (
@@ -454,6 +509,36 @@ export const UserManagement = () => {
             </DialogHeader>
 
             <form onSubmit={handleEditSubmit} className="space-y-4">
+              {(editingUser?.user_roles?.[0]?.role === 'laundry' || editingUser?.user_roles?.[0]?.role === 'driver') && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit_company_name">Yrityksen nimi</Label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="edit_company_name"
+                        value={editFormData.company_name}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, company_name: e.target.value }))}
+                        className="pl-10"
+                        placeholder="Yrityksen nimi"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit_business_id">Y-tunnus</Label>
+                    <div className="relative">
+                      <Hash className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="edit_business_id"
+                        value={editFormData.business_id}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, business_id: e.target.value }))}
+                        className="pl-10"
+                        placeholder="1234567-8"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="edit_first_name">Etunimi</Label>
@@ -554,6 +639,24 @@ export const UserManagement = () => {
           onOpenChange={setShowCreateDialog}
           onUserCreated={fetchUsers}
         />
+
+        {/* Laundry pricing dialog */}
+        <Dialog open={!!pricingLaundry} onOpenChange={(o) => !o && setPricingLaundry(null)}>
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Euro className="h-5 w-5" />
+                Hinnasto – {pricingLaundry?.name}
+              </DialogTitle>
+              <DialogDescription>
+                Määritä pesulan veloittamat hinnat. Vain aktivoidut tuotteet ovat pesulalla käytössä.
+              </DialogDescription>
+            </DialogHeader>
+            {pricingLaundry && (
+              <LaundryPricingManagement laundryId={pricingLaundry.id} hideHeader />
+            )}
+          </DialogContent>
+        </Dialog>
         </>
         )}
       </CardContent>
