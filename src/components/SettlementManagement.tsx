@@ -52,6 +52,15 @@ interface SettlementRow {
   status: string;
 }
 
+interface DriverTaskRow {
+  id: string;
+  order_id: string;
+  driver_id: string;
+  task_type: string;
+  driver_payout: number | null;
+  completed_at: string | null;
+}
+
 interface Group {
   key: string;
   name: string;
@@ -98,6 +107,7 @@ export const SettlementManagement = () => {
   const [items, setItems] = useState<OrderItemRow[]>([]);
   const [laundries, setLaundries] = useState<Record<string, string>>({});
   const [drivers, setDrivers] = useState<Record<string, string>>({});
+  const [driverTasks, setDriverTasks] = useState<DriverTaskRow[]>([]);
   const [settlements, setSettlements] = useState<SettlementRow[]>([]);
   const [detail, setDetail] = useState<{ title: string; type: "laundry" | "driver"; group: Group } | null>(null);
 
@@ -106,7 +116,7 @@ export const SettlementManagement = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [ordersRes, laundriesRes, profilesRes, settlementsRes] = await Promise.all([
+      const [ordersRes, laundriesRes, profilesRes, settlementsRes, tasksRes] = await Promise.all([
         supabase
           .from("orders")
           .select("id, driver_id, laundry_id, status, final_price, created_at, first_name, last_name")
@@ -115,6 +125,11 @@ export const SettlementManagement = () => {
         supabase.from("laundries").select("id, name"),
         supabase.from("profiles").select("user_id, first_name, last_name, email"),
         supabase.from("settlements").select("*").order("paid_at", { ascending: false }),
+        supabase
+          .from("delivery_tasks")
+          .select("id, order_id, driver_id, task_type, driver_payout, completed_at")
+          .eq("status", "completed")
+          .not("driver_id", "is", null),
       ]);
 
       if (ordersRes.error) throw ordersRes.error;
@@ -142,6 +157,7 @@ export const SettlementManagement = () => {
         )
       );
       setSettlements((settlementsRes.data || []) as SettlementRow[]);
+      setDriverTasks((tasksRes.data || []) as DriverTaskRow[]);
     } catch (error: any) {
       toast({ title: "Virhe", description: error.message || "Tietojen lataus epäonnistui", variant: "destructive" });
     } finally {
@@ -158,7 +174,9 @@ export const SettlementManagement = () => {
     const laundrySet = new Set<string>();
     const driverSet = new Set<string>();
     settlements.forEach((s) => {
-      (s.order_ids || []).forEach((id) => (s.payee_type === "laundry" ? laundrySet.add(id) : driverSet.add(id)));
+      (s.order_ids || []).forEach((id) =>
+        s.payee_type === "laundry" ? laundrySet.add(id) : driverSet.add(`${s.payee_id || "unknown"}|${id}`)
+      );
     });
     return { laundry: laundrySet, driver: driverSet };
   }, [settlements]);
@@ -201,30 +219,49 @@ export const SettlementManagement = () => {
     return Object.values(map).sort((a, b) => b.net - a.net);
   }, [periodOrders, itemsByOrder, laundries, settledOrderIds]);
 
-  const driverGroups = useMemo<Group[]>(() => {
-    const map: Record<string, Group> = {};
-    periodOrders.forEach((order) => {
-      if (!order.driver_id) return;
-      if (settledOrderIds.driver.has(order.id)) return;
-      const key = order.driver_id;
-      const g = (map[key] ||= {
-        key,
-        name: drivers[key] || "Kuljettaja",
-        ordersCount: 0,
-        gross: 0,
-        commission: 0,
-        net: 0,
-        orderIds: [],
-      });
-      const orderItems = itemsByOrder[order.id] || [];
-      const payout = orderItems.reduce((sum, it) => sum + Number(it.driver_payout || 0), 0);
-      g.gross += Number(order.final_price || 0);
-      g.net += payout;
-      g.ordersCount += 1;
-      g.orderIds.push(order.id);
+  // Kuljettajan palkkiot lasketaan suoritetuista keikoista (nouto ja palautus erikseen)
+  const periodDriverTasks = useMemo(() => {
+    return driverTasks.filter((t) => {
+      if (settledOrderIds.driver.has(`${t.driver_id}|${t.order_id}`)) return false;
+      const stamp = t.completed_at ? new Date(t.completed_at) : null;
+      if (!stamp) return true;
+      if (range.start && stamp < range.start) return false;
+      if (range.end && stamp > range.end) return false;
+      return true;
     });
-    return Object.values(map).sort((a, b) => b.net - a.net);
-  }, [periodOrders, itemsByOrder, drivers, settledOrderIds]);
+  }, [driverTasks, range, settledOrderIds]);
+
+  // driver -> order -> palkkio
+  const driverOrderPayouts = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    periodDriverTasks.forEach((t) => {
+      const byOrder = (map[t.driver_id] ||= {});
+      byOrder[t.order_id] = (byOrder[t.order_id] || 0) + Number(t.driver_payout || 0);
+    });
+    return map;
+  }, [periodDriverTasks]);
+
+  const driverGroups = useMemo<Group[]>(() => {
+    return Object.entries(driverOrderPayouts)
+      .map(([key, byOrder]) => {
+        const orderIds = Object.keys(byOrder);
+        const net = orderIds.reduce((s, id) => s + byOrder[id], 0);
+        const gross = orderIds.reduce((s, id) => {
+          const order = orders.find((o) => o.id === id);
+          return s + Number(order?.final_price || 0);
+        }, 0);
+        return {
+          key,
+          name: drivers[key] || "Kuljettaja",
+          ordersCount: orderIds.length,
+          gross,
+          commission: 0,
+          net,
+          orderIds,
+        } as Group;
+      })
+      .sort((a, b) => b.net - a.net);
+  }, [driverOrderPayouts, drivers, orders]);
 
   const platformRevenue = useMemo(() => {
     return periodOrders.reduce((sum, order) => {
@@ -277,9 +314,10 @@ export const SettlementManagement = () => {
       const orderItems = (itemsByOrder[orderId] || []).filter(
         (it) => detail.type === "driver" || (it.laundry_id || order?.laundry_id || "unassigned") === detail.group.key
       );
-      return { order, orderItems };
+      const tasks = periodDriverTasks.filter((t) => t.order_id === orderId && t.driver_id === detail.group.key);
+      return { orderId, order, orderItems, tasks };
     });
-  }, [detail, orders, itemsByOrder]);
+  }, [detail, orders, itemsByOrder, periodDriverTasks]);
 
   const downloadCsv = (type: "laundry" | "driver", group: Group) => {
     const header =
@@ -305,7 +343,7 @@ export const SettlementManagement = () => {
             ]);
           });
       } else {
-        const payout = orderItems.reduce((s, it) => s + Number(it.driver_payout || 0), 0);
+        const payout = driverOrderPayouts[group.key]?.[orderId] || 0;
         lines.push([
           orderId.slice(0, 8),
           fmtDate(order?.created_at ?? null),
@@ -336,7 +374,7 @@ export const SettlementManagement = () => {
       .map((orderId) => {
         const order = orders.find((o) => o.id === orderId);
         const orderItems = itemsByOrder[orderId] || [];
-        const payout = orderItems.reduce((s, it) => s + Number(it.driver_payout || 0), 0);
+        const payout = driverOrderPayouts[group.key]?.[orderId] || 0;
         const value =
           type === "laundry"
             ? orderItems
@@ -630,28 +668,43 @@ export const SettlementManagement = () => {
             </SheetDescription>
           </SheetHeader>
           <div className="mt-4 space-y-3">
-            {detailRows.map(({ order, orderItems }) => (
-              <div key={order?.id} className="rounded-lg border p-3">
+            {detailRows.map(({ orderId, order, orderItems, tasks }) => (
+              <div key={orderId} className="rounded-lg border p-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">#{order?.id.slice(0, 8)}</span>
-                  <span className="text-muted-foreground">{fmtDate(order?.created_at ?? null)}</span>
+                  <span className="font-medium">#{orderId.slice(0, 8)}</span>
+                  <span className="text-muted-foreground">
+                    {fmtDate(order?.created_at ?? tasks[0]?.completed_at ?? null)}
+                  </span>
                 </div>
-                <div className="mt-2 space-y-1 text-sm">
-                  {orderItems.map((it) => (
+                {detail?.type === "driver" ? (
+                  <div className="mt-2 space-y-1 text-sm">
+                    {tasks.map((t) => (
+                      <div key={t.id} className="flex items-center justify-between gap-2">
+                        <span className="truncate">{t.task_type === "pickup" ? "Noutokeikka" : "Palautuskeikka"}</span>
+                        <span className="font-medium flex items-center gap-1">
+                          <Euro className="h-3 w-3 text-muted-foreground" />
+                          {Number(t.driver_payout || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                    {tasks.length === 0 && <p className="text-xs text-muted-foreground">Ei keikkoja</p>}
+                  </div>
+                ) : (
+                  <div className="mt-2 space-y-1 text-sm">
+                    {orderItems.map((it) => (
                     <div key={it.id} className="flex items-center justify-between gap-2">
                       <span className="truncate">
                         {it.product_name || it.service_name} × {it.quantity}
                       </span>
                       <span className="font-medium flex items-center gap-1">
                         <Euro className="h-3 w-3 text-muted-foreground" />
-                        {detail?.type === "laundry"
-                          ? Number(it.laundry_price || 0).toFixed(2)
-                          : Number(it.driver_payout || 0).toFixed(2)}
+                        {Number(it.laundry_price || 0).toFixed(2)}
                       </span>
                     </div>
-                  ))}
-                  {orderItems.length === 0 && <p className="text-xs text-muted-foreground">Ei tuoterivejä</p>}
-                </div>
+                    ))}
+                    {orderItems.length === 0 && <p className="text-xs text-muted-foreground">Ei tuoterivejä</p>}
+                  </div>
+                )}
               </div>
             ))}
             {detailRows.length === 0 && <p className="text-sm text-muted-foreground">Ei tilauksia</p>}
