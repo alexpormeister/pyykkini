@@ -1101,6 +1101,7 @@ export const DriverPanel = () => {
                   <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1 -mr-1">
                     {pendingOrders.map((order) => {
                       const tags = getOrderItemTags(order);
+                      const earnings = getDriverEarnings(order);
                       return (
                       <Card key={order.id} className="hover:shadow-elegant transition-all duration-300 overflow-hidden">
                         <CardContent className="p-4 space-y-4">
@@ -1117,9 +1118,27 @@ export const DriverPanel = () => {
                             </div>
                             <div className="text-right flex-shrink-0">
                               <div className="text-lg font-bold text-primary leading-none">
-                                {formatEuro(order.final_price ?? order.price)}
+                                {formatEuro(earnings.total)}
                               </div>
-                              <div className="text-[11px] text-muted-foreground mt-1">Palkkio</div>
+                              <div className="text-[11px] text-muted-foreground mt-1">Palkkiosi</div>
+                            </div>
+                          </div>
+
+                          {/* Palkkioerittely */}
+                          <div className="rounded-lg border bg-muted/40 p-2 space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Palvelut komission jälkeen</span>
+                              <span>{formatEuro(earnings.itemsPayout)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">
+                                Osuus toimitusmaksusta ({Math.round(DRIVER_DELIVERY_FEE_SHARE * 100)} % / {formatEuro(earnings.deliveryFee)})
+                              </span>
+                              <span>{formatEuro(earnings.deliveryShare)}</span>
+                            </div>
+                            <div className="flex justify-between font-semibold pt-1 border-t">
+                              <span>Yhteensä sinulle</span>
+                              <span className="text-primary">{formatEuro(earnings.total)}</span>
                             </div>
                           </div>
 
