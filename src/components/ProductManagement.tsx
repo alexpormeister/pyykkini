@@ -227,6 +227,7 @@ export const ProductManagement = () => {
   const { toast } = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [view, setView] = useState<"menu" | "new" | "list">("menu");
   const [laundries, setLaundries] = useState<Laundry[]>([]);
   const [priceRows, setPriceRows] = useState<LaundryPriceRow[]>([]);
   const [editPriceRows, setEditPriceRows] = useState<LaundryPriceRow[]>([]);
@@ -515,6 +516,42 @@ export const ProductManagement = () => {
 
   return (
     <div className="space-y-6">
+      {view === "menu" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button
+            onClick={() => setView("new")}
+            className="text-left rounded-xl border bg-card p-6 hover:border-primary hover:shadow-elegant transition-all"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <Plus className="h-5 w-5 text-primary" />
+              </div>
+              <h3 className="font-semibold">Lisää uusi tuote</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">Luo uusi tuote ja määritä hinnoittelu</p>
+          </button>
+          <button
+            onClick={() => setView("list")}
+            className="text-left rounded-xl border bg-card p-6 hover:border-primary hover:shadow-elegant transition-all"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <Package className="h-5 w-5 text-primary" />
+              </div>
+              <h3 className="font-semibold">Tuotteet</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">{products.length} tuotetta · muokkaa tai poista</p>
+          </button>
+        </div>
+      )}
+
+      {view !== "menu" && (
+        <Button variant="ghost" size="sm" onClick={() => setView("menu")} className="-ml-2">
+          ← Takaisin
+        </Button>
+      )}
+
+      {view === "new" && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -618,6 +655,9 @@ export const ProductManagement = () => {
           </form>
         </CardContent>
       </Card>
+      )}
+
+      {view === "list" && (
 
       <Card>
         <CardHeader>
@@ -697,6 +737,7 @@ export const ProductManagement = () => {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Edit Product Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>

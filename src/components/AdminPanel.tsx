@@ -12,7 +12,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserManagement } from "@/components/UserManagement";
-import { Reports } from "@/components/Reports";
 import { CouponManagement } from "@/components/CouponManagement";
 import { ProductManagement } from "@/components/ProductManagement";
 import { CustomerServicePanel } from "@/components/CustomerServicePanel";
@@ -35,8 +34,7 @@ import {
   ChevronRight,
   UserCheck,
   Filter,
-  RotateCcw,
-  MessageSquare
+  RotateCcw
 } from "lucide-react";
 
 interface Order {
@@ -107,7 +105,7 @@ export const AdminPanel = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("customers");
   const [activeDrivers, setActiveDrivers] = useState<ActiveDriver[]>([]);
   const [expandedMenus, setExpandedMenus] = useState<{[key: string]: boolean}>({
     management: true,
@@ -132,9 +130,6 @@ export const AdminPanel = () => {
     const preferredTab = sessionStorage.getItem('adminTab');
     if (preferredTab === 'users') {
       setActiveTab('customers');
-      sessionStorage.removeItem('adminTab');
-    } else if (preferredTab === 'reports') {
-      setActiveTab('reports');
       sessionStorage.removeItem('adminTab');
     }
 
@@ -629,8 +624,6 @@ export const AdminPanel = () => {
               <SelectValue placeholder="Valitse näkymä" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="overview">📊 Yleiskatsaus</SelectItem>
-              <SelectItem value="drivers">🚗 Aktiiviset kuljettajat</SelectItem>
               <SelectItem value="customers">👥 Käyttäjien hallinta</SelectItem>
               <SelectItem value="products">📦 Tuotteiden hallinta</SelectItem>
               <SelectItem value="coupons">🎫 Kuponkien hallinta</SelectItem>
@@ -640,11 +633,7 @@ export const AdminPanel = () => {
               <SelectItem value="chat">
                 💬 Viestit {unreadChatsCount > 0 ? `(${unreadChatsCount})` : ''}
               </SelectItem>
-              <SelectItem value="complaints">⚠️ Reklamaatiot</SelectItem>
               <SelectItem value="crm">🔍 Tilaushaku</SelectItem>
-              <SelectItem value="orders">📋 Kaikki tilaukset</SelectItem>
-              <SelectItem value="free-orders">🆓 Vapaat ajot</SelectItem>
-              <SelectItem value="reports">📈 Raportit</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -666,18 +655,6 @@ export const AdminPanel = () => {
                     </button>
                     {expandedMenus.management && (
                       <div className="ml-4 mt-2 space-y-1">
-                        <button
-                          onClick={() => setActiveTab('overview')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'overview' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Yleiskatsaus
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('drivers')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'drivers' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Aktiiviset kuljettajat
-                        </button>
                         <button
                           onClick={() => setActiveTab('customers')}
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'customers' ? 'bg-primary/10 text-primary font-medium' : ''}`}
@@ -735,7 +712,6 @@ export const AdminPanel = () => {
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              <MessageSquare className="h-4 w-4" />
                               Viestit
                             </div>
                             {unreadChatsCount > 0 && (
@@ -744,12 +720,6 @@ export const AdminPanel = () => {
                               </Badge>
                             )}
                           </div>
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('complaints')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'complaints' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Reklamaatiot
                         </button>
                         <button
                           onClick={() => setActiveTab('crm')}
@@ -761,53 +731,6 @@ export const AdminPanel = () => {
                     )}
                   </div>
 
-                  {/* Orders Section */}
-                  <div>
-                    <button
-                      onClick={() => toggleMenu('orders')}
-                      className="flex items-center justify-between w-full p-2 text-left hover:bg-muted rounded-lg"
-                    >
-                      <span className="font-medium text-primary">Tilaukset</span>
-                      {expandedMenus.orders ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </button>
-                     {expandedMenus.orders && (
-                      <div className="ml-4 mt-2 space-y-1">
-                        <button
-                          onClick={() => setActiveTab('orders')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'orders' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Kaikki tilaukset
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('free-orders')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'free-orders' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Vapaat ajot
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Analytics Section */}
-                  <div>
-                    <button
-                      onClick={() => toggleMenu('analytics')}
-                      className="flex items-center justify-between w-full p-2 text-left hover:bg-muted rounded-lg"
-                    >
-                      <span className="font-medium text-primary">Analytiikka</span>
-                      {expandedMenus.analytics ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </button>
-                    {expandedMenus.analytics && (
-                      <div className="ml-4 mt-2 space-y-1">
-                        <button
-                          onClick={() => setActiveTab('reports')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'reports' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Raportit ja tilastot
-                        </button>
-                      </div>
-                    )}
-                  </div>
                 </nav>
               </CardContent>
             </Card>
@@ -818,326 +741,6 @@ export const AdminPanel = () => {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-8"
                   style={{ display: 'contents' }}>
 
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="animate-fade-in">
-            {/* Stats Cards - Mobile optimized grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-8">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-2 sm:p-4">
-                  <CardTitle className="text-xs sm:text-sm font-medium">Tilaukset</CardTitle>
-                  <Package className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="p-2 sm:p-4 pt-0">
-                  <div className="text-lg sm:text-2xl font-bold">{stats.totalOrders}</div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Yhteensä</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-2 sm:p-4">
-                  <CardTitle className="text-xs sm:text-sm font-medium">Aktiiviset</CardTitle>
-                  <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="p-2 sm:p-4 pt-0">
-                  <div className="text-lg sm:text-2xl font-bold">{stats.activeOrders}</div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Käsittelyssä</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-2 sm:p-4">
-                  <CardTitle className="text-xs sm:text-sm font-medium">Tänään</CardTitle>
-                  <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="p-2 sm:p-4 pt-0">
-                  <div className="text-lg sm:text-2xl font-bold">{stats.completedToday}</div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Valmistuneet</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-2 sm:p-4">
-                  <CardTitle className="text-xs sm:text-sm font-medium">Tulot</CardTitle>
-                  <Euro className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="p-2 sm:p-4 pt-0">
-                  <div className="text-lg sm:text-2xl font-bold">{stats.revenue.toFixed(0)}€</div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Yhteensä</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Recent Orders */}
-            <Card>
-              <CardHeader className="p-3 sm:p-6">
-                <CardTitle className="text-sm sm:text-base">Viimeisimmät tilaukset</CardTitle>
-                <CardDescription className="text-xs sm:text-sm">Uusimmat tilaukset</CardDescription>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-0">
-                <div className="space-y-3">
-                  {orders.slice(0, 5).map((order) => (
-                    <div key={order.id} className="flex items-center justify-between p-2 sm:p-4 border rounded-lg gap-2">
-                      <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-                        <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 flex-shrink-0">
-                          <Package className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-semibold text-xs sm:text-sm truncate">{order.first_name} {order.last_name}</h4>
-                          <p className="text-[10px] sm:text-xs text-muted-foreground truncate">#{order.id.slice(0, 8)}</p>
-                        </div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <Badge className={`${getStatusColor(order.status)} text-[10px] sm:text-xs`}>
-                          {getStatusText(order.status)}
-                        </Badge>
-                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">{order.final_price}€</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Active Drivers Tab */}
-          <TabsContent value="drivers" className="animate-fade-in">
-            <Card>
-              <CardHeader className="p-3 sm:p-6">
-                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-                  <Truck className="h-4 w-4 sm:h-5 sm:w-5" />
-                  Aktiiviset kuljettajat
-                </CardTitle>
-                <CardDescription className="text-xs sm:text-sm">
-                  Työvuorossa olevat kuljettajat
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-0">
-                {activeDrivers.length === 0 ? (
-                  <div className="text-center py-6 sm:py-8">
-                    <Truck className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-base sm:text-lg font-semibold mb-2">Ei aktiivisia kuljettajia</h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground">Kukaan ei ole työvuorossa.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {activeDrivers.map((driver) => (
-                      <div key={driver.id} className="flex items-center justify-between p-3 sm:p-4 border rounded-lg gap-2">
-                        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-                          <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-green-100">
-                            <Truck className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-sm sm:text-base truncate">{`${driver.first_name} ${driver.last_name}`}</h3>
-                            {driver.phone && (
-                              <p className="text-xs sm:text-sm text-muted-foreground truncate">{driver.phone}</p>
-                            )}
-                            <p className="text-[10px] sm:text-xs text-muted-foreground">
-                              Aloitus: {driver.started_at ? new Date(driver.started_at).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' }) : '-'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 sm:gap-2 flex-shrink-0">
-                          <Badge className="bg-green-100 text-green-800 text-[10px] sm:text-xs">
-                            Aktiivinen
-                          </Badge>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => logoutDriver(driver.id)}
-                            className="text-[10px] sm:text-xs h-7 px-2"
-                          >
-                            Kirjaa ulos
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="mt-4 p-2 sm:p-3 bg-muted rounded-lg">
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    <strong>Aktiivisia:</strong> {activeDrivers.length}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Orders Tab */}
-          <TabsContent value="orders" className="animate-fade-in">
-            {/* Enhanced Search and Filters */}
-            <Card className="mb-4 sm:mb-6">
-              <CardContent className="p-3 sm:p-6">
-                {/* Main Search Bar */}
-                <div className="relative mb-3 sm:mb-4">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                  <Input
-                    placeholder="🔍 Hae tilauksia..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-10 sm:h-12 text-sm sm:text-base"
-                  />
-                </div>
-
-                {/* Advanced Filters */}
-                <Collapsible open={showAdvancedFilters} onOpenChange={setShowAdvancedFilters}>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="outline" size="sm" className="mb-3 sm:mb-4 text-xs sm:text-sm">
-                      <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                      Lisäfiltterit
-                      <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 ml-1 sm:ml-2 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-3 sm:space-y-4">
-                    {/* Status Filters */}
-                    <div>
-                      <Label className="text-xs sm:text-sm font-medium">Tila</Label>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-                        {allStatusOptions.map(status => (
-                          <div key={status.value} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={status.value}
-                              checked={statusFilters.includes(status.value)}
-                              onCheckedChange={(checked) => 
-                                handleStatusFilterChange(status.value, checked as boolean)
-                              }
-                            />
-                            <Label htmlFor={status.value} className="text-xs sm:text-sm">
-                              {status.label}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Date Range */}
-                    <div>
-                      <Label className="text-xs sm:text-sm font-medium">Aikaväli</Label>
-                      <div className="flex flex-wrap gap-1 sm:gap-2 mt-2">
-                        {['all', 'today', 'this_week', 'this_month'].map((filter) => (
-                          <Button
-                            key={filter}
-                            variant={dateFilter === filter ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setDateFilter(filter as any)}
-                            className="text-[10px] sm:text-xs px-2 sm:px-3 h-7 sm:h-8"
-                          >
-                            {filter === 'all' && 'Kaikki'}
-                            {filter === 'today' && 'Tänään'}
-                            {filter === 'this_week' && 'Viikko'}
-                            {filter === 'this_month' && 'Kuukausi'}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Reset Filters */}
-                    <Button variant="outline" size="sm" onClick={resetFilters} className="text-xs">
-                      <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                      Nollaa
-                    </Button>
-                  </CollapsibleContent>
-                </Collapsible>
-
-                {/* Active Filters Summary */}
-                {(statusFilters.length > 0 || dateFilter !== 'all' || searchTerm) && (
-                  <div className="flex flex-wrap gap-1 sm:gap-2 mt-3 sm:mt-4 p-2 sm:p-3 bg-muted rounded-lg">
-                    <span className="text-[10px] sm:text-sm font-medium">Suodattimet:</span>
-                    {searchTerm && (
-                      <Badge variant="secondary" className="text-[10px] sm:text-xs">"{searchTerm}"</Badge>
-                    )}
-                    {statusFilters.slice(0, 2).map(status => {
-                      const statusOption = allStatusOptions.find(s => s.value === status);
-                      return (
-                        <Badge key={status} variant="secondary" className="text-[10px] sm:text-xs">
-                          {statusOption?.label}
-                        </Badge>
-                      );
-                    })}
-                    {statusFilters.length > 2 && (
-                      <Badge variant="secondary" className="text-[10px] sm:text-xs">+{statusFilters.length - 2}</Badge>
-                    )}
-                    <span className="text-[10px] sm:text-sm text-muted-foreground">
-                      ({filteredOrders.length})
-                    </span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Orders List */}
-            <div className="space-y-3 sm:space-y-4">
-              {filteredOrders.map((order) => (
-                <Card key={order.id} className="hover:shadow-elegant transition-all duration-300 overflow-hidden">
-                  <CardContent className="p-3 sm:p-6">
-                    {/* Mobile-first layout */}
-                    <div className="flex flex-col gap-3">
-                      {/* Header row */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-                          <div className="hidden sm:flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 flex-shrink-0">
-                            <Package className="h-6 w-6 text-primary" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-sm sm:text-base truncate">{order.first_name} {order.last_name}</h3>
-                            <p className="text-[10px] sm:text-xs text-muted-foreground truncate">#{order.id.slice(0, 8)} - {order.service_name}</p>
-                            <p className="text-[10px] sm:text-xs text-muted-foreground">
-                              {new Date(order.created_at).toLocaleDateString('fi-FI')}
-                            </p>
-                            {order.driver_name && (
-                              <p className="text-[10px] sm:text-xs text-muted-foreground">Kuljettaja: {order.driver_name}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <Badge className={`${getStatusColor(order.status)} text-[10px] sm:text-xs`}>
-                            {getStatusText(order.status)}
-                          </Badge>
-                          <p className="text-sm sm:text-lg font-semibold mt-1">{order.final_price}€</p>
-                        </div>
-                      </div>
-                      
-                      {/* Action buttons - wrap on mobile */}
-                      <div className="flex flex-wrap gap-2">
-                        <Button size="sm" variant="outline" onClick={() => openOrderDetails(order)} className="flex-1 sm:flex-none text-xs">
-                          <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                          Avaa
-                        </Button>
-                        {order.status !== 'delivered' && order.status !== 'rejected' && (
-                          <>
-                            {order.status === 'pending' && (
-                              <Button size="sm" onClick={() => updateOrderStatus(order.id, 'accepted')} className="flex-1 sm:flex-none text-xs">
-                                Hyväksy
-                              </Button>
-                            )}
-                            {order.status === 'accepted' && (
-                              <Button size="sm" onClick={() => updateOrderStatus(order.id, 'picking_up')} className="flex-1 sm:flex-none text-xs">
-                                Haetaan
-                              </Button>
-                            )}
-                            {order.status === 'picking_up' && (
-                              <Button size="sm" onClick={() => updateOrderStatus(order.id, 'washing')} className="flex-1 sm:flex-none text-xs">
-                                Pesu
-                              </Button>
-                            )}
-                            {order.status === 'washing' && (
-                              <Button size="sm" onClick={() => updateOrderStatus(order.id, 'returning')} className="flex-1 sm:flex-none text-xs">
-                                Palautus
-                              </Button>
-                            )}
-                            {order.status === 'returning' && (
-                              <Button size="sm" onClick={() => updateOrderStatus(order.id, 'delivered')} className="flex-1 sm:flex-none text-xs">
-                                Toimitettu
-                              </Button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
 
           {/* Users Tab */}
           <TabsContent value="customers" className="animate-fade-in">
@@ -1163,10 +766,6 @@ export const AdminPanel = () => {
             <CustomerServicePanel section="inbox" />
           </TabsContent>
 
-          <TabsContent value="complaints" className="animate-fade-in">
-            <CustomerServicePanel section="complaints" />
-          </TabsContent>
-
           <TabsContent value="crm" className="animate-fade-in">
             <CustomerServicePanel section="crm" />
           </TabsContent>
@@ -1180,165 +779,7 @@ export const AdminPanel = () => {
             <SettlementManagement />
           </TabsContent>
 
-          {/* Free Orders Tab */}
-          <TabsContent value="free-orders" className="animate-fade-in">
-            <Card className="mb-4 sm:mb-6">
-              <CardHeader className="p-3 sm:p-6">
-                <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-                  <Package className="h-4 w-4 sm:h-5 sm:w-5" />
-                  Vapaat ajot
-                </CardTitle>
-                <CardDescription className="text-xs sm:text-sm">
-                  Tilaukset ilman kuljettajaa
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-0">
-                <div className="mb-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Hae kuljettajia..."
-                      value={driverSearch}
-                      onChange={(e) => setDriverSearch(e.target.value)}
-                      className="pl-10 text-sm"
-                    />
-                  </div>
-                </div>
 
-                {orderToAssign && (
-                  <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 rounded-lg border">
-                    <h4 className="font-semibold mb-2 sm:mb-3 text-blue-800 text-sm sm:text-base">Valitse kuljettaja</h4>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {allDrivers
-                        .filter(driver => 
-                          `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(driverSearch.toLowerCase())
-                        )
-                        .map((driver) => (
-                          <div 
-                            key={driver.user_id} 
-                            className={`p-2 sm:p-3 rounded-lg border cursor-pointer transition-all ${
-                              selectedDriverId === driver.user_id 
-                                ? 'border-primary bg-primary/10' 
-                                : 'border-gray-200 hover:border-gray-300'
-                            } ${
-                              driver.is_active 
-                                ? 'bg-green-50' 
-                                : 'bg-red-50'
-                            }`}
-                            onClick={() => setSelectedDriverId(driver.user_id)}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium text-sm truncate">{driver.first_name} {driver.last_name}</p>
-                                {driver.phone && (
-                                  <p className="text-xs text-muted-foreground truncate">{driver.phone}</p>
-                                )}
-                              </div>
-                              <Badge 
-                                className={`text-[10px] sm:text-xs flex-shrink-0 ${
-                                  driver.is_active 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-red-100 text-red-800'
-                                }`}
-                              >
-                                {driver.is_active ? 'Vuorossa' : 'Ei'}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                    <div className="flex gap-2 mt-3 sm:mt-4">
-                      <Button 
-                        onClick={() => assignOrderToDriver(orderToAssign, selectedDriverId)}
-                        disabled={!selectedDriverId}
-                        size="sm"
-                        className="flex-1 text-xs sm:text-sm"
-                      >
-                        Aseta
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="flex-1 text-xs sm:text-sm"
-                        onClick={() => {
-                          setOrderToAssign('');
-                          setSelectedDriverId('');
-                          setDriverSearch('');
-                        }}
-                      >
-                        Peruuta
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="space-y-3 sm:space-y-4">
-              {orders
-                .filter(order => order.status === 'pending' && !order.driver_id)
-                .map((order) => (
-                  <Card key={order.id} className="hover:shadow-elegant transition-all duration-300 overflow-hidden">
-                    <CardContent className="p-3 sm:p-6">
-                      <div className="flex flex-col gap-3">
-                        {/* Header */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-                            <div className="hidden sm:flex items-center justify-center w-12 h-12 rounded-full bg-yellow-100 flex-shrink-0">
-                              <Clock className="h-6 w-6 text-yellow-600" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <h3 className="font-semibold text-sm sm:text-base truncate">{order.first_name} {order.last_name}</h3>
-                              <p className="text-[10px] sm:text-xs text-muted-foreground">#{order.id.slice(0, 8)} - {order.service_name}</p>
-                              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{order.address}</p>
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <Badge className="bg-yellow-100 text-yellow-800 text-[10px] sm:text-xs">
-                              Vapaa
-                            </Badge>
-                            <p className="text-sm sm:text-lg font-semibold mt-1">{order.final_price}€</p>
-                          </div>
-                        </div>
-                        
-                        {/* Actions */}
-                        <div className="flex flex-wrap gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="default"
-                            onClick={() => {
-                              setOrderToAssign(order.id);
-                              setSelectedDriverId('');
-                            }}
-                            className="flex-1 sm:flex-none text-xs"
-                          >
-                            <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                            Aseta kuljettaja
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => openOrderDetails(order)} className="flex-1 sm:flex-none text-xs">
-                            <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                            Avaa
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              
-              {orders.filter(order => order.status === 'pending' && !order.driver_id).length === 0 && (
-                <div className="text-center py-8 sm:py-12">
-                  <Package className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-base sm:text-xl font-semibold mb-2">Ei vapaita ajoja</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Kaikki tilaukset on asetettu kuljettajille.</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          {/* Reports Tab */}
-          <TabsContent value="reports" className="animate-fade-in">
-            <Reports />
-          </TabsContent>
             </Tabs>
           </div>
         </div>

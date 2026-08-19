@@ -556,18 +556,6 @@ export const Profile = () => {
                         <User className="h-6 w-6" />
                         <span>Käyttäjähallinta</span>
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        className="h-20 flex flex-col items-center justify-center gap-2"
-                        onClick={() => {
-                          navigate('/app');
-                          // Set a flag to show reports tab
-                          sessionStorage.setItem('adminTab', 'reports');
-                        }}
-                      >
-                        <Package className="h-6 w-6" />
-                        <span>Raportit</span>
-                      </Button>
                     </div>
                     <div className="border rounded-lg p-4">
                       <h4 className="font-semibold mb-2">Järjestelmätiedot</h4>
