@@ -590,6 +590,42 @@ export type Database = {
         }
         Relationships: []
       }
+      service_areas: {
+        Row: {
+          city: string
+          created_at: string
+          delivery_days: string[]
+          delivery_fee: number
+          id: string
+          is_active: boolean
+          notes: string | null
+          postal_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          city: string
+          created_at?: string
+          delivery_days?: string[]
+          delivery_fee?: number
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          postal_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city?: string
+          created_at?: string
+          delivery_days?: string[]
+          delivery_fee?: number
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          postal_code?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       support_chats: {
         Row: {
           created_at: string
