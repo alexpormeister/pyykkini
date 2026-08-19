@@ -217,7 +217,6 @@ export const DispatchTaskBoard = () => {
       }
       toast({ title: "Keikat liitetty", description: `${ordered.length} tehtävää kuljettajalle ${fullName(driverOf(assignTo))}` });
       setSelected([]);
-      setRouteDriver(assignTo);
       fetchAll();
     } catch (error) {
       console.error(error);
