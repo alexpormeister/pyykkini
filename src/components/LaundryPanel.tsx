@@ -55,6 +55,7 @@ interface Settlement {
   status: string;
   paid_at: string | null;
   created_at: string;
+  order_ids: string[] | null;
 }
 
 interface Contract {
@@ -290,6 +291,34 @@ export const LaundryPanel = () => {
 
   const pendingPayout = useMemo(
     () => settlements.filter((s) => s.status !== "paid").reduce((a, s) => a + Number(s.net_amount || 0), 0),
+    [settlements],
+  );
+
+  // Tilaukset, jotka on toimitettu mutta joita ei ole vielä sisällytetty mihinkään tilityserään
+  const settledOrderIds = useMemo(() => {
+    const set = new Set<string>();
+    settlements.forEach((s) => (s.order_ids || []).forEach((id) => set.add(id)));
+    return set;
+  }, [settlements]);
+
+  const upcomingOrders = useMemo(
+    () =>
+      orders.filter(
+        (o) =>
+          (o.status === "delivered" || (o.tracking_status || "").toUpperCase() === "COMPLETED") &&
+          !settledOrderIds.has(o.id),
+      ),
+    [orders, settledOrderIds],
+  );
+
+  const upcomingPayout = useMemo(
+    () => upcomingOrders.reduce((sum, o) => sum + laundryTotal(o), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [upcomingOrders, prices],
+  );
+
+  const paidTotal = useMemo(
+    () => settlements.filter((s) => s.status === "paid").reduce((a, s) => a + Number(s.net_amount || 0), 0),
     [settlements],
   );
 
