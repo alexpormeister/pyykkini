@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { DispatchBoard } from "@/components/DispatchBoard";
+import { DispatchTaskBoard } from "@/components/DispatchTaskBoard";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertTriangle,
@@ -335,7 +335,7 @@ export const CustomerServicePanel = ({ section }: { section?: CSSection }) => {
 
       {/* --- 1. Dispatch --- */}
       <TabsContent value="dispatch" className="space-y-4 animate-fade-in">
-        <DispatchBoard />
+        <DispatchTaskBoard />
       </TabsContent>
 
       {/* --- 2. Inbox --- */}
