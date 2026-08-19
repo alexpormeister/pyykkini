@@ -12,7 +12,8 @@ const productSchema = z.object({
   category_id: z.string().min(1, "Category is required"),
   description: z.string().max(2000, "Description too long").optional(),
   image_url: z.string().url("Must be valid URL").startsWith('https://', "Must use HTTPS").max(500).optional().or(z.literal('')),
-  base_price: z.number().positive("Price must be positive").min(0.01, "Minimum price is 0.01€").max(10000, "Maximum price is 10000€")
+  base_price: z.number().positive("Price must be positive").min(0.01, "Minimum price is 0.01€").max(10000, "Maximum price is 10000€"),
+  commission_percent: z.number().min(0, "Commission must be 0-100").max(100, "Commission must be 0-100").optional()
 });
 
 Deno.serve(async (req) => {
@@ -106,6 +107,7 @@ Deno.serve(async (req) => {
         description: validated.description || null,
         image_url: validated.image_url || null,
         base_price: validated.base_price,
+        commission_percent: validated.commission_percent ?? 15,
         is_active: true,
         pricing_model: 'FIXED'
       })
