@@ -647,9 +647,12 @@ export const AdminPanel = () => {
               <SelectItem value="coupons">🎫 Kuponkien hallinta</SelectItem>
               <SelectItem value="service-areas">🗺️ Palvelualueet</SelectItem>
               <SelectItem value="settlements">💰 Maksuliikenne</SelectItem>
+              <SelectItem value="dispatch">🚦 Välitys</SelectItem>
               <SelectItem value="chat">
                 💬 Viestit {unreadChatsCount > 0 ? `(${unreadChatsCount})` : ''}
               </SelectItem>
+              <SelectItem value="complaints">⚠️ Reklamaatiot</SelectItem>
+              <SelectItem value="crm">🔍 Tilaushaku</SelectItem>
               <SelectItem value="orders">📋 Kaikki tilaukset</SelectItem>
               <SelectItem value="free-orders">🆓 Vapaat ajot</SelectItem>
               <SelectItem value="reports">📈 Raportit</SelectItem>
@@ -732,6 +735,12 @@ export const AdminPanel = () => {
                     {expandedMenus.support && (
                       <div className="ml-4 mt-2 space-y-1">
                         <button
+                          onClick={() => setActiveTab('dispatch')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'dispatch' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Välitys
+                        </button>
+                        <button
                           onClick={() => setActiveTab('chat')}
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'chat' ? 'bg-primary/10 text-primary font-medium' : ''}`}
                         >
@@ -746,6 +755,18 @@ export const AdminPanel = () => {
                               </Badge>
                             )}
                           </div>
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('complaints')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'complaints' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Reklamaatiot
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('crm')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'crm' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Tilaushaku
                         </button>
                       </div>
                     )}
@@ -1144,9 +1165,21 @@ export const AdminPanel = () => {
             <CouponManagement />
           </TabsContent>
 
-          {/* Chat Tab */}
+          {/* Customer service sections */}
+          <TabsContent value="dispatch" className="animate-fade-in">
+            <CustomerServicePanel section="dispatch" />
+          </TabsContent>
+
           <TabsContent value="chat" className="animate-fade-in">
-            <CustomerServicePanel />
+            <CustomerServicePanel section="inbox" />
+          </TabsContent>
+
+          <TabsContent value="complaints" className="animate-fade-in">
+            <CustomerServicePanel section="complaints" />
+          </TabsContent>
+
+          <TabsContent value="crm" className="animate-fade-in">
+            <CustomerServicePanel section="crm" />
           </TabsContent>
 
           {/* Service Areas Tab */}
