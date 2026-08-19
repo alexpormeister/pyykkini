@@ -622,13 +622,6 @@ export const AdminPanel = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
-        {/* Header */}
-        <div className="mb-4 sm:mb-8">
-          <p className="text-sm sm:text-base text-muted-foreground text-center">
-            Hallitse tilauksia ja seuraa liiketoimintaa
-          </p>
-        </div>
-
         {/* Mobile Navigation - Dropdown */}
         <div className="lg:hidden mb-4">
           <Select value={activeTab} onValueChange={setActiveTab}>

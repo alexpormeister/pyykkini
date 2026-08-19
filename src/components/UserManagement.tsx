@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, User, Mail, Shield, Edit, UserPlus, Phone, MapPin, Trash2 } from 'lucide-react';
+import { Search, User, Mail, Shield, Edit, UserPlus, Phone, MapPin, Trash2, Users, Truck, Briefcase, ArrowLeft } from 'lucide-react';
 import { CreateUserDialog } from './CreateUserDialog';
 
 interface UserWithRole {
@@ -26,8 +26,14 @@ interface UserWithRole {
 }
 
 export const UserManagement = () => {
+  const GROUPS = [
+    { key: 'admin' as const, label: 'Työntekijät', description: 'Ylläpitäjät ja henkilöstö', icon: Briefcase },
+    { key: 'customer' as const, label: 'Asiakkaat', description: 'Palvelun käyttäjät', icon: Users },
+    { key: 'driver' as const, label: 'Kuljettajat', description: 'Noudot ja toimitukset', icon: Truck },
+  ];
   const { toast } = useToast();
   const [users, setUsers] = useState<UserWithRole[]>([]);
+  const [group, setGroup] = useState<'admin' | 'customer' | 'driver' | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
@@ -228,6 +234,8 @@ export const UserManagement = () => {
   };
 
   const filteredUsers = users.filter(user => {
+    const role = user.user_roles?.[0]?.role || 'customer';
+    if (group && role !== group) return false;
     const fullName = [user.profiles?.first_name, user.profiles?.last_name].filter(Boolean).join(' ');
     return user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       fullName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -249,12 +257,42 @@ export const UserManagement = () => {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <User className="h-5 w-5" />
-          Käyttäjähallinta
+          {group ? (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setGroup(null)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          ) : (
+            <User className="h-5 w-5" />
+          )}
+          {group ? GROUPS.find(g => g.key === group)?.label : 'Käyttäjien hallinta'}
         </CardTitle>
-        <CardDescription>Hallitse käyttäjien rooleja ja tietoja</CardDescription>
+        <CardDescription>
+          {group ? 'Hallitse käyttäjien rooleja ja tietoja' : 'Valitse ryhmä, jota haluat hallita'}
+        </CardDescription>
       </CardHeader>
       <CardContent>
+        {!group ? (
+          <div className="grid gap-4 sm:grid-cols-3">
+            {GROUPS.map(({ key, label, description, icon: Icon }) => {
+              const count = users.filter(u => (u.user_roles?.[0]?.role || 'customer') === key).length;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setGroup(key)}
+                  className="text-left border rounded-xl p-6 bg-card hover:shadow-elegant transition-all duration-300"
+                >
+                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-primary mb-4">
+                    <Icon className="h-6 w-6 text-primary-foreground" />
+                  </div>
+                  <h4 className="font-semibold text-lg">{label}</h4>
+                  <p className="text-sm text-muted-foreground">{description}</p>
+                  <p className="text-sm font-medium mt-2">{count} käyttäjää</p>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+        <>
         {/* Search and Create User */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
@@ -467,6 +505,8 @@ export const UserManagement = () => {
           onOpenChange={setShowCreateDialog}
           onUserCreated={fetchUsers}
         />
+        </>
+        )}
       </CardContent>
     </Card>
   );
