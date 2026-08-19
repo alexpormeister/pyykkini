@@ -629,8 +629,6 @@ export const AdminPanel = () => {
               <SelectValue placeholder="Valitse näkymä" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="overview">📊 Yleiskatsaus</SelectItem>
-              <SelectItem value="drivers">🚗 Aktiiviset kuljettajat</SelectItem>
               <SelectItem value="customers">👥 Käyttäjien hallinta</SelectItem>
               <SelectItem value="products">📦 Tuotteiden hallinta</SelectItem>
               <SelectItem value="coupons">🎫 Kuponkien hallinta</SelectItem>
@@ -640,11 +638,7 @@ export const AdminPanel = () => {
               <SelectItem value="chat">
                 💬 Viestit {unreadChatsCount > 0 ? `(${unreadChatsCount})` : ''}
               </SelectItem>
-              <SelectItem value="complaints">⚠️ Reklamaatiot</SelectItem>
               <SelectItem value="crm">🔍 Tilaushaku</SelectItem>
-              <SelectItem value="orders">📋 Kaikki tilaukset</SelectItem>
-              <SelectItem value="free-orders">🆓 Vapaat ajot</SelectItem>
-              <SelectItem value="reports">📈 Raportit</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -666,18 +660,6 @@ export const AdminPanel = () => {
                     </button>
                     {expandedMenus.management && (
                       <div className="ml-4 mt-2 space-y-1">
-                        <button
-                          onClick={() => setActiveTab('overview')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'overview' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Yleiskatsaus
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('drivers')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'drivers' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Aktiiviset kuljettajat
-                        </button>
                         <button
                           onClick={() => setActiveTab('customers')}
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'customers' ? 'bg-primary/10 text-primary font-medium' : ''}`}
