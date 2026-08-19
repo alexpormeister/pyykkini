@@ -113,14 +113,6 @@ export const DriverPanel = () => {
     }
   }, [user]);
 
-  const checkShiftStatus = async () => {
-    if (!user) return;
-
-    try {
-      // no-op placeholder replaced below
-    } catch {}
-  };
-
   const fetchServiceAreas = async () => {
     const { data } = await supabase
       .from('service_areas')
@@ -129,7 +121,7 @@ export const DriverPanel = () => {
     setServiceAreas(data || []);
   };
 
-  const checkShiftStatusInner = async () => {
+  const checkShiftStatus = async () => {
     if (!user) return;
     
     try {
