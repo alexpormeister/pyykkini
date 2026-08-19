@@ -929,7 +929,7 @@ export const DriverPanel = () => {
                                     </div>
                                   </div>
                                   <div className="text-right flex-shrink-0">
-                                    <div className="font-bold text-sm sm:text-base">{order.final_price}€</div>
+                                    <div className="font-bold text-sm sm:text-base">{formatEuro(order.final_price ?? order.price)}</div>
                                   </div>
                                 </div>
                                 
@@ -1021,7 +1021,7 @@ export const DriverPanel = () => {
                             </div>
                             <div className="text-right flex-shrink-0">
                               <div className="text-lg font-bold text-primary leading-none">
-                                {formatEuro(order.final_price)}
+                                {formatEuro(order.final_price ?? order.price)}
                               </div>
                               <div className="text-[11px] text-muted-foreground mt-1">Palkkio</div>
                             </div>
