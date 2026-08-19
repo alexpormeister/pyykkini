@@ -959,13 +959,6 @@ export const DriverPanel = () => {
               </TabsContent>
             </Tabs>
 
-            {!loading && pendingOrders.length === 0 && myOrders.length === 0 && (
-              <div className="text-center py-12">
-                <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-xl font-semibold mb-2">Ei tilauksia</h3>
-                <p className="text-muted-foreground">Tällä hetkellä ei ole uusia tilauksia saatavilla.</p>
-              </div>
-            )}
 
         {/* Time Setting Dialog */}
         <Dialog open={!!showTimeForm} onOpenChange={() => setShowTimeForm(null)}>
