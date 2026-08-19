@@ -1008,106 +1008,98 @@ export const DriverPanel = () => {
 
               <TabsContent value="free">
                 {pendingOrders.length > 0 ? (
-                  <div className="space-y-3 sm:space-y-4">
-                    {/* Pagination controls */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                      <div className="text-xs sm:text-sm text-muted-foreground">
-                        {pendingPage * ordersPerPage + 1}-{Math.min((pendingPage + 1) * ordersPerPage, pendingOrders.length)} / {pendingOrders.length}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setPendingPage(Math.max(0, pendingPage - 1))}
-                          disabled={pendingPage === 0}
-                          className="text-xs px-2 sm:px-3"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                          <span className="hidden sm:inline">Edellinen</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setPendingPage(pendingPage + 1)}
-                          disabled={(pendingPage + 1) * ordersPerPage >= pendingOrders.length}
-                          className="text-xs px-2 sm:px-3"
-                        >
-                          <span className="hidden sm:inline">Seuraava</span>
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {pendingOrders
-                      .slice(pendingPage * ordersPerPage, (pendingPage + 1) * ordersPerPage)
-                      .map((order) => (
+                  <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1 -mr-1">
+                    {pendingOrders.map((order) => {
+                      const tags = getOrderItemTags(order);
+                      return (
                       <Card key={order.id} className="hover:shadow-elegant transition-all duration-300 overflow-hidden">
-                        <CardContent className="p-3 sm:p-6">
-                          {/* Mobile-first layout */}
-                          <div className="flex flex-col gap-3">
-                            {/* Header */}
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-yellow-100">
-                                  <Clock className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-600" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <h3 className="font-semibold text-sm sm:text-base truncate">{getCustomerName(order)}</h3>
-                                  <Badge variant="outline" className="text-xs">{order.service_name}</Badge>
-                                </div>
+                        <CardContent className="p-4 space-y-4">
+                          {/* Header: area + payout */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="flex items-center gap-1.5 text-sm font-semibold">
+                                <MapPin className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                <span className="truncate">{getAreaLabel(order.address)}</span>
                               </div>
-                              <div className="text-right flex-shrink-0">
-                                <div className="font-bold text-base sm:text-lg text-primary">{order.final_price}€</div>
+                              <p className="text-xs text-muted-foreground">
+                                Tarkka katuosoite avautuu hyväksymisen jälkeen
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="text-lg font-bold text-primary leading-none">
+                                {formatEuro(order.final_price)}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground mt-1">Palkkio</div>
+                            </div>
+                          </div>
+
+                          {/* Order contents as tags */}
+                          {tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {tags.map((tag, i) => (
+                                <Badge key={i} variant="secondary" className="text-xs font-normal">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Schedule timeline */}
+                          <div className="space-y-3">
+                            <div className="flex gap-3">
+                              <div className="flex flex-col items-center pt-1">
+                                <div className="h-2 w-2 rounded-full bg-foreground/70" />
+                                <div className="w-px flex-1 bg-border my-1" />
+                              </div>
+                              <div className="pb-1">
+                                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Nouto</div>
+                                <div className="text-sm font-medium">{formatDayTime(order.pickup_date, order.pickup_time)}</div>
                               </div>
                             </div>
-                            
-                            {/* Details */}
-                            <div className="space-y-1">
-                              <div className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground">
-                                <MapPin className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 mt-0.5" />
-                                <span className="break-words">{order.address}</span>
+                            <div className="flex gap-3">
+                              <div className="flex flex-col items-center">
+                                <div className="h-2 w-2 rounded-full border border-foreground/40 bg-background" />
                               </div>
-                              <div className="text-xs sm:text-sm text-muted-foreground">
-                                Tilattu: {new Date(order.created_at).toLocaleString('fi-FI')}
-                              </div>
-                              {renderRugDimensions(order.order_items || [])}
-                            </div>
-                            
-                            {/* Actions - stacked on mobile */}
-                            <div className="flex flex-col gap-2 pt-2 border-t">
-                              <DriverTimeManager 
-                                order={order} 
-                                onOrderUpdate={async () => {
-                                  console.log('🔄 Order accepted via DriverTimeManager, switching to My orders tab');
-                                  setActiveTab('my');
-                                  await fetchOrders();
-                                }}
-                              />
-                              <div className="flex gap-2">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onClick={() => setShowRejectDialog(order.id)} 
-                                  className="flex-1 text-xs sm:text-sm"
-                                >
-                                  <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                                  Hylkää
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => window.open(`tel:${order.phone}`)} 
-                                  className="flex-1 text-xs sm:text-sm"
-                                >
-                                  <Phone className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                                  Soita
-                                </Button>
+                              <div>
+                                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Palautus</div>
+                                <div className="text-sm font-medium">{formatDayTime(order.return_date, order.return_time)}</div>
                               </div>
                             </div>
                           </div>
+
+                          {order.special_instructions && (
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-medium">Lisätiedot:</span> {order.special_instructions}
+                            </p>
+                          )}
+                          {renderRugDimensions(order.order_items || [])}
+
+                          <div className="text-[11px] text-muted-foreground">
+                            Tilattu {formatDateTimeMinutes(order.created_at)}
+                          </div>
+
+                          {/* CTA */}
+                          <div className="space-y-2 pt-1 border-t">
+                            <Button
+                              onClick={() => handleAcceptOrder(order.id)}
+                              className="w-full mt-3"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Ota keikka vastaan
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              onClick={() => setShowRejectDialog(order.id)}
+                              className="w-full text-muted-foreground"
+                            >
+                              <X className="h-4 w-4 mr-2" />
+                              Hylkää
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-12">
