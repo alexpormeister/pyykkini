@@ -239,9 +239,18 @@ export const UserManagement = () => {
     const role = user.user_roles?.[0]?.role || 'customer';
     if (group && role !== group) return false;
     const fullName = [user.profiles?.first_name, user.profiles?.last_name].filter(Boolean).join(' ');
-    return user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      fullName.toLowerCase().includes(searchTerm.toLowerCase());
+    const phone = user.profiles?.phone || '';
+    const term = searchTerm.toLowerCase();
+    return user.email.toLowerCase().includes(term) ||
+      fullName.toLowerCase().includes(term) ||
+      phone.toLowerCase().includes(term);
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE));
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * USERS_PER_PAGE,
+    currentPage * USERS_PER_PAGE
+  );
 
   if (loading) {
     return (
