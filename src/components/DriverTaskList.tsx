@@ -30,6 +30,7 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [codes, setCodes] = useState<Record<string, string>>({});
 
   const fetchTasks = useCallback(async () => {
     const { data, error } = await supabase
@@ -68,22 +69,23 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
   const completeTask = async (task: TaskRow) => {
     setBusy(task.id);
     try {
-      const { error } = await supabase
-        .from("delivery_tasks")
-        .update({ status: "completed", completed_at: new Date().toISOString() })
-        .eq("id", task.id);
-      if (error) throw error;
-
       if (task.task_type === "pickup") {
-        await supabase
-          .from("orders")
-          .update({ tracking_status: "PICKED_UP" as never, actual_pickup_time: new Date().toISOString() })
-          .eq("id", task.order_id);
+        const { data, error } = await supabase.rpc("driver_complete_pickup" as never, {
+          p_task_id: task.id,
+        } as never);
+        if (error) throw error;
+        const code = (data as { code?: string } | null)?.code || "";
+        setCodes((prev) => ({ ...prev, [task.order_id]: code }));
         toast({
-          title: "Nouto kuitattu",
-          description: `Palkkio ${Number(task.driver_payout).toFixed(2)} € • tilaus siirtyi pesulan työjonoon`,
+          title: `Luovutuskoodi ${code}`,
+          description: "Kerro koodi pesulalle, jotta he voivat kuitata pyykit vastaanotetuiksi.",
         });
       } else {
+        const { error } = await supabase
+          .from("delivery_tasks")
+          .update({ status: "completed", completed_at: new Date().toISOString() })
+          .eq("id", task.id);
+        if (error) throw error;
         await supabase
           .from("orders")
           .update({
@@ -140,9 +142,16 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
       <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1 -mr-1">
         {tasks.map((task, idx) => {
           const isPickup = task.task_type === "pickup";
+          const code = codes[task.order_id];
           return (
             <Card key={task.id} className="overflow-hidden">
               <CardContent className="p-4 space-y-3">
+                {code && isPickup && (
+                  <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Luovutuskoodi pesulalle</p>
+                    <p className="text-2xl font-bold tracking-[0.3em]">{code}</p>
+                  </div>
+                )}
                 <div className="flex items-start justify-between gap-2">
                   <span className="flex items-center gap-2 min-w-0">
                     <Badge variant="secondary" className="shrink-0">{task.route_order ?? idx + 1}</Badge>
