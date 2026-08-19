@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { DriverTimeManager } from "./DriverTimeManager";
 import { DriverOpenTasks } from "@/components/DriverOpenTasks";
+import { DriverCompletedTasks } from "@/components/DriverCompletedTasks";
 import { DriverTaskList } from "./DriverTaskList";
 
 const getStatusIcon = (status: string) => {
@@ -950,136 +951,7 @@ export const DriverPanel = () => {
               </TabsContent>
 
               <TabsContent value="my">
-                <Card className="mb-4 sm:mb-6">
-                  <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:gap-4">
-                    <div className="flex-1">
-                      <Label className="text-xs sm:text-sm">Tila</Label>
-                      <Select value={myStatusFilter} onValueChange={(v) => setMyStatusFilter(v as any)}>
-                        <SelectTrigger className="text-xs sm:text-sm"><SelectValue placeholder="Kaikki" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Kaikki</SelectItem>
-                          <SelectItem value="accepted">Hyväksytty</SelectItem>
-                          <SelectItem value="picking_up">Noutamassa</SelectItem>
-                          <SelectItem value="washing">Pesussa</SelectItem>
-                          <SelectItem value="returning">Palautumassa</SelectItem>
-                          <SelectItem value="delivered">Toimitettu</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex-1">
-                      <Label className="text-xs sm:text-sm">Järjestys</Label>
-                      <Select value={mySort} onValueChange={(v) => setMySort(v as any)}>
-                        <SelectTrigger className="text-xs sm:text-sm"><SelectValue placeholder="Uusimmat ensin" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="newest">Uusimmat ensin</SelectItem>
-                          <SelectItem value="oldest">Vanhimmat ensin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {myOrders.length > 0 ? (
-                  <div className="space-y-3 sm:space-y-4">
-                    {[...myOrders]
-                      .filter(o => myStatusFilter === 'all' || o.status === myStatusFilter)
-                      .sort((a, b) => mySort === 'newest' ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime() : new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                      .map((order) => {
-                        const StatusIcon = getStatusIcon(order.status);
-                        const earnings = getDriverEarnings(order);
-                        // Can progress if status isn't delivered
-                        const canProgress = order.status !== 'delivered';
-                        return (
-                          <Card key={order.id} className="hover:shadow-elegant transition-all duration-300 overflow-hidden">
-                            <CardContent className="p-3 sm:p-6">
-                              {/* Mobile-first layout */}
-                              <div className="flex flex-col gap-3">
-                                {/* Header with status */}
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                    <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-primary/10">
-                                      <StatusIcon className="h-4 w-4 sm:h-6 sm:w-6 text-primary" />
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <h3 className="font-bold text-sm sm:text-lg truncate">👤 {getCustomerName(order)}</h3>
-                                      <Badge className={`${getStatusColor(order.status)} text-xs`}>
-                                        {getStatusText(order.status)}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                  <div className="text-right flex-shrink-0">
-                                    <div className="font-bold text-sm sm:text-base text-primary leading-none">
-                                      {formatEuro(earnings.total)}
-                                    </div>
-                                    <div className="text-[11px] text-muted-foreground mt-1">Palkkiosi</div>
-                                  </div>
-                                </div>
-                                
-                                {/* Order details */}
-                                <div className="space-y-1">
-                                  <div className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground">
-                                    <MapPin className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 mt-0.5" />
-                                    <span className="break-words">{order.address}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                                    <Phone className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                    {order.phone}
-                                  </div>
-                                  <div className="text-xs sm:text-sm text-muted-foreground">
-                                    {order.service_name}
-                                  </div>
-                                  {order.special_instructions && (
-                                    <div className="text-xs sm:text-sm text-muted-foreground mt-1 p-2 bg-muted rounded">
-                                      <strong>Lisätiedot:</strong> {order.special_instructions}
-                                    </div>
-                                  )}
-                                  {renderRugDimensions(order.order_items || [])}
-                                  {renderWeightInfo(order)}
-                                </div>
-                                
-                                {/* Action buttons - stacked on mobile */}
-                                <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                                  {canProgress && (
-                                    <Button 
-                                      variant="default" 
-                                      size="sm"
-                                      onClick={() => handleStatusUpdate(order.id, getNextStatus(order.status))}
-                                      className="w-full sm:w-auto text-xs sm:text-sm"
-                                    >
-                                      {getNextStatusText(order.status)}
-                                    </Button>
-                                  )}
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    onClick={() => window.open(`tel:${order.phone}`)} 
-                                    className="w-full sm:w-auto text-xs sm:text-sm"
-                                  >
-                                    <Phone className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                                    Soita asiakkaalle
-                                  </Button>
-                                </div>
-                              </div>
-                              
-                              {/* Time Manager */}
-                              <div className="border-t mt-3 pt-3 sm:mt-4 sm:pt-4">
-                                <DriverTimeManager 
-                                  order={order} 
-                                  onOrderUpdate={fetchOrders}
-                                />
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="text-xl font-semibold mb-2">Ei omia tilauksia</h3>
-                    <p className="text-muted-foreground">Hyväksy vapaita tilauksia aloittaaksesi.</p>
-                  </div>
-                )}
+                <DriverCompletedTasks />
               </TabsContent>
 
               <TabsContent value="free">

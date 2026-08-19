@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,8 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
   const [info, setInfo] = useState<Record<string, HandoverInfo>>({});
   const [weighTask, setWeighTask] = useState<TaskRow | null>(null);
   const [weight, setWeight] = useState("");
+  const [weighMode, setWeighMode] = useState<"pickup" | "return">("pickup");
+  const readyNotified = useRef<Set<string>>(new Set());
 
   const fetchTasks = useCallback(async () => {
     const { data, error } = await supabase
@@ -86,11 +88,27 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
     const channel = supabase
       .channel("driver_tasks")
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_tasks" }, () => fetchTasks())
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => fetchTasks())
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [fetchTasks]);
+
+  // Notify the driver when the laundry has finished an order they are returning
+  useEffect(() => {
+    for (const task of tasks) {
+      if (task.task_type !== "delivery") continue;
+      const track = info[task.order_id]?.tracking_status;
+      if (track === "PACKAGING" && !readyNotified.current.has(task.id)) {
+        readyNotified.current.add(task.id);
+        toast({
+          title: "Tilaus valmiina noudettavaksi",
+          description: `${shortId(task.order_id)} on pesty ja pakattu — voit noutaa sen pesulalta.`,
+        });
+      }
+    }
+  }, [tasks, info, toast]);
 
   const startTask = async (task: TaskRow) => {
     setBusy(task.id);
@@ -135,19 +153,36 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
           description: "Vie pyykit pesulaan ja kerro koodi. Keikka sulkeutuu, kun pesula kuittaa sen.",
         });
       } else {
-        const { data, error } = await supabase.rpc("driver_complete_delivery" as never, {
-          p_task_id: task.id,
-        } as never);
-        if (error) throw error;
-        const result = data as { success?: boolean; reason?: string } | null;
-        if (!result?.success) {
+        const kg = Number(String(weight).replace(",", "."));
+        if (!kg || kg <= 0) {
           toast({
-            title: "Menokyyti täytyy kuitata ensin",
-            description: "Paluukeikan voi kuitata vasta kun tilaus on noudettu asiakkaalta pesulaan.",
+            title: "Punnitse pyykit",
+            description: "Kirjaa palautuspaino kiloina ennen kuittausta.",
             variant: "destructive",
           });
           return;
         }
+        const { data, error } = await supabase.rpc("driver_complete_delivery" as never, {
+          p_task_id: task.id,
+          p_weight_kg: kg,
+        } as never);
+        if (error) throw error;
+        const result = data as { success?: boolean; reason?: string } | null;
+        if (!result?.success) {
+          const reasons: Record<string, string> = {
+            pickup_not_done: "Paluukeikan voi kuitata vasta kun tilaus on noudettu asiakkaalta pesulaan.",
+            not_picked_from_laundry: "Merkitse ensin tilaus noudetuksi pesulalta.",
+            weight_required: "Kirjaa palautuspaino kiloina.",
+          };
+          toast({
+            title: "Kuittaus ei onnistunut",
+            description: reasons[result?.reason || ""] || "Tarkista tilauksen tila ja yritä uudelleen.",
+            variant: "destructive",
+          });
+          return;
+        }
+        setWeighTask(null);
+        setWeight("");
         toast({
           title: "Toimitus kuitattu",
           description: `Palkkio ${Number(task.driver_payout).toFixed(2)} € • tilaus valmis`,
@@ -157,6 +192,32 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
     } catch (error) {
       console.error(error);
       toast({ title: "Virhe", description: "Kuittaus epäonnistui", variant: "destructive" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const pickupFromLaundry = async (task: TaskRow) => {
+    setBusy(task.id);
+    try {
+      const { data, error } = await supabase.rpc("driver_pickup_from_laundry" as never, {
+        p_task_id: task.id,
+      } as never);
+      if (error) throw error;
+      const result = data as { success?: boolean; reason?: string } | null;
+      if (!result?.success) {
+        toast({
+          title: "Tilaus ei ole vielä valmis",
+          description: "Pesula ei ole merkinnyt tilausta valmiiksi. Saat ilmoituksen kun se on noudettavissa.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: "Noudettu pesulalta", description: "Tilaus on nyt matkalla asiakkaalle." });
+      fetchTasks();
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Virhe", description: "Toiminto epäonnistui", variant: "destructive" });
     } finally {
       setBusy(null);
     }
@@ -199,6 +260,9 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
           const orderInfo = info[task.order_id];
           const code = orderInfo?.access_code;
           const awaiting = task.status === "awaiting_laundry";
+          const track = orderInfo?.tracking_status;
+          const laundryReady = !isPickup && (track === "PACKAGING" || track === "OUT_FOR_DELIVERY" || track === "COMPLETED");
+          const onTheWay = !isPickup && task.status === "in_progress";
           return (
             <Card key={task.id} className="overflow-hidden">
               <CardContent className="p-4 space-y-3">
@@ -269,7 +333,29 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
                   </Button>
                 </div>
 
-                {task.status === "assigned" ? (
+                {!isPickup && !laundryReady ? (
+                  <div className="rounded-lg border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
+                    Odottaa pesulaa. Saat ilmoituksen kun tilaus on pesty ja valmiina noudettavaksi.
+                  </div>
+                ) : !isPickup ? (
+                  onTheWay ? (
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        setWeight("");
+                        setWeighMode("return");
+                        setWeighTask(task);
+                      }}
+                      disabled={busy === task.id}
+                    >
+                      <Scale className="h-4 w-4 mr-1.5" /> Punnitse ja kuittaa toimitus
+                    </Button>
+                  ) : (
+                    <Button className="w-full" onClick={() => pickupFromLaundry(task)} disabled={busy === task.id}>
+                      <Package className="h-4 w-4 mr-1.5" /> Noudettu pesulalta
+                    </Button>
+                  )
+                ) : task.status === "assigned" ? (
                   <Button className="w-full" onClick={() => startTask(task)} disabled={busy === task.id}>
                     <Truck className="h-4 w-4 mr-1.5" /> Aloita tehtävä
                   </Button>
@@ -282,17 +368,14 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
                   <Button
                     className="w-full"
                     onClick={() => {
-                      if (isPickup) {
-                        setWeight("");
-                        setWeighTask(task);
-                      } else {
-                        completeTask(task);
-                      }
+                      setWeight("");
+                      setWeighMode("pickup");
+                      setWeighTask(task);
                     }}
                     disabled={busy === task.id}
                   >
                     <CheckCircle className="h-4 w-4 mr-1.5" />
-                    {isPickup ? "Punnitse ja kuittaa nouto" : "Merkitse toimitetuksi"}
+                    Punnitse ja kuittaa nouto
                   </Button>
                 )}
               </CardContent>
@@ -305,10 +388,12 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Scale className="h-4 w-4" /> Punnitse noutopaino
+              <Scale className="h-4 w-4" /> {weighMode === "pickup" ? "Punnitse noutopaino" : "Punnitse palautuspaino"}
             </DialogTitle>
             <DialogDescription>
-              Kirjaa pyykkien paino kiloina. Saat tämän jälkeen luovutuskoodin pesulalle.
+              {weighMode === "pickup"
+                ? "Kirjaa pyykkien paino kiloina. Saat tämän jälkeen luovutuskoodin pesulalle."
+                : "Kirjaa palautettavien pyykkien paino kiloina. Tilaus merkitään tämän jälkeen suoritetuksi."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -330,7 +415,7 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
               onClick={() => weighTask && completeTask(weighTask)}
               disabled={!weight || busy === weighTask?.id}
             >
-              Kuittaa nouto
+              {weighMode === "pickup" ? "Kuittaa nouto" : "Kuittaa toimitus"}
             </Button>
           </DialogFooter>
         </DialogContent>
