@@ -175,7 +175,9 @@ export const UserManagement = () => {
       last_name: user.profiles?.last_name || '',
       email: user.email,
       phone: user.profiles?.phone || '',
-      address: user.profiles?.address || ''
+      address: user.profiles?.address || '',
+      company_name: user.profiles?.company_name || '',
+      business_id: user.profiles?.business_id || ''
     });
     setShowEditDialog(true);
   };
@@ -192,11 +194,22 @@ export const UserManagement = () => {
           last_name: editFormData.last_name,
           email: editFormData.email,
           phone: editFormData.phone,
-          address: editFormData.address
+          address: editFormData.address,
+          company_name: editFormData.company_name || null,
+          business_id: editFormData.business_id || null
         })
         .eq('user_id', editingUser.id);
 
       if (error) throw error;
+
+      // Keep laundry name in sync with company name
+      const laundry = laundryByUser[editingUser.id];
+      if (laundry && editFormData.company_name) {
+        await supabase
+          .from('laundries')
+          .update({ name: editFormData.company_name, business_id: editFormData.business_id || null })
+          .eq('id', laundry.id);
+      }
 
       toast({
         title: 'Käyttäjä päivitetty',
