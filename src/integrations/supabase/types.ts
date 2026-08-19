@@ -1165,10 +1165,28 @@ export type Database = {
         Args: { p_take_return?: boolean; p_task_id: string }
         Returns: Json
       }
-      driver_complete_delivery: { Args: { p_task_id: string }; Returns: Json }
+      driver_complete_delivery:
+        | { Args: { p_task_id: string }; Returns: Json }
+        | { Args: { p_task_id: string; p_weight_kg?: number }; Returns: Json }
       driver_complete_pickup: {
         Args: { p_task_id: string; p_weight_kg?: number }
         Returns: Json
+      }
+      driver_pickup_from_laundry: { Args: { p_task_id: string }; Returns: Json }
+      get_driver_completed_tasks: {
+        Args: never
+        Returns: {
+          completed_at: string
+          driver_payout: number
+          id: string
+          items: string[]
+          order_id: string
+          pickup_weight_kg: number
+          return_weight_kg: number
+          scheduled_date: string
+          scheduled_time_slot: string
+          task_type: string
+        }[]
       }
       get_driver_orders: {
         Args: never
