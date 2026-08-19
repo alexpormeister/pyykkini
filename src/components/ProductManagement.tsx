@@ -818,6 +818,41 @@ export const ProductManagement = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* New laundry dialog */}
+      <Dialog open={showLaundryDialog} onOpenChange={setShowLaundryDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Lisää uusi pesula</DialogTitle>
+            <DialogDescription>Pesula tulee valittavaksi tuotteiden hinnastoon</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateLaundry} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="laundry-name">Pesulan nimi *</Label>
+              <Input
+                id="laundry-name"
+                value={laundryForm.name}
+                onChange={(e) => setLaundryForm({ ...laundryForm, name: e.target.value })}
+                placeholder="Esim. Pesula Oy Helsinki"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="laundry-city">Kaupunki</Label>
+              <Input
+                id="laundry-city"
+                value={laundryForm.city}
+                onChange={(e) => setLaundryForm({ ...laundryForm, city: e.target.value })}
+                placeholder="Helsinki"
+              />
+            </div>
+            <Button type="submit" className="w-full">
+              <Plus className="h-4 w-4 mr-2" />
+              Tallenna pesula
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
