@@ -55,6 +55,7 @@ interface Settlement {
   status: string;
   paid_at: string | null;
   created_at: string;
+  order_ids: string[] | null;
 }
 
 interface Contract {
@@ -290,6 +291,34 @@ export const LaundryPanel = () => {
 
   const pendingPayout = useMemo(
     () => settlements.filter((s) => s.status !== "paid").reduce((a, s) => a + Number(s.net_amount || 0), 0),
+    [settlements],
+  );
+
+  // Tilaukset, jotka on toimitettu mutta joita ei ole vielä sisällytetty mihinkään tilityserään
+  const settledOrderIds = useMemo(() => {
+    const set = new Set<string>();
+    settlements.forEach((s) => (s.order_ids || []).forEach((id) => set.add(id)));
+    return set;
+  }, [settlements]);
+
+  const upcomingOrders = useMemo(
+    () =>
+      orders.filter(
+        (o) =>
+          (o.status === "delivered" || (o.tracking_status || "").toUpperCase() === "COMPLETED") &&
+          !settledOrderIds.has(o.id),
+      ),
+    [orders, settledOrderIds],
+  );
+
+  const upcomingPayout = useMemo(
+    () => upcomingOrders.reduce((sum, o) => sum + laundryTotal(o), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [upcomingOrders, prices],
+  );
+
+  const paidTotal = useMemo(
+    () => settlements.filter((s) => s.status === "paid").reduce((a, s) => a + Number(s.net_amount || 0), 0),
     [settlements],
   );
 
@@ -556,7 +585,21 @@ export const LaundryPanel = () => {
         </TabsContent>
 
         <TabsContent value="money" className="mt-4 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="border-primary/40">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Tulossa tilitykseen</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 text-3xl font-bold">
+                  <Euro className="h-6 w-6 text-primary" />
+                  {eur(upcomingPayout)}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {upcomingOrders.length} toimitettua tilausta odottaa tilityserää
+                </p>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Odottaa maksua</CardTitle>
@@ -566,6 +609,7 @@ export const LaundryPanel = () => {
                   <Euro className="h-6 w-6 text-primary" />
                   {eur(pendingPayout)}
                 </div>
+                <p className="mt-1 text-xs text-muted-foreground">Avoimet tilityserät</p>
               </CardContent>
             </Card>
             <Card>
@@ -579,10 +623,55 @@ export const LaundryPanel = () => {
                 </div>
               </CardContent>
             </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Maksettu yhteensä</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 text-3xl font-bold">
+                  <Euro className="h-6 w-6 text-primary" />
+                  {eur(paidTotal)}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Tulossa tilitykseen</CardTitle>
+            </CardHeader>
             <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tilaus</TableHead>
+                    <TableHead>Toimitettu</TableHead>
+                    <TableHead className="text-right">Osuutesi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {upcomingOrders.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
+                        Ei tilitettävää tällä hetkellä
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {upcomingOrders.map((o) => (
+                    <TableRow key={o.id}>
+                      <TableCell className="font-medium">#{orderRef(o)}</TableCell>
+                      <TableCell>{new Date(o.updated_at || o.created_at).toLocaleDateString("fi-FI")}</TableCell>
+                      <TableCell className="text-right font-semibold">{eur(laundryTotal(o))}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="border-b px-4 py-3 text-base font-semibold">Tilityserät</div>
               <Table>
                 <TableHeader>
                   <TableRow>
