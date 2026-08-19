@@ -30,11 +30,16 @@ interface PriceRow {
   exists: boolean;
 }
 
-export const LaundryPricingManagement = () => {
+interface LaundryPricingManagementProps {
+  laundryId?: string;
+  hideHeader?: boolean;
+}
+
+export const LaundryPricingManagement = ({ laundryId, hideHeader }: LaundryPricingManagementProps = {}) => {
   const { toast } = useToast();
   const [laundries, setLaundries] = useState<Laundry[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedLaundry, setSelectedLaundry] = useState<string>('');
+  const [selectedLaundry, setSelectedLaundry] = useState<string>(laundryId || '');
   const [rows, setRows] = useState<Record<string, PriceRow>>({});
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -48,11 +53,12 @@ export const LaundryPricingManagement = () => {
       ]);
       setLaundries(l || []);
       setProducts((p || []) as Product[]);
-      if (l && l.length > 0) setSelectedLaundry(l[0].id);
+      if (laundryId) setSelectedLaundry(laundryId);
+      else if (l && l.length > 0) setSelectedLaundry(l[0].id);
       setLoading(false);
     };
     load();
-  }, []);
+  }, [laundryId]);
 
   useEffect(() => {
     if (!selectedLaundry) return;
@@ -115,7 +121,8 @@ export const LaundryPricingManagement = () => {
   const activeCount = Object.values(rows).filter((r) => r.is_active).length;
 
   return (
-    <Card className="mb-6">
+    <Card className={hideHeader ? 'border-0 shadow-none' : 'mb-6'}>
+      {!hideHeader && (
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <WashingMachine className="h-5 w-5" />
@@ -125,7 +132,8 @@ export const LaundryPricingManagement = () => {
           Valitse pesula ja määritä sen veloittamat hinnat. Vain aktivoidut tuotteet ovat pesulalla käytössä.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      )}
+      <CardContent className={hideHeader ? 'space-y-4 p-0' : 'space-y-4'}>
         {loading ? (
           <p className="text-sm text-muted-foreground">Ladataan…</p>
         ) : laundries.length === 0 ? (
@@ -133,6 +141,7 @@ export const LaundryPricingManagement = () => {
         ) : (
           <>
             <div className="flex flex-col sm:flex-row gap-3">
+              {!laundryId && (
               <div className="sm:w-72">
                 <Label className="text-xs">Pesula</Label>
                 <Select value={selectedLaundry} onValueChange={setSelectedLaundry}>
@@ -148,6 +157,7 @@ export const LaundryPricingManagement = () => {
                   </SelectContent>
                 </Select>
               </div>
+              )}
               <div className="flex-1">
                 <Label className="text-xs">Hae tuotetta</Label>
                 <div className="relative">
