@@ -81,19 +81,19 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
           description: "Kerro koodi pesulalle, jotta he voivat kuitata pyykit vastaanotetuiksi.",
         });
       } else {
-        const { error } = await supabase
-          .from("delivery_tasks")
-          .update({ status: "completed", completed_at: new Date().toISOString() })
-          .eq("id", task.id);
+        const { data, error } = await supabase.rpc("driver_complete_delivery" as never, {
+          p_task_id: task.id,
+        } as never);
         if (error) throw error;
-        await supabase
-          .from("orders")
-          .update({
-            tracking_status: "COMPLETED" as never,
-            status: "delivered" as never,
-            actual_return_time: new Date().toISOString(),
-          })
-          .eq("id", task.order_id);
+        const result = data as { success?: boolean; reason?: string } | null;
+        if (!result?.success) {
+          toast({
+            title: "Menokyyti täytyy kuitata ensin",
+            description: "Paluukeikan voi kuitata vasta kun tilaus on noudettu asiakkaalta pesulaan.",
+            variant: "destructive",
+          });
+          return;
+        }
         toast({
           title: "Toimitus kuitattu",
           description: `Palkkio ${Number(task.driver_payout).toFixed(2)} € • tilaus valmis`,

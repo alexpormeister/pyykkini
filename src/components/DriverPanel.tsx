@@ -14,6 +14,7 @@ import { SupportChatWidget } from "@/components/SupportChatWidget";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { DriverTimeManager } from "./DriverTimeManager";
+import { DriverOpenTasks } from "@/components/DriverOpenTasks";
 import { DriverTaskList } from "./DriverTaskList";
 
 const getStatusIcon = (status: string) => {
@@ -1082,108 +1083,7 @@ export const DriverPanel = () => {
               </TabsContent>
 
               <TabsContent value="free">
-                {pendingOrders.length > 0 ? (
-                  <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1 -mr-1">
-                    {pendingOrders.map((order) => {
-                      const tags = getOrderItemTags(order);
-                      const earnings = getDriverEarnings(order);
-                      return (
-                      <Card key={order.id} className="hover:shadow-elegant transition-all duration-300 overflow-hidden">
-                        <CardContent className="p-4 space-y-4">
-                          {/* Header: area + payout */}
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1 space-y-1">
-                              <div className="flex items-center gap-1.5 text-sm font-semibold">
-                                <MapPin className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                                <span className="truncate">{getAreaLabel(order.address)}</span>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                Tarkka katuosoite avautuu hyväksymisen jälkeen
-                              </p>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <div className="text-lg font-bold text-primary leading-none">
-                                {formatEuro(earnings.total)}
-                              </div>
-                              <div className="text-[11px] text-muted-foreground mt-1">Palkkiosi</div>
-                            </div>
-                          </div>
-
-                          {/* Order contents as tags */}
-                          {tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {tags.map((tag, i) => (
-                                <Badge key={i} variant="secondary" className="text-xs font-normal">
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Schedule timeline */}
-                          <div className="space-y-3">
-                            <div className="flex gap-3">
-                              <div className="flex flex-col items-center pt-1">
-                                <div className="h-2 w-2 rounded-full bg-foreground/70" />
-                                <div className="w-px flex-1 bg-border my-1" />
-                              </div>
-                              <div className="pb-1">
-                                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Nouto</div>
-                                <div className="text-sm font-medium">{formatDayTime(order.pickup_date, order.pickup_time)}</div>
-                              </div>
-                            </div>
-                            <div className="flex gap-3">
-                              <div className="flex flex-col items-center">
-                                <div className="h-2 w-2 rounded-full border border-foreground/40 bg-background" />
-                              </div>
-                              <div>
-                                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Palautus</div>
-                                <div className="text-sm font-medium">{formatDayTime(order.return_date, order.return_time)}</div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {order.special_instructions && (
-                            <p className="text-xs text-muted-foreground">
-                              <span className="font-medium">Lisätiedot:</span> {order.special_instructions}
-                            </p>
-                          )}
-                          {renderRugDimensions(order.order_items || [])}
-
-                          <div className="text-[11px] text-muted-foreground">
-                            Tilattu {formatDateTimeMinutes(order.created_at)}
-                          </div>
-
-                          {/* CTA */}
-                          <div className="space-y-2 pt-1 border-t">
-                            <Button
-                              onClick={() => handleAcceptOrder(order.id)}
-                              className="w-full mt-3"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Ota keikka vastaan
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              onClick={() => setShowRejectDialog(order.id)}
-                              className="w-full text-muted-foreground"
-                            >
-                              <X className="h-4 w-4 mr-2" />
-                              Hylkää
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="text-xl font-semibold mb-2">Ei vapaita tilauksia</h3>
-                    <p className="text-muted-foreground">Tarkista myöhemmin uudelleen.</p>
-                  </div>
-                )}
+                <DriverOpenTasks onClaimed={fetchOrders} />
               </TabsContent>
             </Tabs>
 
