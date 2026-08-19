@@ -88,8 +88,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Resolve laundry-specific purchase price (fallback: product base price)
-      let laundryPrice = Number(product.base_price);
+      // Customer price is the product price shown in the catalog
+      const customerUnitPrice = Number(product.base_price);
+
+      // Resolve laundry-specific purchase price (fallback: customer price -> zero margin)
+      let laundryPrice = customerUnitPrice;
       if (validated.laundryId) {
         const { data: laundryPriceRow } = await supabaseClient
           .from('product_laundry_prices')
@@ -103,13 +106,14 @@ Deno.serve(async (req) => {
 
       const platformFeeType = product.platform_fee_type ?? 'percent';
       const platformFeeValue = Number(product.platform_fee_value ?? 15);
-      const driverFeeType = product.driver_fee_type ?? 'percent';
-      const driverFeeValue = Number(product.driver_fee_value ?? 10);
 
       const round2 = (n: number) => Math.round(n * 100) / 100;
-      const platformFee = round2(platformFeeType === 'fixed' ? platformFeeValue : laundryPrice * platformFeeValue / 100);
-      const driverPayout = round2(driverFeeType === 'fixed' ? driverFeeValue : laundryPrice * driverFeeValue / 100);
-      const unitPrice = round2(laundryPrice + platformFee + driverPayout);
+      // Margin = customer price - laundry price. Platform takes its % of the margin,
+      // the rest is the drivers' payout (split 50/50 between pickup and return).
+      const margin = Math.max(round2(customerUnitPrice - laundryPrice), 0);
+      const platformFee = round2(platformFeeType === 'fixed' ? Math.min(platformFeeValue, margin) : margin * platformFeeValue / 100);
+      const driverPayout = round2(margin - platformFee);
+      const unitPrice = customerUnitPrice;
 
       const itemTotal = round2(unitPrice * item.quantity);
       subtotal += itemTotal;

@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
       const platformFee = v?.platformFee != null ? round2(Number(v.platformFee) * item.quantity) : null;
       const driverPayout = v?.driverPayout != null
         ? round2(Number(v.driverPayout) * item.quantity)
-        : round2(lineTotal * 0.85);
+        : round2(lineTotal * 0.15);
       const commission = laundryPrice && platformFee !== null && lineTotal > 0
         ? round2((platformFee / lineTotal) * 100)
         : 15;

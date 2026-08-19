@@ -120,11 +120,20 @@ export const LaundryPanel = () => {
   const fetchData = useCallback(async () => {
     if (!laundryId) return;
     setLoading(true);
-    const [o, s, c, p] = await Promise.all([
+    const itemsSelect =
+      "id, access_code, service_name, special_instructions, pickup_date, pickup_time, return_date, return_time, status, tracking_status, laundry_status, final_price, created_at, updated_at, order_items(id, service_type, service_name, product_name, quantity, laundry_price, total_price)";
+    const [o, unclaimed, s, c, p] = await Promise.all([
       supabase
         .from("orders")
-        .select("id, access_code, service_name, special_instructions, pickup_date, pickup_time, return_date, return_time, status, tracking_status, laundry_status, created_at, updated_at, order_items(id, service_name, product_name, quantity, laundry_price, total_price)")
+        .select(itemsSelect)
         .eq("laundry_id", laundryId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("orders")
+        .select(itemsSelect)
+        .is("laundry_id", null)
+        .eq("laundry_status", "pending")
+        .eq("status", "pending")
         .order("created_at", { ascending: false }),
       supabase
         .from("settlements")
@@ -135,7 +144,7 @@ export const LaundryPanel = () => {
       supabase.from("laundry_contracts").select("*").eq("laundry_id", laundryId).order("created_at", { ascending: false }),
       supabase.from("product_laundry_prices").select("product_id, price").eq("laundry_id", laundryId).eq("is_active", true),
     ]);
-    setOrders((o.data || []) as unknown as LaundryOrder[]);
+    setOrders([...(unclaimed.data || []), ...(o.data || [])] as unknown as LaundryOrder[]);
     setSettlements((s.data || []) as Settlement[]);
     setContracts((c.data || []) as Contract[]);
     setPrices((p.data || []) as { product_id: string; price: number }[]);
@@ -158,12 +167,23 @@ export const LaundryPanel = () => {
   const history = orders.filter((o) => ["OUT_FOR_DELIVERY", "COMPLETED"].includes(track(o)) || o.status === "delivered");
 
   const decide = async (order: LaundryOrder, decision: "accepted" | "rejected") => {
-    const { error } = await supabase
-      .from("orders")
-      .update({ laundry_status: decision } as never)
-      .eq("id", order.id);
+    if (!laundryId) return;
+    const { data, error } = await supabase.rpc("laundry_decide_order" as never, {
+      p_order_id: order.id,
+      p_laundry_id: laundryId,
+      p_decision: decision,
+    } as never);
     if (error) {
       toast({ title: "Päivitys epäonnistui", description: error.message, variant: "destructive" });
+      return;
+    }
+    const result = data as { success?: boolean; reason?: string } | null;
+    if (result && result.success === false) {
+      toast({
+        title: result.reason === "already_claimed" ? "Toinen pesula ehti ensin" : "Tilaus on jo käsitelty",
+        variant: "destructive",
+      });
+      fetchData();
       return;
     }
     toast({
@@ -224,7 +244,11 @@ export const LaundryPanel = () => {
   };
 
   const laundryTotal = (o: LaundryOrder) =>
-    o.order_items.reduce((sum, it) => sum + Number(it.laundry_price ?? 0) * (it.quantity || 1), 0);
+    o.order_items.reduce((sum, it) => {
+      if (it.laundry_price != null) return sum + Number(it.laundry_price);
+      const own = prices.find((p) => p.product_id === (it as { service_type?: string }).service_type);
+      return sum + Number(own?.price ?? 0) * (it.quantity || 1);
+    }, 0);
 
   const pendingPayout = useMemo(
     () => settlements.filter((s) => s.status !== "paid").reduce((a, s) => a + Number(s.net_amount || 0), 0),
