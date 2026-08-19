@@ -250,7 +250,6 @@ export const CustomerServicePanel = ({ section }: { section?: CSSection }) => {
     chats.forEach((c) => {
       const role = roleMap[c.user_id];
       if (role === "driver") groups.driver.push(c);
-      else if (role === "admin") groups.laundry.push(c);
       else groups.customer.push(c);
     });
     return groups;
@@ -324,12 +323,11 @@ export const CustomerServicePanel = ({ section }: { section?: CSSection }) => {
   return (
     <Tabs value={section ?? undefined} defaultValue={section ? undefined : "dispatch"} className="space-y-4">
       {!section && (
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 h-auto">
           <TabsTrigger value="dispatch" className="text-xs sm:text-sm">Välitys</TabsTrigger>
           <TabsTrigger value="inbox" className="text-xs sm:text-sm">
             Viestit{chats.filter((c) => !c.is_read).length > 0 ? ` (${chats.filter((c) => !c.is_read).length})` : ""}
           </TabsTrigger>
-          <TabsTrigger value="complaints" className="text-xs sm:text-sm">Reklamaatiot</TabsTrigger>
           <TabsTrigger value="crm" className="text-xs sm:text-sm">Tilaushaku</TabsTrigger>
         </TabsList>
       )}
@@ -572,98 +570,6 @@ export const CustomerServicePanel = ({ section }: { section?: CSSection }) => {
         </div>
       </TabsContent>
 
-      {/* --- 3. Complaints --- */}
-      <TabsContent value="complaints" className="animate-fade-in space-y-3">
-        {complaints.length === 0 && (
-          <Card>
-            <CardContent className="p-8 text-center text-sm text-muted-foreground">
-              Ei ilmoitettuja poikkeamia
-            </CardContent>
-          </Card>
-        )}
-        {complaints.map((c) => {
-          const order = orders.find((o) => o.id === c.order_id);
-          return (
-            <Card key={c.id}>
-              <CardContent className="p-4 space-y-3">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">
-                      {ISSUE_LABELS[c.issue_type] || c.issue_type}
-                      {order ? ` · ${shortId(order.id)}` : ""}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {order ? `${order.first_name} ${order.last_name}` : "Tuntematon asiakas"} ·{" "}
-                      {new Date(c.created_at).toLocaleDateString("fi-FI")}
-                    </p>
-                  </div>
-                  <Badge variant={c.status === "resolved" ? "secondary" : c.status === "open" ? "destructive" : "default"}>
-                    {STATUS_LABELS[c.status] || c.status}
-                  </Badge>
-                </div>
-
-                {c.description && <p className="text-sm text-muted-foreground">{c.description}</p>}
-
-                {c.image_urls?.length > 0 && (
-                  <div className="flex gap-2 flex-wrap">
-                    {c.image_urls.map((url) => (
-                      <a key={url} href={url} target="_blank" rel="noreferrer" className="block">
-                        <img
-                          src={url}
-                          alt="Reklamaation kuva"
-                          loading="lazy"
-                          className="h-16 w-16 rounded-md object-cover border"
-                        />
-                      </a>
-                    ))}
-                  </div>
-                )}
-                {(!c.image_urls || c.image_urls.length === 0) && (
-                  <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                    <ImageIcon className="h-3 w-3" /> Ei kuvia
-                  </p>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <Select value={c.status} onValueChange={(v) => updateComplaint(c.id, { status: v, resolved_at: v === "resolved" ? new Date().toISOString() : null })}>
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open">Avoin</SelectItem>
-                      <SelectItem value="in_progress">Käsittelyssä</SelectItem>
-                      <SelectItem value="resolved">Ratkaistu</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    defaultValue={c.compensation_amount}
-                    placeholder="Hyvitys €"
-                    className="h-9 text-xs"
-                    onBlur={(e) => {
-                      const val = parseFloat(e.target.value || "0");
-                      if (val !== Number(c.compensation_amount)) updateComplaint(c.id, { compensation_amount: val });
-                    }}
-                  />
-                  <Input
-                    defaultValue={c.coupon_code || ""}
-                    placeholder="Alennuskoodi"
-                    className="h-9 text-xs"
-                    onBlur={(e) => {
-                      const val = e.target.value.trim();
-                      if (val !== (c.coupon_code || "")) updateComplaint(c.id, { coupon_code: val || null });
-                    }}
-                  />
-                </div>
-                {Number(c.compensation_amount) > 0 && (
-                  <p className="text-xs text-muted-foreground">Hyvitys: {money(c.compensation_amount)}</p>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </TabsContent>
 
       {/* --- 4. CRM --- */}
       <TabsContent value="crm" className="animate-fade-in space-y-4">
