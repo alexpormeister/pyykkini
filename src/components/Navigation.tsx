@@ -1,8 +1,6 @@
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { User, Truck, Settings, LogOut, UserCircle, WashingMachine } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 // Logo removed - using image directly from uploads
 
 interface NavigationProps {
