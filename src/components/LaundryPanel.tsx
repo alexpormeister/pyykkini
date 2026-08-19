@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import {
   Truck, WashingMachine, PackageCheck, Camera, Search, FileText, Download,
-  Euro, Clock, Loader2, CheckCircle2,
+  Euro, Clock, Loader2, CheckCircle2, Inbox, XCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +38,7 @@ interface LaundryOrder {
   return_time: string;
   status: string | null;
   tracking_status: string | null;
+  laundry_status: string | null;
   created_at: string;
   updated_at: string;
   order_items: OrderItem[];
@@ -122,7 +123,7 @@ export const LaundryPanel = () => {
     const [o, s, c, p] = await Promise.all([
       supabase
         .from("orders")
-        .select("id, access_code, service_name, special_instructions, pickup_date, pickup_time, return_date, return_time, status, tracking_status, created_at, updated_at, order_items(id, service_name, product_name, quantity, laundry_price, total_price)")
+        .select("id, access_code, service_name, special_instructions, pickup_date, pickup_time, return_date, return_time, status, tracking_status, laundry_status, created_at, updated_at, order_items(id, service_name, product_name, quantity, laundry_price, total_price)")
         .eq("laundry_id", laundryId)
         .order("created_at", { ascending: false }),
       supabase
@@ -146,11 +147,34 @@ export const LaundryPanel = () => {
   }, [fetchData]);
 
   const track = (o: LaundryOrder) => (o.tracking_status || "PENDING").toUpperCase();
+  const lStatus = (o: LaundryOrder) => (o.laundry_status || "pending").toLowerCase();
 
-  const incoming = orders.filter((o) => ["PENDING", "PICKED_UP"].includes(track(o)) && o.status !== "delivered");
-  const inProgress = orders.filter((o) => track(o) === "WASHING");
-  const ready = orders.filter((o) => track(o) === "PACKAGING");
+  const awaiting = orders.filter((o) => lStatus(o) === "pending" && o.status !== "cancelled");
+  const incoming = orders.filter(
+    (o) => lStatus(o) === "accepted" && ["PENDING", "PICKED_UP"].includes(track(o)) && o.status !== "delivered",
+  );
+  const inProgress = orders.filter((o) => lStatus(o) === "accepted" && track(o) === "WASHING");
+  const ready = orders.filter((o) => lStatus(o) === "accepted" && track(o) === "PACKAGING");
   const history = orders.filter((o) => ["OUT_FOR_DELIVERY", "COMPLETED"].includes(track(o)) || o.status === "delivered");
+
+  const decide = async (order: LaundryOrder, decision: "accepted" | "rejected") => {
+    const { error } = await supabase
+      .from("orders")
+      .update({ laundry_status: decision } as never)
+      .eq("id", order.id);
+    if (error) {
+      toast({ title: "Päivitys epäonnistui", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({
+      title: decision === "accepted" ? "Tilaus hyväksytty" : "Tilaus hylätty",
+      description:
+        decision === "accepted"
+          ? "Noutokeikka on nyt kuljettajien saatavilla."
+          : "Tilaus peruttiin eikä se välity kuljettajille.",
+    });
+    fetchData();
+  };
 
   const setStatus = async (order: LaundryOrder, status: "WASHING" | "PACKAGING") => {
     const { error } = await supabase
@@ -261,11 +285,15 @@ export const LaundryPanel = () => {
     action,
     actionLabel,
     actionIcon,
+    secondaryAction,
+    secondaryLabel,
   }: {
     order: LaundryOrder;
     action?: () => void;
     actionLabel?: string;
     actionIcon?: React.ReactNode;
+    secondaryAction?: () => void;
+    secondaryLabel?: string;
   }) => (
     <Card className="border-2">
       <CardContent className="p-4 space-y-3">
@@ -299,6 +327,17 @@ export const LaundryPanel = () => {
               {actionLabel}
             </Button>
           )}
+          {secondaryAction && (
+            <Button
+              size="lg"
+              variant="ghost"
+              className="h-14 text-base text-muted-foreground sm:w-auto"
+              onClick={secondaryAction}
+            >
+              <XCircle className="mr-2 h-5 w-5" />
+              {secondaryLabel}
+            </Button>
+          )}
           <Button
             size="lg"
             variant="outline"
@@ -320,6 +359,8 @@ export const LaundryPanel = () => {
     action,
     actionLabel,
     actionIcon,
+    secondaryAction,
+    secondaryLabel,
   }: {
     title: string;
     icon: React.ReactNode;
@@ -327,6 +368,8 @@ export const LaundryPanel = () => {
     action?: (o: LaundryOrder) => void;
     actionLabel?: string;
     actionIcon?: React.ReactNode;
+    secondaryAction?: (o: LaundryOrder) => void;
+    secondaryLabel?: string;
   }) => (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -346,6 +389,8 @@ export const LaundryPanel = () => {
             action={action ? () => action(o) : undefined}
             actionLabel={actionLabel}
             actionIcon={actionIcon}
+            secondaryAction={secondaryAction ? () => secondaryAction(o) : undefined}
+            secondaryLabel={secondaryLabel}
           />
         ))
       )}
@@ -400,7 +445,17 @@ export const LaundryPanel = () => {
         </TabsList>
 
         <TabsContent value="queue" className="mt-4">
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
+            <Column
+              title="Hyväksyttävänä"
+              icon={<Inbox className="h-5 w-5 text-primary" />}
+              items={awaiting}
+              action={(o) => decide(o, "accepted")}
+              actionLabel="Hyväksy tilaus"
+              actionIcon={<CheckCircle2 className="mr-2 h-5 w-5" />}
+              secondaryAction={(o) => decide(o, "rejected")}
+              secondaryLabel="Hylkää"
+            />
             <Column
               title="Saapuvat"
               icon={<Truck className="h-5 w-5 text-primary" />}
