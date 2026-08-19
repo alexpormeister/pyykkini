@@ -10,9 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertTriangle,
-  ArrowDown,
   ArrowRight,
-  ArrowUp,
   Clock,
   MapPin,
   Package,
@@ -89,7 +87,6 @@ export const DispatchTaskBoard = () => {
   const [selected, setSelected] = useState<string[]>([]);
   const [assignTo, setAssignTo] = useState("");
   const [assigning, setAssigning] = useState(false);
-  const [routeDriver, setRouteDriver] = useState("");
 
   useEffect(() => {
     fetchAll();
@@ -264,26 +261,6 @@ export const DispatchTaskBoard = () => {
         variant: "destructive",
       });
     }
-  };
-
-  const routeTasks = useMemo(
-    () =>
-      tasks
-        .filter((t) => t.driver_id === routeDriver && !["completed", "failed"].includes(t.status))
-        .sort((a, b) => (a.route_order || 0) - (b.route_order || 0)),
-    [tasks, routeDriver]
-  );
-
-  const moveTask = async (index: number, dir: -1 | 1) => {
-    const target = index + dir;
-    if (target < 0 || target >= routeTasks.length) return;
-    const a = routeTasks[index];
-    const b = routeTasks[target];
-    await Promise.all([
-      supabase.from("delivery_tasks").update({ route_order: target + 1 }).eq("id", a.id),
-      supabase.from("delivery_tasks").update({ route_order: index + 1 }).eq("id", b.id),
-    ]);
-    fetchAll();
   };
 
   if (loading) {
