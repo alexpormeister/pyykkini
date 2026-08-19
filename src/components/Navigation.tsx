@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { User, Truck, Settings, LogOut, UserCircle, Bell } from "lucide-react";
+import { User, Truck, Settings, LogOut, UserCircle, Bell, WashingMachine } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 // Logo removed - using image directly from uploads
 
 interface NavigationProps {
-  activePanel: 'customer' | 'driver' | 'admin';
-  onPanelChange: (panel: 'customer' | 'driver' | 'admin') => void;
+  activePanel: 'customer' | 'driver' | 'admin' | 'laundry';
+  onPanelChange: (panel: 'customer' | 'driver' | 'admin' | 'laundry') => void;
 }
 
 export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
@@ -58,6 +58,7 @@ export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
   const panels = [
     { id: "customer" as const, label: "Asiakas", icon: User, roles: ["customer", "admin"] },
     { id: "driver" as const, label: "Kuljettaja", icon: Truck, roles: ["driver", "admin"] },
+    { id: "laundry" as const, label: "Pesula", icon: WashingMachine, roles: ["laundry", "admin"] },
     { id: "admin" as const, label: "Ylläpito", icon: Settings, roles: ["admin"] },
   ];
 
@@ -85,7 +86,7 @@ export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
                   <Button
                     variant={activePanel === panel.id ? 'default' : 'ghost'}
                     size="sm"
-                    onClick={() => onPanelChange(panel.id as 'customer' | 'driver' | 'admin')}
+                    onClick={() => onPanelChange(panel.id as 'customer' | 'driver' | 'admin' | 'laundry')}
                     className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
                   >
                     <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
