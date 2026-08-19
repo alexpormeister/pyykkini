@@ -52,6 +52,15 @@ interface SettlementRow {
   status: string;
 }
 
+interface DriverTaskRow {
+  id: string;
+  order_id: string;
+  driver_id: string;
+  task_type: string;
+  driver_payout: number | null;
+  completed_at: string | null;
+}
+
 interface Group {
   key: string;
   name: string;
