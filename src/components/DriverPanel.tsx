@@ -75,12 +75,14 @@ export const DriverPanel = () => {
   const [selectedOrderForWeight, setSelectedOrderForWeight] = useState<any>(null);
   const [weightInput, setWeightInput] = useState('');
   const [weightType, setWeightType] = useState<'pickup' | 'return'>('pickup');
+  const [serviceAreas, setServiceAreas] = useState<any[]>([]);
   
   useEffect(() => {
     if (user) {
       checkShiftStatus();
       // Always fetch orders to see assigned orders, regardless of shift status
       fetchOrders();
+      fetchServiceAreas();
     }
   }, [user]);
 
@@ -112,6 +114,22 @@ export const DriverPanel = () => {
   }, [user]);
 
   const checkShiftStatus = async () => {
+    if (!user) return;
+
+    try {
+      // no-op placeholder replaced below
+    } catch {}
+  };
+
+  const fetchServiceAreas = async () => {
+    const { data } = await supabase
+      .from('service_areas')
+      .select('city, postal_code, delivery_fee, is_active')
+      .eq('is_active', true);
+    setServiceAreas(data || []);
+  };
+
+  const checkShiftStatusInner = async () => {
     if (!user) return;
     
     try {
