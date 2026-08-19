@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut, Scale } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { SupportChatWidget } from "@/components/SupportChatWidget";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { DriverTimeManager } from "./DriverTimeManager";
@@ -1313,6 +1314,8 @@ export const DriverPanel = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      <SupportChatWidget title="Chat ylläpidon kanssa" />
     </div>
   );
 };
