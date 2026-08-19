@@ -244,7 +244,11 @@ export const LaundryPanel = () => {
   };
 
   const laundryTotal = (o: LaundryOrder) =>
-    o.order_items.reduce((sum, it) => sum + Number(it.laundry_price ?? 0) * (it.quantity || 1), 0);
+    o.order_items.reduce((sum, it) => {
+      if (it.laundry_price != null) return sum + Number(it.laundry_price);
+      const own = prices.find((p) => p.product_id === (it as { service_type?: string }).service_type);
+      return sum + Number(own?.price ?? 0) * (it.quantity || 1);
+    }, 0);
 
   const pendingPayout = useMemo(
     () => settlements.filter((s) => s.status !== "paid").reduce((a, s) => a + Number(s.net_amount || 0), 0),
