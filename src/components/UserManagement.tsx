@@ -55,6 +55,10 @@ export const UserManagement = () => {
     fetchUsers();
   }, []);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, group]);
+
   const fetchUsers = async () => {
     try {
       // Fetch all profiles including address
