@@ -328,11 +328,6 @@ export const ProductManagement = () => {
     }
   };
 
-  const feeAmount = (base: number, type: string, value: string) => {
-    const v = parseFloat(value || "0") || 0;
-    return type === "fixed" ? v : Math.round(base * v) / 100;
-  };
-
   const savePriceRows = async (productId: string, rows: LaundryPriceRow[]) => {
     const valid = rows.filter((r) => r.laundry_id && r.price !== "");
     if (valid.length > 0) {
