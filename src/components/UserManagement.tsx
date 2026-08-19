@@ -346,7 +346,6 @@ export const UserManagement = () => {
           </div>
         ) : (
         <>
-        {group === 'laundry' && <LaundryPricingManagement />}
         {/* Search and Create User */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
@@ -369,17 +368,26 @@ export const UserManagement = () => {
 
         {/* Users List */}
         <div className="space-y-4">
-          {paginatedUsers.map((user) => (
+          {paginatedUsers.map((user) => {
+            const role = user.user_roles?.[0]?.role || 'customer';
+            const isLaundry = role === 'laundry';
+            const laundry = laundryByUser[user.id];
+            const personName = [user.profiles?.first_name, user.profiles?.last_name].filter(Boolean).join(' ');
+            const title = isLaundry
+              ? (user.profiles?.company_name || laundry?.name || personName || user.email)
+              : (personName || user.email);
+            return (
             <div key={user.id} className="border rounded-xl p-6 hover:shadow-elegant transition-all duration-300 bg-card">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0">
                   <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-primary">
-                    <User className="h-6 w-6 text-white" />
+                    {isLaundry ? <WashingMachine className="h-6 w-6 text-primary-foreground" /> : <User className="h-6 w-6 text-primary-foreground" />}
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-lg">
-                      {[user.profiles?.first_name, user.profiles?.last_name].filter(Boolean).join(' ') || user.email}
-                    </h4>
+                  <div className="min-w-0">
+                    <h4 className="font-semibold text-lg truncate">{title}</h4>
+                    {isLaundry && user.profiles?.business_id && (
+                      <div className="text-xs text-muted-foreground">Y-tunnus: {user.profiles.business_id}</div>
+                    )}
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Mail className="h-3 w-3" />
                       {user.email}
@@ -392,13 +400,24 @@ export const UserManagement = () => {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <div className="text-right">
-                    <Badge className={getRoleColor(user.user_roles?.[0]?.role || 'customer')} variant="secondary">
+                    <Badge className={getRoleColor(role)} variant="secondary">
                       <Shield className="h-3 w-3 mr-1" />
-                      {user.user_roles?.[0]?.role || 'customer'}
+                      {role}
                     </Badge>
                   </div>
+                  {isLaundry && laundry && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPricingLaundry(laundry)}
+                      className="flex items-center gap-2"
+                    >
+                      <Euro className="h-3 w-3" />
+                      Hinnasto
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -419,7 +438,7 @@ export const UserManagement = () => {
                     {deletingUser === user.id ? 'Poistetaan...' : 'Poista'}
                   </Button>
                   <Select
-                    value={user.user_roles?.[0]?.role || 'customer'}
+                    value={role}
                     onValueChange={(newRole) => updateUserRole(user.id, newRole)}
                     disabled={updatingRole === user.id}
                   >
@@ -436,7 +455,8 @@ export const UserManagement = () => {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {filteredUsers.length > 0 && (
