@@ -46,6 +46,7 @@ export const DriverOpenTasks = ({ onClaimed }: { onClaimed?: () => void }) => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [askReturn, setAskReturn] = useState<OpenTask | null>(null);
+  const [askPickup, setAskPickup] = useState<OpenTask | null>(null);
 
   const fetchTasks = useCallback(async () => {
     const { data, error } = await supabase.rpc("get_open_delivery_tasks" as never);
@@ -78,7 +79,13 @@ export const DriverOpenTasks = ({ onClaimed }: { onClaimed?: () => void }) => {
     }
     const result = data as { success?: boolean; reason?: string; return_claimed?: boolean } | null;
     if (!result?.success) {
-      toast({ title: "Toinen kuljettaja ehti ensin", variant: "destructive" });
+      toast({
+        title:
+          result?.reason === "pickup_required"
+            ? "Menokyyti täytyy ottaa samalla"
+            : "Toinen kuljettaja ehti ensin",
+        variant: "destructive",
+      });
       fetchTasks();
       return;
     }
@@ -93,13 +100,24 @@ export const DriverOpenTasks = ({ onClaimed }: { onClaimed?: () => void }) => {
   };
 
   const handleClaimClick = (task: OpenTask) => {
-    const hasOpenReturn = tasks.some((t) => t.order_id === task.order_id && t.task_type === "delivery");
-    if (task.task_type === "pickup" && hasOpenReturn) {
-      setAskReturn(task);
-      return;
+    if (task.task_type === "pickup") {
+      const hasOpenReturn = tasks.some((t) => t.order_id === task.order_id && t.task_type === "delivery");
+      if (hasOpenReturn) {
+        setAskReturn(task);
+        return;
+      }
+    } else {
+      const openPickup = tasks.find((t) => t.order_id === task.order_id && t.task_type === "pickup");
+      if (openPickup && !task.pickup_claimed) {
+        setAskPickup(task);
+        return;
+      }
     }
     claim(task, false);
   };
+
+  const pairOf = (task: OpenTask, type: string) =>
+    tasks.find((t) => t.order_id === task.order_id && t.task_type === type);
 
   if (loading) {
     return <p className="py-6 text-center text-sm text-muted-foreground">Ladataan vapaita keikkoja...</p>;
@@ -164,7 +182,7 @@ export const DriverOpenTasks = ({ onClaimed }: { onClaimed?: () => void }) => {
 
                 {blocked && (
                   <p className="rounded-lg bg-muted/50 p-2.5 text-xs text-muted-foreground">
-                    Voit ottaa paluukeikan jo nyt, mutta sen voi kuitata vasta kun menokeikka on kuitattu.
+                    Paluukeikan voi kuitata vasta kun menokeikka on kuitattu.
                   </p>
                 )}
 
@@ -201,6 +219,55 @@ export const DriverOpenTasks = ({ onClaimed }: { onClaimed?: () => void }) => {
               onClick={() => {
                 const t = askReturn;
                 setAskReturn(null);
+                if (t) claim(t, true);
+              }}
+            >
+              Kyllä, otan molemmat
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!askPickup} onOpenChange={(open) => !open && setAskPickup(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sitoudutko ajamaan myös menokyydin?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Paluukeikkaa ei voi ottaa yksin, koska menokeikka on vielä vapaana. Ottamalla molemmat vastaat koko
+              tilauksen kuljetuksesta.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {askPickup && (
+            <div className="space-y-2 rounded-lg border bg-muted/40 p-3 text-sm">
+              {[pairOf(askPickup, "pickup"), askPickup].map(
+                (t, i) =>
+                  t && (
+                    <div key={i} className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium">{i === 0 ? "Menokeikka" : "Paluukeikka"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {fmtDate(t.scheduled_date, t.scheduled_time_slot)}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">{t.area || "Alue tarkentuu"}</p>
+                      </div>
+                      <span className="shrink-0 font-semibold text-primary">{eur(t.driver_payout)}</span>
+                    </div>
+                  ),
+              )}
+              <div className="flex items-center justify-between border-t pt-2 text-sm font-semibold">
+                <span>Yhteensä</span>
+                <span className="text-primary">
+                  {eur((pairOf(askPickup, "pickup")?.driver_payout || 0) + askPickup.driver_payout)}
+                </span>
+              </div>
+            </div>
+          )}
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+            <AlertDialogCancel>Peruuta</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const t = askPickup;
+                setAskPickup(null);
                 if (t) claim(t, true);
               }}
             >
