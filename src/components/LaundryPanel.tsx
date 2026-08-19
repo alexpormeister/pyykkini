@@ -285,11 +285,15 @@ export const LaundryPanel = () => {
     action,
     actionLabel,
     actionIcon,
+    secondaryAction,
+    secondaryLabel,
   }: {
     order: LaundryOrder;
     action?: () => void;
     actionLabel?: string;
     actionIcon?: React.ReactNode;
+    secondaryAction?: () => void;
+    secondaryLabel?: string;
   }) => (
     <Card className="border-2">
       <CardContent className="p-4 space-y-3">
@@ -323,6 +327,17 @@ export const LaundryPanel = () => {
               {actionLabel}
             </Button>
           )}
+          {secondaryAction && (
+            <Button
+              size="lg"
+              variant="ghost"
+              className="h-14 text-base text-muted-foreground sm:w-auto"
+              onClick={secondaryAction}
+            >
+              <XCircle className="mr-2 h-5 w-5" />
+              {secondaryLabel}
+            </Button>
+          )}
           <Button
             size="lg"
             variant="outline"
@@ -344,6 +359,8 @@ export const LaundryPanel = () => {
     action,
     actionLabel,
     actionIcon,
+    secondaryAction,
+    secondaryLabel,
   }: {
     title: string;
     icon: React.ReactNode;
@@ -351,6 +368,8 @@ export const LaundryPanel = () => {
     action?: (o: LaundryOrder) => void;
     actionLabel?: string;
     actionIcon?: React.ReactNode;
+    secondaryAction?: (o: LaundryOrder) => void;
+    secondaryLabel?: string;
   }) => (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -370,6 +389,8 @@ export const LaundryPanel = () => {
             action={action ? () => action(o) : undefined}
             actionLabel={actionLabel}
             actionIcon={actionIcon}
+            secondaryAction={secondaryAction ? () => secondaryAction(o) : undefined}
+            secondaryLabel={secondaryLabel}
           />
         ))
       )}
@@ -424,7 +445,17 @@ export const LaundryPanel = () => {
         </TabsList>
 
         <TabsContent value="queue" className="mt-4">
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
+            <Column
+              title="Hyväksyttävänä"
+              icon={<Inbox className="h-5 w-5 text-primary" />}
+              items={awaiting}
+              action={(o) => decide(o, "accepted")}
+              actionLabel="Hyväksy tilaus"
+              actionIcon={<CheckCircle2 className="mr-2 h-5 w-5" />}
+              secondaryAction={(o) => decide(o, "rejected")}
+              secondaryLabel="Hylkää"
+            />
             <Column
               title="Saapuvat"
               icon={<Truck className="h-5 w-5 text-primary" />}
