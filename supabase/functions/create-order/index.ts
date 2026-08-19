@@ -35,7 +35,7 @@ const createOrderSchema = z.object({
     }).optional()
   }),
   cartItems: z.array(z.any()),
-  paymentMethod: z.enum(['stripe', 'cash', 'free'])
+  paymentMethod: z.enum(['stripe', 'cash'])
 });
 
 Deno.serve(async (req) => {
@@ -109,7 +109,8 @@ Deno.serve(async (req) => {
         delivery_slot: deliverySlot,
         tracking_status: 'PENDING',
         access_code: null,
-        payment_method: validated.paymentMethod
+        payment_method: validated.paymentMethod,
+        payment_status: 'pending'
       })
       .select()
       .single();

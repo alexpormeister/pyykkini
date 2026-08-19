@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { CreditCard, Banknote, TestTube } from "lucide-react";
+import { CreditCard, Banknote } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -54,7 +54,7 @@ export function PaymentOptions({ cartItems, appliedCoupon, formData, amount, onP
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const createOrderViaEdgeFunction = async (method: 'stripe' | 'cash' | 'free') => {
+  const createOrderViaEdgeFunction = async (method: 'stripe' | 'cash') => {
     if (!user) {
       throw new Error("User not authenticated");
     }
@@ -111,7 +111,6 @@ export function PaymentOptions({ cartItems, appliedCoupon, formData, amount, onP
       const { data, error } = await supabase.functions.invoke('create-payment', {
         body: {
           order_id: orderResult.orderId,
-          amount: orderResult.finalPrice,
           currency: 'eur'
         }
       });
@@ -137,19 +136,7 @@ export function PaymentOptions({ cartItems, appliedCoupon, formData, amount, onP
   const handleCashPayment = async () => {
     setIsProcessing(true);
     try {
-      const orderResult = await createOrderViaEdgeFunction('cash');
-      
-      const { error } = await supabase
-        .from("orders")
-        .update({
-          payment_method: 'cash',
-          payment_status: 'paid',
-          payment_amount: orderResult.finalPrice,
-          paid_at: new Date().toISOString()
-        })
-        .eq('id', orderResult.orderId);
-
-      if (error) throw error;
+      await createOrderViaEdgeFunction('cash');
 
       toast({
         title: "Käteismaksu valittu",
@@ -170,42 +157,6 @@ export function PaymentOptions({ cartItems, appliedCoupon, formData, amount, onP
     }
   };
 
-  const handleFreePayment = async () => {
-    setIsProcessing(true);
-    try {
-      const orderResult = await createOrderViaEdgeFunction('free');
-      
-      const { error } = await supabase
-        .from("orders")
-        .update({
-          payment_method: 'free',
-          payment_status: 'paid',
-          payment_amount: 0,
-          paid_at: new Date().toISOString()
-        })
-        .eq('id', orderResult.orderId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Ilmainen maksu",
-        description: "Tilaus merkitty ilmaiseksi testausta varten.",
-        variant: "default",
-      });
-
-      onPaymentComplete();
-    } catch (error) {
-      logger.error('Free payment error:', error);
-      toast({
-        title: "Virhe",
-        description: "Ilmaisen maksun tallentamisessa tapahtui virhe.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const handlePayment = () => {
     switch (paymentMethod) {
       case 'stripe':
@@ -213,9 +164,6 @@ export function PaymentOptions({ cartItems, appliedCoupon, formData, amount, onP
         break;
       case 'cash':
         handleCashPayment();
-        break;
-      case 'free':
-        handleFreePayment();
         break;
       default:
         break;
@@ -253,17 +201,6 @@ export function PaymentOptions({ cartItems, appliedCoupon, formData, amount, onP
               <div>
                 <div className="font-medium">Käteinen</div>
                 <div className="text-sm text-muted-foreground">Maksu kuljettajalle</div>
-              </div>
-            </Label>
-          </div>
-
-          <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-            <RadioGroupItem value="free" id="free" />
-            <Label htmlFor="free" className="flex items-center gap-2 cursor-pointer flex-1">
-              <TestTube className="h-4 w-4" />
-              <div>
-                <div className="font-medium">Ilmainen (Testi)</div>
-                <div className="text-sm text-muted-foreground">Testausta varten</div>
               </div>
             </Label>
           </div>

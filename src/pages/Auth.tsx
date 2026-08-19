@@ -1,125 +1,70 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/contexts/AuthContext';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useAuth, CUSTOMER_WEB_BLOCK_KEY } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail, Lock, User, Phone, MapPin, ArrowLeft } from 'lucide-react';
-import { useEffect } from 'react';
+import { Loader2, Mail, Lock, Smartphone } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 
 export const Auth = () => {
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
-  
-  // Form states
+  const [customerBlocked, setCustomerBlocked] = useState(false);
+
   const [signInEmail, setSignInEmail] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
-  const [signUpEmail, setSignUpEmail] = useState('');
-  const [signUpPassword, setSignUpPassword] = useState('');
-  const [signUpFirstName, setSignUpFirstName] = useState('');
-  const [signUpLastName, setSignUpLastName] = useState('');
-  const [signUpPhone, setSignUpPhone] = useState('');
-  const [signUpAddress, setSignUpAddress] = useState('');
-  const [showExtraFields, setShowExtraFields] = useState(false);
 
-  // Redirect if already authenticated
   useEffect(() => {
-    if (user) {
-      navigate('/app');
-    }
+    if (user) navigate('/app');
   }, [user, navigate]);
+
+  // Näytetään ilmoitus, jos asiakastilillä yritettiin kirjautua selaimeen
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (localStorage.getItem(CUSTOMER_WEB_BLOCK_KEY) === '1') {
+        localStorage.removeItem(CUSTOMER_WEB_BLOCK_KEY);
+        setCustomerBlocked(true);
+        setLoading(false);
+      }
+    }, 300);
+    return () => window.clearInterval(id);
+  }, []);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setCustomerBlocked(false);
 
     try {
       const { error } = await signIn(signInEmail, signInPassword);
-      
+
       if (error) {
         toast({
-          variant: "destructive",
-          title: "Kirjautuminen epäonnistui",
-          description: error.message === 'Invalid login credentials' 
-            ? 'Väärä sähköposti tai salasana' 
-            : error.message
+          variant: 'destructive',
+          title: 'Kirjautuminen epäonnistui',
+          description:
+            error.message === 'Invalid login credentials'
+              ? 'Väärä sähköposti tai salasana'
+              : error.message,
         });
-      } else {
-        toast({
-          title: "Tervetuloa takaisin!",
-          description: "Kirjautuminen onnistui"
-        });
-        navigate('/app');
       }
-    } catch (error) {
+    } catch {
       toast({
-        variant: "destructive",
-        title: "Virhe",
-        description: "Jokin meni pieleen. Yritä uudelleen."
+        variant: 'destructive',
+        title: 'Virhe',
+        description: 'Jokin meni pieleen. Yritä uudelleen.',
       });
     } finally {
       setLoading(false);
     }
-  };
-
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const validateName = (name: string) => {
-    const nameRegex = /^[a-zA-ZäöåÄÖÅ\s-]+$/;
-    return nameRegex.test(name);
-  };
-
-  const validateAddress = (address: string) => {
-    const addressRegex = /^[a-zA-Z0-9äöåÄÖÅ\s.,\-()]+$/;
-    return addressRegex.test(address);
-  };
-
-  const handleInitialSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!signUpEmail || !signUpPassword || !signUpFirstName || !signUpLastName) {
-      toast({
-        variant: "destructive",
-        title: "Täytä kaikki kentät",
-        description: "Sähköposti, salasana ja nimet ovat pakollisia."
-      });
-      return;
-    }
-
-    if (!validateEmail(signUpEmail)) {
-      toast({
-        variant: "destructive",
-        title: "Virheellinen sähköposti",
-        description: "Anna kelvollinen sähköpostiosoite."
-      });
-      return;
-    }
-
-    if (!validateName(signUpFirstName) || !validateName(signUpLastName)) {
-      toast({
-        variant: "destructive",
-        title: "Virheellinen nimi",
-        description: "Nimissä saa olla vain kirjaimia."
-      });
-      return;
-    }
-
-    // Add smooth transition effect
-    setTimeout(() => {
-      setShowExtraFields(true);
-    }, 150);
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -130,109 +75,19 @@ export const Auth = () => {
       const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
         redirectTo: `${window.location.origin}/auth`,
       });
-
       if (error) throw error;
 
       toast({
-        title: "Sähköposti lähetetty",
-        description: "Tarkista sähköpostisi ja seuraa ohjeita salasanan vaihtamiseksi."
+        title: 'Sähköposti lähetetty',
+        description: 'Tarkista sähköpostisi ja seuraa ohjeita salasanan vaihtamiseksi.',
       });
       setShowForgotPassword(false);
       setForgotPasswordEmail('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
-        variant: "destructive",
-        title: "Virhe",
-        description: error.message || "Salasanan palautus epäonnistui"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCompleteSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!signUpPhone || !signUpAddress) {
-      toast({
-        variant: "destructive",
-        title: "Täytä kaikki kentät",
-        description: "Puhelinnumero ja osoite ovat pakollisia tilauksen tekemiseen."
-      });
-      return;
-    }
-
-    if (!validateAddress(signUpAddress)) {
-      toast({
-        variant: "destructive",
-        title: "Virheellinen osoite",
-        description: "Osoite sisältää kiellettyjä merkkejä."
-      });
-      return;
-    }
-
-    // Validate phone number - only allow numbers, +, -, and spaces
-    const phoneRegex = /^[\d\s\-\+\(\)]+$/;
-    if (!phoneRegex.test(signUpPhone)) {
-      toast({
-        variant: "destructive",
-        title: "Virheellinen puhelinnumero",
-        description: "Puhelinnumero saa sisältää vain numeroita ja merkkejä +, -, (, )."
-      });
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const { error } = await signUp(signUpEmail, signUpPassword, signUpFirstName, signUpLastName);
-      
-      if (error) {
-        if (error.message.includes('already registered')) {
-          toast({
-            variant: "destructive",
-            title: "Käyttäjä on jo olemassa",
-            description: "Tämä sähköpostiosoite on jo rekisteröity. Kokeile kirjautumista."
-          });
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Rekisteröinti epäonnistui",
-            description: error.message
-          });
-        }
-      } else {
-        // Update profile with phone and address
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase
-            .from('profiles')
-            .update({
-              phone: signUpPhone,
-              address: signUpAddress
-            })
-            .eq('user_id', user.id);
-        }
-
-        toast({
-          title: "Rekisteröinti onnistui!",
-          description: "Voit nyt kirjautua sisään."
-        });
-        
-        // Clear form and reset to first step
-        setSignUpEmail('');
-        setSignUpPassword('');
-        setSignUpFirstName('');
-        setSignUpLastName('');
-        setSignUpPhone('');
-        setSignUpAddress('');
-        setShowExtraFields(false);
-      }
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Virhe",
-        description: "Jokin meni pieleen. Yritä uudelleen."
+        variant: 'destructive',
+        title: 'Virhe',
+        description: (error as Error)?.message || 'Salasanan palautus epäonnistui',
       });
     } finally {
       setLoading(false);
@@ -241,224 +96,81 @@ export const Auth = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md space-y-4">
         <Card className="shadow-elegant">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold bg-gradient-hero bg-clip-text text-transparent">
               Pesuni
             </CardTitle>
-            <CardDescription>
-              Kirjaudu sisään tai luo uusi asiakastili
-            </CardDescription>
+            <CardDescription>Kirjautuminen henkilöstölle (ylläpito, kuljettajat, pesulat)</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Kirjaudu</TabsTrigger>
-                <TabsTrigger value="signup">Rekisteröidy</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email">Sähköposti</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signin-email"
-                        type="email"
-                        value={signInEmail}
-                        onChange={(e) => setSignInEmail(e.target.value)}
-                        className="pl-10"
-                        placeholder="anna@example.com"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password">Salasana</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signin-password"
-                        type="password"
-                        value={signInPassword}
-                        onChange={(e) => setSignInPassword(e.target.value)}
-                        className="pl-10"
-                        placeholder="••••••••"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <Button
-                      type="button"
-                      variant="link"
-                      onClick={() => setShowForgotPassword(true)}
-                      className="text-sm text-muted-foreground"
-                    >
-                      Unohtuiko salasana?
-                    </Button>
-                  </div>
-                  <Button 
-                    type="submit" 
-                    variant="hero" 
-                    className="w-full" 
-                    disabled={loading}
-                  >
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Kirjaudu sisään
-                  </Button>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="signup">
-                {!showExtraFields ? (
-                  <form onSubmit={handleInitialSignUp} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-firstname">Etunimi</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signup-firstname"
-                          type="text"
-                          value={signUpFirstName}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/[^a-zA-ZäöåÄÖÅ\s-]/g, '');
-                            setSignUpFirstName(value);
-                          }}
-                          className="pl-10"
-                          placeholder="Anna"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-lastname">Sukunimi</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signup-lastname"
-                          type="text"
-                          value={signUpLastName}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/[^a-zA-ZäöåÄÖÅ\s-]/g, '');
-                            setSignUpLastName(value);
-                          }}
-                          className="pl-10"
-                          placeholder="Asiakas"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-email">Sähköposti</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signup-email"
-                          type="email"
-                          value={signUpEmail}
-                          onChange={(e) => setSignUpEmail(e.target.value)}
-                          className="pl-10"
-                          placeholder="anna@example.com"
-                          pattern="[^@]+@[^@]+\.[^@]+"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-password">Salasana</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signup-password"
-                          type="password"
-                          value={signUpPassword}
-                          onChange={(e) => setSignUpPassword(e.target.value)}
-                          className="pl-10"
-                          placeholder="••••••••"
-                          minLength={6}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <Button 
-                      type="submit" 
-                      variant="hero" 
-                      className="w-full transition-all duration-300 hover:scale-105"
-                    >
-                      Jatka
-                    </Button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleCompleteSignUp} className="space-y-4">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowExtraFields(false)}
-                        className="flex items-center gap-1"
-                      >
-                        <ArrowLeft className="h-4 w-4" />
-                        Takaisin
-                      </Button>
-                      <span className="text-sm text-muted-foreground">Vielä kaksi kenttää...</span>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-phone">Puhelinnumero *</Label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                         <Input
-                           id="signup-phone"
-                           type="tel"
-                           value={signUpPhone}
-                           onChange={(e) => {
-                             // Only allow numbers, +, -, (, ), and spaces
-                             const value = e.target.value.replace(/[^0-9\s\-\+\(\)]/g, '');
-                             setSignUpPhone(value);
-                           }}
-                           className="pl-10"
-                           placeholder="+358 40 123 4567"
-                           required
-                         />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-address">Osoite *</Label>
-                      <AddressAutocomplete
-                        value={signUpAddress}
-                        onChange={(address) => setSignUpAddress(address)}
-                        placeholder="Katu 1, 00100 Helsinki"
-                      />
-                    </div>
-                    
-                    <p className="text-xs text-muted-foreground">
-                      * Tarvitsemme puhelinnumerosi ja osoitteesi tilausten toimittamiseen
-                    </p>
-                    
-                    <Button 
-                      type="submit" 
-                      variant="hero" 
-                      className="w-full" 
-                      disabled={loading}
-                    >
-                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Luo asiakastili
-                    </Button>
-                  </form>
-                )}
-              </TabsContent>
-            </Tabs>
+          <CardContent className="space-y-4">
+            {customerBlocked && (
+              <Alert variant="destructive">
+                <Smartphone className="h-4 w-4" />
+                <AlertTitle>Asiakastili toimii vain mobiilisovelluksessa</AlertTitle>
+                <AlertDescription>
+                  Tilaaminen ja tilausten seuranta tapahtuvat Pesuni-sovelluksessa. Selaimen kirjautuminen on
+                  tarkoitettu vain henkilöstölle.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="signin-email">Sähköposti</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="signin-email"
+                    type="email"
+                    value={signInEmail}
+                    onChange={(e) => setSignInEmail(e.target.value)}
+                    className="pl-10"
+                    placeholder="nimi@pesuni.fi"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signin-password">Salasana</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="signin-password"
+                    type="password"
+                    value={signInPassword}
+                    onChange={(e) => setSignInPassword(e.target.value)}
+                    className="pl-10"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="text-center">
+                <Button
+                  type="button"
+                  variant="link"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-muted-foreground"
+                >
+                  Unohtuiko salasana?
+                </Button>
+              </div>
+              <Button type="submit" variant="hero" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Kirjaudu sisään
+              </Button>
+            </form>
+
+            <p className="text-center text-xs text-muted-foreground">
+              Oletko asiakas? Tilaaminen tapahtuu Pesuni-mobiilisovelluksessa.
+            </p>
           </CardContent>
         </Card>
 
-        {/* Forgot Password Dialog */}
         {showForgotPassword && (
-          <Card className="shadow-elegant mt-4">
+          <Card className="shadow-elegant">
             <CardHeader className="text-center">
               <CardTitle className="text-xl">Salasanan palautus</CardTitle>
               <CardDescription>
@@ -477,7 +189,7 @@ export const Auth = () => {
                       value={forgotPasswordEmail}
                       onChange={(e) => setForgotPasswordEmail(e.target.value)}
                       className="pl-10"
-                      placeholder="anna@example.com"
+                      placeholder="nimi@pesuni.fi"
                       required
                     />
                   </div>
@@ -491,12 +203,7 @@ export const Auth = () => {
                   >
                     Peruuta
                   </Button>
-                  <Button 
-                    type="submit" 
-                    variant="hero" 
-                    className="flex-1" 
-                    disabled={loading}
-                  >
+                  <Button type="submit" variant="hero" className="flex-1" disabled={loading}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Lähetä
                   </Button>

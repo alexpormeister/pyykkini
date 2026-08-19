@@ -15,6 +15,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Verkkoselaimessa saa käyttää vain työntekijäroolit – asiakastilit käyttävät mobiilisovellusta
+const WEB_ALLOWED_ROLES = ['admin', 'driver', 'laundry'];
+export const CUSTOMER_WEB_BLOCK_KEY = 'pesuni_customer_web_blocked';
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -49,6 +53,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Kirjaa asiakkaan ulos selaimessa: asiakasnäkymä on vain mobiilisovelluksessa
+  const enforceWebRole = async (role: string | null) => {
+    if (role && WEB_ALLOWED_ROLES.includes(role)) {
+      setUserRole(role);
+      return;
+    }
+    localStorage.setItem(CUSTOMER_WEB_BLOCK_KEY, '1');
+    setUserRole(null);
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+  };
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -60,7 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // Defer role fetching to avoid blocking auth state change
           setTimeout(async () => {
             const role = await fetchUserRole(session.user.id);
-            setUserRole(role);
+            await enforceWebRole(role);
           }, 0);
         } else {
           setUserRole(null);
@@ -78,7 +95,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (session?.user) {
         setTimeout(async () => {
           const role = await fetchUserRole(session.user.id);
-          setUserRole(role);
+          await enforceWebRole(role);
         }, 0);
       }
       
