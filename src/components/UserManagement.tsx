@@ -509,6 +509,36 @@ export const UserManagement = () => {
             </DialogHeader>
 
             <form onSubmit={handleEditSubmit} className="space-y-4">
+              {(editingUser?.user_roles?.[0]?.role === 'laundry' || editingUser?.user_roles?.[0]?.role === 'driver') && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit_company_name">Yrityksen nimi</Label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="edit_company_name"
+                        value={editFormData.company_name}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, company_name: e.target.value }))}
+                        className="pl-10"
+                        placeholder="Yrityksen nimi"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit_business_id">Y-tunnus</Label>
+                    <div className="relative">
+                      <Hash className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="edit_business_id"
+                        value={editFormData.business_id}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, business_id: e.target.value }))}
+                        className="pl-10"
+                        placeholder="1234567-8"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="edit_first_name">Etunimi</Label>
