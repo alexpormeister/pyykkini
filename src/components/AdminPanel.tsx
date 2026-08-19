@@ -17,6 +17,7 @@ import { CouponManagement } from "@/components/CouponManagement";
 import { ProductManagement } from "@/components/ProductManagement";
 import { ChatManagement } from "@/components/ChatManagement";
 import { ServiceAreaManagement } from "@/components/ServiceAreaManagement";
+import { SettlementManagement } from "@/components/SettlementManagement";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
@@ -656,6 +657,7 @@ export const AdminPanel = () => {
               <SelectItem value="products">📦 Tuotteiden hallinta</SelectItem>
               <SelectItem value="coupons">🎫 Kuponkien hallinta</SelectItem>
               <SelectItem value="service-areas">🗺️ Palvelualueet</SelectItem>
+              <SelectItem value="settlements">💰 Maksuliikenne</SelectItem>
               <SelectItem value="chat">
                 💬 Viestit {unreadChatsCount > 0 ? `(${unreadChatsCount})` : ''}
               </SelectItem>
@@ -718,6 +720,12 @@ export const AdminPanel = () => {
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'service-areas' ? 'bg-primary/10 text-primary font-medium' : ''}`}
                         >
                           Palvelualueet
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('settlements')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'settlements' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Maksuliikenne
                         </button>
                         <button
                           onClick={() => setActiveTab('chat')}
@@ -1140,6 +1148,10 @@ export const AdminPanel = () => {
           {/* Service Areas Tab */}
           <TabsContent value="service-areas" className="animate-fade-in">
             <ServiceAreaManagement />
+          </TabsContent>
+
+          <TabsContent value="settlements" className="animate-fade-in">
+            <SettlementManagement />
           </TabsContent>
 
           {/* Free Orders Tab */}
