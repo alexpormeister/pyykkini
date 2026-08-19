@@ -207,6 +207,90 @@ export type Database = {
         }
         Relationships: []
       }
+      delivery_tasks: {
+        Row: {
+          batch_id: string | null
+          completed_at: string | null
+          created_at: string
+          destination_address: string | null
+          destination_name: string | null
+          destination_phone: string | null
+          driver_id: string | null
+          driver_payout: number
+          id: string
+          laundry_id: string | null
+          order_id: string
+          origin_address: string | null
+          origin_name: string | null
+          origin_phone: string | null
+          route_order: number | null
+          scheduled_date: string | null
+          scheduled_time_slot: string | null
+          status: string
+          task_type: string
+          updated_at: string
+        }
+        Insert: {
+          batch_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          destination_address?: string | null
+          destination_name?: string | null
+          destination_phone?: string | null
+          driver_id?: string | null
+          driver_payout?: number
+          id?: string
+          laundry_id?: string | null
+          order_id: string
+          origin_address?: string | null
+          origin_name?: string | null
+          origin_phone?: string | null
+          route_order?: number | null
+          scheduled_date?: string | null
+          scheduled_time_slot?: string | null
+          status?: string
+          task_type: string
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          destination_address?: string | null
+          destination_name?: string | null
+          destination_phone?: string | null
+          driver_id?: string | null
+          driver_payout?: number
+          id?: string
+          laundry_id?: string | null
+          order_id?: string
+          origin_address?: string | null
+          origin_name?: string | null
+          origin_phone?: string | null
+          route_order?: number | null
+          scheduled_date?: string | null
+          scheduled_time_slot?: string | null
+          status?: string
+          task_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_tasks_laundry_id_fkey"
+            columns: ["laundry_id"]
+            isOneToOne: false
+            referencedRelation: "laundries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_tasks_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_shifts: {
         Row: {
           created_at: string

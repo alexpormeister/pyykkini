@@ -14,6 +14,7 @@ import { SupportChatWidget } from "@/components/SupportChatWidget";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { DriverTimeManager } from "./DriverTimeManager";
+import { DriverTaskList } from "./DriverTaskList";
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -69,7 +70,7 @@ export const DriverPanel = () => {
   const [showRejectDialog, setShowRejectDialog] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   // Calendar view removed - only orders view now
-  const [activeTab, setActiveTab] = useState<'my' | 'free'>('my');
+  const [activeTab, setActiveTab] = useState<'route' | 'my' | 'free'>('route');
   const [myStatusFilter, setMyStatusFilter] = useState<'all' | 'accepted' | 'picking_up' | 'washing' | 'returning' | 'delivered'>('all');
   const [mySort, setMySort] = useState<'newest' | 'oldest'>('newest');
   const [showWeightDialog, setShowWeightDialog] = useState(false);
@@ -938,11 +939,16 @@ export const DriverPanel = () => {
           </div>
         )}
 
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'my' | 'free')} className="space-y-4 sm:space-y-6">
-              <TabsList className="w-full grid grid-cols-2">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'route' | 'my' | 'free')} className="space-y-4 sm:space-y-6">
+              <TabsList className="w-full grid grid-cols-3">
+                <TabsTrigger value="route" className="text-xs sm:text-sm">Reittini</TabsTrigger>
                 <TabsTrigger value="my" className="text-xs sm:text-sm">Omat keikat</TabsTrigger>
                 <TabsTrigger value="free" className="text-xs sm:text-sm">Vapaat keikat</TabsTrigger>
               </TabsList>
+
+              <TabsContent value="route">
+                {user ? <DriverTaskList driverId={user.id} /> : null}
+              </TabsContent>
 
               <TabsContent value="my">
                 <Card className="mb-4 sm:mb-6">
