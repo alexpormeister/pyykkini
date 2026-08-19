@@ -11,48 +11,7 @@ interface NavigationProps {
 }
 
 export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
-  const { userRole, user, signOut } = useAuth();
-  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
-
-  // Fetch pending orders count for drivers
-  useEffect(() => {
-    if (userRole === 'driver' || userRole === 'admin') {
-      const fetchPendingOrders = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('orders')
-            .select('id', { count: 'exact' })
-            .eq('status', 'pending');
-
-          if (error) throw error;
-          setPendingOrdersCount(data?.length || 0);
-        } catch (error) {
-          console.error('Error fetching pending orders:', error);
-        }
-      };
-
-      fetchPendingOrders();
-
-      // Set up real-time subscription for pending orders
-      const channel = supabase
-        .channel('pending-orders-notifications')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'orders',
-            filter: 'status=eq.pending'
-          },
-          () => fetchPendingOrders()
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [userRole, user]);
+  const { userRole, signOut } = useAuth();
   
   const panels = [
     { id: "customer" as const, label: "Asiakas", icon: User, roles: ["customer", "admin"] },
