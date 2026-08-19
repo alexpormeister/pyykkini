@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { UserPlus, Mail, User, Phone, Shield } from 'lucide-react';
+import { UserPlus, Mail, User, Phone, Building2, Hash } from 'lucide-react';
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -23,8 +23,12 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
     first_name: '',
     last_name: '',
     phone: '',
-    role: 'customer'
+    role: 'customer',
+    company_name: '',
+    business_id: ''
   });
+
+  const requiresCompany = formData.role === 'driver' || formData.role === 'laundry';
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -35,65 +39,40 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
     setLoading(true);
 
     try {
-      // Create user via Supabase Auth
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            first_name: formData.first_name,
-            last_name: formData.last_name
-          }
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: formData.email,
+          password: formData.password,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          phone: formData.phone || null,
+          role: formData.role,
+          company_name: requiresCompany ? formData.company_name : null,
+          business_id: requiresCompany ? formData.business_id : null
         }
       });
 
-      if (signUpError) throw signUpError;
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
 
-      if (data.user) {
-        // The trigger creates profile and customer role automatically
-        // We need to update the role if it's not customer, and update profile info
-        
-        if (formData.role !== 'customer') {
-          // Update the role if different from default customer role
-          const { error: roleError } = await supabase
-            .from('user_roles')
-            .update({ role: formData.role as 'admin' | 'driver' | 'customer' | 'laundry' })
-            .eq('user_id', data.user.id);
+      toast({
+        title: 'Käyttäjä luotu',
+        description: `Uusi käyttäjä ${formData.first_name} ${formData.last_name} luotu onnistuneesti.`
+      });
 
-          if (roleError) throw roleError;
-        }
+      setFormData({
+        email: '',
+        password: '',
+        first_name: '',
+        last_name: '',
+        phone: '',
+        role: 'customer',
+        company_name: '',
+        business_id: ''
+      });
 
-        // Wait a moment for trigger, then update profile with additional info
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            first_name: formData.first_name,
-            last_name: formData.last_name,
-            phone: formData.phone
-          })
-          .eq('user_id', data.user.id);
-
-        if (profileError) throw profileError;
-
-        toast({
-          title: 'Käyttäjä luotu',
-          description: `Uusi käyttäjä ${formData.first_name} ${formData.last_name} luotu onnistuneesti.`
-        });
-
-        setFormData({
-          email: '',
-          password: '',
-          first_name: '',
-          last_name: '',
-          phone: '',
-          role: 'customer'
-        });
-
-        onUserCreated();
-        onOpenChange(false);
-      }
+      onUserCreated();
+      onOpenChange(false);
     } catch (error: any) {
       console.error('Error creating user:', error);
       toast({
@@ -213,6 +192,39 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
               </SelectContent>
             </Select>
           </div>
+
+          {requiresCompany && (
+            <div className="space-y-4 rounded-lg border p-3">
+              <div>
+                <Label htmlFor="company_name">Yrityksen nimi *</Label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="company_name"
+                    value={formData.company_name}
+                    onChange={(e) => handleInputChange('company_name', e.target.value)}
+                    className="pl-10"
+                    placeholder="Esim. Pesula Oy"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="business_id">Y-tunnus *</Label>
+                <div className="relative">
+                  <Hash className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="business_id"
+                    value={formData.business_id}
+                    onChange={(e) => handleInputChange('business_id', e.target.value)}
+                    className="pl-10"
+                    placeholder="1234567-8"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-2 pt-4">
             <Button
