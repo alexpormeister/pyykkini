@@ -224,8 +224,8 @@ export const ProductManagement = () => {
       base_price: product.base_price.toString(),
       platform_fee_type: product.platform_fee_type || "percent",
       platform_fee_value: (product.platform_fee_value ?? product.commission_percent ?? 15).toString(),
-      driver_fee_type: product.driver_fee_type || "percent",
-      driver_fee_value: (product.driver_fee_value ?? 10).toString(),
+      driver_fee_type: "percent",
+      driver_fee_value: String(100 - (product.platform_fee_value ?? product.commission_percent ?? 15)),
       is_active: product.is_active
     });
     setShowEditDialog(true);
@@ -470,8 +470,8 @@ export const ProductManagement = () => {
                   <TableHead>Nimi</TableHead>
                   <TableHead>Kategoria</TableHead>
                   <TableHead>Hinta</TableHead>
-                  <TableHead>Alusta</TableHead>
-                  <TableHead>Kuljettaja</TableHead>
+                  <TableHead>Alusta %</TableHead>
+                  <TableHead>Kuljettajat %</TableHead>
                   <TableHead>Tila</TableHead>
                   <TableHead className="text-right">Toiminnot</TableHead>
                 </TableRow>
@@ -486,11 +486,11 @@ export const ProductManagement = () => {
                     <TableCell>{product.base_price.toFixed(2)}€</TableCell>
                     <TableCell>
                       {Number(product.platform_fee_value ?? product.commission_percent ?? 15).toFixed(2)}
-                      {(product.platform_fee_type ?? 'percent') === 'fixed' ? ' €' : ' %'}
+                      {' %'}
                     </TableCell>
                     <TableCell>
-                      {Number(product.driver_fee_value ?? 10).toFixed(2)}
-                      {(product.driver_fee_type ?? 'percent') === 'fixed' ? ' €' : ' %'}
+                      {(100 - Number(product.platform_fee_value ?? product.commission_percent ?? 15)).toFixed(2)}
+                      {' %'}
                     </TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
