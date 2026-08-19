@@ -174,7 +174,9 @@ export const SettlementManagement = () => {
     const laundrySet = new Set<string>();
     const driverSet = new Set<string>();
     settlements.forEach((s) => {
-      (s.order_ids || []).forEach((id) => (s.payee_type === "laundry" ? laundrySet.add(id) : driverSet.add(id)));
+      (s.order_ids || []).forEach((id) =>
+        s.payee_type === "laundry" ? laundrySet.add(id) : driverSet.add(`${s.payee_id || "unknown"}|${id}`)
+      );
     });
     return { laundry: laundrySet, driver: driverSet };
   }, [settlements]);
@@ -217,30 +219,49 @@ export const SettlementManagement = () => {
     return Object.values(map).sort((a, b) => b.net - a.net);
   }, [periodOrders, itemsByOrder, laundries, settledOrderIds]);
 
-  const driverGroups = useMemo<Group[]>(() => {
-    const map: Record<string, Group> = {};
-    periodOrders.forEach((order) => {
-      if (!order.driver_id) return;
-      if (settledOrderIds.driver.has(order.id)) return;
-      const key = order.driver_id;
-      const g = (map[key] ||= {
-        key,
-        name: drivers[key] || "Kuljettaja",
-        ordersCount: 0,
-        gross: 0,
-        commission: 0,
-        net: 0,
-        orderIds: [],
-      });
-      const orderItems = itemsByOrder[order.id] || [];
-      const payout = orderItems.reduce((sum, it) => sum + Number(it.driver_payout || 0), 0);
-      g.gross += Number(order.final_price || 0);
-      g.net += payout;
-      g.ordersCount += 1;
-      g.orderIds.push(order.id);
+  // Kuljettajan palkkiot lasketaan suoritetuista keikoista (nouto ja palautus erikseen)
+  const periodDriverTasks = useMemo(() => {
+    return driverTasks.filter((t) => {
+      if (settledOrderIds.driver.has(`${t.driver_id}|${t.order_id}`)) return false;
+      const stamp = t.completed_at ? new Date(t.completed_at) : null;
+      if (!stamp) return true;
+      if (range.start && stamp < range.start) return false;
+      if (range.end && stamp > range.end) return false;
+      return true;
     });
-    return Object.values(map).sort((a, b) => b.net - a.net);
-  }, [periodOrders, itemsByOrder, drivers, settledOrderIds]);
+  }, [driverTasks, range, settledOrderIds]);
+
+  // driver -> order -> palkkio
+  const driverOrderPayouts = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    periodDriverTasks.forEach((t) => {
+      const byOrder = (map[t.driver_id] ||= {});
+      byOrder[t.order_id] = (byOrder[t.order_id] || 0) + Number(t.driver_payout || 0);
+    });
+    return map;
+  }, [periodDriverTasks]);
+
+  const driverGroups = useMemo<Group[]>(() => {
+    return Object.entries(driverOrderPayouts)
+      .map(([key, byOrder]) => {
+        const orderIds = Object.keys(byOrder);
+        const net = orderIds.reduce((s, id) => s + byOrder[id], 0);
+        const gross = orderIds.reduce((s, id) => {
+          const order = orders.find((o) => o.id === id);
+          return s + Number(order?.final_price || 0);
+        }, 0);
+        return {
+          key,
+          name: drivers[key] || "Kuljettaja",
+          ordersCount: orderIds.length,
+          gross,
+          commission: 0,
+          net,
+          orderIds,
+        } as Group;
+      })
+      .sort((a, b) => b.net - a.net);
+  }, [driverOrderPayouts, drivers, orders]);
 
   const platformRevenue = useMemo(() => {
     return periodOrders.reduce((sum, order) => {
