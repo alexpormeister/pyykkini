@@ -240,6 +240,7 @@ export type Database = {
       laundries: {
         Row: {
           address: string | null
+          business_id: string | null
           city: string | null
           contact_email: string | null
           contact_phone: string | null
@@ -252,6 +253,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          business_id?: string | null
           city?: string | null
           contact_email?: string | null
           contact_phone?: string | null
@@ -264,6 +266,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          business_id?: string | null
           city?: string | null
           contact_email?: string | null
           contact_phone?: string | null
@@ -863,6 +866,8 @@ export type Database = {
         Row: {
           address: string | null
           avatar_url: string | null
+          business_id: string | null
+          company_name: string | null
           created_at: string
           email: string
           first_name: string | null
@@ -877,6 +882,8 @@ export type Database = {
         Insert: {
           address?: string | null
           avatar_url?: string | null
+          business_id?: string | null
+          company_name?: string | null
           created_at?: string
           email: string
           first_name?: string | null
@@ -891,6 +898,8 @@ export type Database = {
         Update: {
           address?: string | null
           avatar_url?: string | null
+          business_id?: string | null
+          company_name?: string | null
           created_at?: string
           email?: string
           first_name?: string | null
