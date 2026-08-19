@@ -316,6 +316,24 @@ export const ProductManagement = () => {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="commission_percent">Alustan komissio (%) *</Label>
+              <Input
+                id="commission_percent"
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                value={formData.commission_percent}
+                onChange={(e) => setFormData({ ...formData, commission_percent: e.target.value })}
+                placeholder="15"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Osuus, joka jää alustalle. Loput maksetaan kuljettajalle (suositus 15–20 %).
+              </p>
+            </div>
+
             <Button type="submit" disabled={loading} className="w-full">
               <Plus className="h-4 w-4 mr-2" />
               {loading ? "Tallennetaan..." : "Tallenna tuote"}
@@ -343,6 +361,7 @@ export const ProductManagement = () => {
                   <TableHead>Nimi</TableHead>
                   <TableHead>Kategoria</TableHead>
                   <TableHead>Hinta</TableHead>
+                  <TableHead>Komissio</TableHead>
                   <TableHead>Tila</TableHead>
                   <TableHead className="text-right">Toiminnot</TableHead>
                 </TableRow>
@@ -355,6 +374,7 @@ export const ProductManagement = () => {
                       {categories.find(c => c.category_id === product.category_id)?.name || product.category_id}
                     </TableCell>
                     <TableCell>{product.base_price.toFixed(2)}€</TableCell>
+                    <TableCell>{Number(product.commission_percent ?? 15).toFixed(0)} %</TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                         product.is_active 
