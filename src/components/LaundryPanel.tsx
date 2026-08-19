@@ -585,7 +585,21 @@ export const LaundryPanel = () => {
         </TabsContent>
 
         <TabsContent value="money" className="mt-4 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="border-primary/40">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Tulossa tilitykseen</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 text-3xl font-bold">
+                  <Euro className="h-6 w-6 text-primary" />
+                  {eur(upcomingPayout)}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {upcomingOrders.length} toimitettua tilausta odottaa tilityserää
+                </p>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Odottaa maksua</CardTitle>
@@ -595,6 +609,7 @@ export const LaundryPanel = () => {
                   <Euro className="h-6 w-6 text-primary" />
                   {eur(pendingPayout)}
                 </div>
+                <p className="mt-1 text-xs text-muted-foreground">Avoimet tilityserät</p>
               </CardContent>
             </Card>
             <Card>
@@ -608,10 +623,55 @@ export const LaundryPanel = () => {
                 </div>
               </CardContent>
             </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Maksettu yhteensä</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 text-3xl font-bold">
+                  <Euro className="h-6 w-6 text-primary" />
+                  {eur(paidTotal)}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Tulossa tilitykseen</CardTitle>
+            </CardHeader>
             <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tilaus</TableHead>
+                    <TableHead>Toimitettu</TableHead>
+                    <TableHead className="text-right">Osuutesi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {upcomingOrders.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
+                        Ei tilitettävää tällä hetkellä
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {upcomingOrders.map((o) => (
+                    <TableRow key={o.id}>
+                      <TableCell className="font-medium">#{orderRef(o)}</TableCell>
+                      <TableCell>{new Date(o.updated_at || o.created_at).toLocaleDateString("fi-FI")}</TableCell>
+                      <TableCell className="text-right font-semibold">{eur(laundryTotal(o))}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="border-b px-4 py-3 text-base font-semibold">Tilityserät</div>
               <Table>
                 <TableHeader>
                   <TableRow>
