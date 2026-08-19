@@ -632,6 +632,62 @@ export const DriverPanel = () => {
   };
 
   const renderWeightInfo = (order: any) => {
+    return renderWeightInfoInner(order);
+  };
+
+  const formatEuro = (value: number | string | null | undefined) => {
+    const num = Number(value ?? 0);
+    return `${num.toFixed(2).replace('.', ',')} €`;
+  };
+
+  const formatDateTimeMinutes = (value: string) =>
+    new Date(value).toLocaleString('fi-FI', {
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+  const formatDayTime = (date?: string | null, time?: string | null) => {
+    if (!date) return '—';
+    const d = new Date(date);
+    const day = isNaN(d.getTime())
+      ? date
+      : d.toLocaleDateString('fi-FI', { weekday: 'short', day: 'numeric', month: 'numeric' });
+    return time ? `${day} klo ${time.slice(0, 5)}` : day;
+  };
+
+  // Area only – exact street address is revealed after accepting the gig
+  const getAreaLabel = (address?: string | null) => {
+    if (!address) return 'Alue ei tiedossa';
+    const parts = address.split(',').map(p => p.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      return parts
+        .slice(1)
+        .join(', ')
+        .replace(/\b\d{5}\b/g, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/^,\s*|,\s*$/g, '')
+        .trim() || 'Alue ei tiedossa';
+    }
+    const withoutNumber = parts[0].replace(/\s*\d+.*$/, '').trim();
+    return withoutNumber || 'Alue ei tiedossa';
+  };
+
+  const getOrderItemTags = (order: any) => {
+    const items = (order.order_items || []) as any[];
+    if (items.length === 0) {
+      return order.service_name ? [order.service_name] : [];
+    }
+    return items.map(item => {
+      const name = item.product_name || item.service_name;
+      const qty = Number(item.quantity || 1);
+      return qty > 1 ? `${name} ${qty} kpl` : name;
+    });
+  };
+
+  const renderWeightInfoInner = (order: any) => {
     const hasPickupWeight = order.pickup_weight_kg !== null && order.pickup_weight_kg !== undefined;
     const hasReturnWeight = order.return_weight_kg !== null && order.return_weight_kg !== undefined;
     const weightDiff = hasPickupWeight && hasReturnWeight 
