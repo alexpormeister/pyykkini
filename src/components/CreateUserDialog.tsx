@@ -209,6 +209,7 @@ export const CreateUserDialog = ({ open, onOpenChange, onUserCreated }: CreateUs
                 <SelectItem value="customer">Customer</SelectItem>
                 <SelectItem value="driver">Driver</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="laundry">Pesula</SelectItem>
               </SelectContent>
             </Select>
           </div>
