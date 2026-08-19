@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut, Scale, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut, Scale } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -76,12 +76,6 @@ export const DriverPanel = () => {
   const [weightInput, setWeightInput] = useState('');
   const [weightType, setWeightType] = useState<'pickup' | 'return'>('pickup');
   
-  // Pagination for pending orders
-  const [pendingPage, setPendingPage] = useState(0);
-  // Pagination for my orders
-  const [myOrdersPage, setMyOrdersPage] = useState(0);
-  const ordersPerPage = 3;
-
   useEffect(() => {
     if (user) {
       checkShiftStatus();
