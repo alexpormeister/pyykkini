@@ -650,6 +650,7 @@ export type Database = {
           id: string
           last_name: string
           laundry_id: string | null
+          laundry_status: string
           paid_at: string | null
           payment_amount: number | null
           payment_method: string | null
@@ -698,6 +699,7 @@ export type Database = {
           id?: string
           last_name: string
           laundry_id?: string | null
+          laundry_status?: string
           paid_at?: string | null
           payment_amount?: number | null
           payment_method?: string | null
@@ -746,6 +748,7 @@ export type Database = {
           id?: string
           last_name?: string
           laundry_id?: string | null
+          laundry_status?: string
           paid_at?: string | null
           payment_amount?: number | null
           payment_method?: string | null
