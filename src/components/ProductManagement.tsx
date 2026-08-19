@@ -643,7 +643,8 @@ export const ProductManagement = () => {
                   <TableHead>Nimi</TableHead>
                   <TableHead>Kategoria</TableHead>
                   <TableHead>Hinta</TableHead>
-                  <TableHead>Komissio</TableHead>
+                  <TableHead>Alusta</TableHead>
+                  <TableHead>Kuljettaja</TableHead>
                   <TableHead>Tila</TableHead>
                   <TableHead className="text-right">Toiminnot</TableHead>
                 </TableRow>
@@ -656,7 +657,14 @@ export const ProductManagement = () => {
                       {categories.find(c => c.category_id === product.category_id)?.name || product.category_id}
                     </TableCell>
                     <TableCell>{product.base_price.toFixed(2)}€</TableCell>
-                    <TableCell>{Number(product.commission_percent ?? 15).toFixed(0)} %</TableCell>
+                    <TableCell>
+                      {Number(product.platform_fee_value ?? product.commission_percent ?? 15).toFixed(2)}
+                      {(product.platform_fee_type ?? 'percent') === 'fixed' ? ' €' : ' %'}
+                    </TableCell>
+                    <TableCell>
+                      {Number(product.driver_fee_value ?? 10).toFixed(2)}
+                      {(product.driver_fee_type ?? 'percent') === 'fixed' ? ' €' : ' %'}
+                    </TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                         product.is_active 
