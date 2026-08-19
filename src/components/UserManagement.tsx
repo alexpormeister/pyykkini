@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, User, Mail, Shield, Edit, UserPlus, Phone, MapPin, Trash2, Users, Truck, Briefcase, ArrowLeft, WashingMachine } from 'lucide-react';
+import { Search, User, Mail, Shield, Edit, UserPlus, Phone, MapPin, Trash2, Users, Truck, Briefcase, ArrowLeft, WashingMachine, Euro, Building2, Hash } from 'lucide-react';
 import { CreateUserDialog } from './CreateUserDialog';
 import { LaundryPricingManagement } from './LaundryPricingManagement';
 
@@ -20,6 +20,8 @@ interface UserWithRole {
     last_name?: string;
     phone?: string;
     address?: string;
+    company_name?: string;
+    business_id?: string;
   };
   user_roles?: {
     role: string;
@@ -45,12 +47,16 @@ export const UserManagement = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deletingUser, setDeletingUser] = useState<string | null>(null);
+  const [laundryByUser, setLaundryByUser] = useState<Record<string, { id: string; name: string }>>({});
+  const [pricingLaundry, setPricingLaundry] = useState<{ id: string; name: string } | null>(null);
   const [editFormData, setEditFormData] = useState({
     first_name: '',
     last_name: '',
     email: '',
     phone: '',
-    address: ''
+    address: '',
+    company_name: '',
+    business_id: ''
   });
 
   useEffect(() => {
@@ -72,7 +78,9 @@ export const UserManagement = () => {
           first_name,
           last_name,
           phone,
-          address
+          address,
+          company_name,
+          business_id
         `);
 
       if (error) throw error;
@@ -84,6 +92,16 @@ export const UserManagement = () => {
         .select('user_id, role')
         .in('user_id', userIds);
 
+      const { data: laundryUsers } = await supabase
+        .from('laundry_users')
+        .select('user_id, laundry_id, laundries(id, name)')
+        .in('user_id', userIds);
+      const laundryMap: Record<string, { id: string; name: string }> = {};
+      (laundryUsers || []).forEach((lu: any) => {
+        if (lu.laundries) laundryMap[lu.user_id] = { id: lu.laundries.id, name: lu.laundries.name };
+      });
+      setLaundryByUser(laundryMap);
+
       // Transform data structure
       const transformedUsers = data?.map(profile => ({
         id: profile.user_id,
@@ -92,7 +110,9 @@ export const UserManagement = () => {
           first_name: profile.first_name,
           last_name: profile.last_name,
           phone: profile.phone,
-          address: profile.address
+          address: profile.address,
+          company_name: profile.company_name,
+          business_id: profile.business_id
         },
         user_roles: rolesData?.filter(r => r.user_id === profile.user_id).map(r => ({ role: r.role })) || []
       })) || [];
