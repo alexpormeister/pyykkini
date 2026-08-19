@@ -721,7 +721,7 @@ export const LaundryPanel = () => {
                   )}
                   {prices.map((p) => (
                     <TableRow key={p.product_id}>
-                      <TableCell>{p.product_id}</TableCell>
+                      <TableCell>{p.name}</TableCell>
                       <TableCell className="text-right font-semibold">{eur(Number(p.price))}</TableCell>
                     </TableRow>
                   ))}
