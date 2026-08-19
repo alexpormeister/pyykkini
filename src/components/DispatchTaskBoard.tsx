@@ -10,9 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertTriangle,
-  ArrowDown,
   ArrowRight,
-  ArrowUp,
   Clock,
   MapPin,
   Package,
@@ -89,7 +87,6 @@ export const DispatchTaskBoard = () => {
   const [selected, setSelected] = useState<string[]>([]);
   const [assignTo, setAssignTo] = useState("");
   const [assigning, setAssigning] = useState(false);
-  const [routeDriver, setRouteDriver] = useState("");
 
   useEffect(() => {
     fetchAll();
@@ -220,7 +217,6 @@ export const DispatchTaskBoard = () => {
       }
       toast({ title: "Keikat liitetty", description: `${ordered.length} tehtävää kuljettajalle ${fullName(driverOf(assignTo))}` });
       setSelected([]);
-      setRouteDriver(assignTo);
       fetchAll();
     } catch (error) {
       console.error(error);
@@ -264,26 +260,6 @@ export const DispatchTaskBoard = () => {
         variant: "destructive",
       });
     }
-  };
-
-  const routeTasks = useMemo(
-    () =>
-      tasks
-        .filter((t) => t.driver_id === routeDriver && !["completed", "failed"].includes(t.status))
-        .sort((a, b) => (a.route_order || 0) - (b.route_order || 0)),
-    [tasks, routeDriver]
-  );
-
-  const moveTask = async (index: number, dir: -1 | 1) => {
-    const target = index + dir;
-    if (target < 0 || target >= routeTasks.length) return;
-    const a = routeTasks[index];
-    const b = routeTasks[target];
-    await Promise.all([
-      supabase.from("delivery_tasks").update({ route_order: target + 1 }).eq("id", a.id),
-      supabase.from("delivery_tasks").update({ route_order: index + 1 }).eq("id", b.id),
-    ]);
-    fetchAll();
   };
 
   if (loading) {
@@ -503,60 +479,6 @@ export const DispatchTaskBoard = () => {
         })}
       </div>
 
-      {/* Route editor */}
-      <Card>
-        <CardHeader className="p-4 pb-2">
-          <CardTitle className="text-sm flex flex-wrap items-center gap-2">
-            <Truck className="h-4 w-4" /> Kuljettajan reitti
-            <Select value={routeDriver} onValueChange={setRouteDriver}>
-              <SelectTrigger className="h-8 w-56 text-xs">
-                <SelectValue placeholder="Valitse kuljettaja" />
-              </SelectTrigger>
-              <SelectContent>
-                {drivers.map((d) => (
-                  <SelectItem key={d.user_id} value={d.user_id} className="text-xs">{fullName(d)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 pt-2 space-y-2">
-          {!routeDriver && <p className="text-xs text-muted-foreground">Valitse kuljettaja järjestääksesi reitin.</p>}
-          {routeDriver && routeTasks.length === 0 && (
-            <p className="text-xs text-muted-foreground">Ei aktiivisia tehtäviä tälle kuljettajalle.</p>
-          )}
-          {routeTasks.map((task, idx) => (
-            <div key={task.id} className="flex items-center gap-2 rounded-lg border bg-card p-2">
-              <Badge variant="secondary" className="shrink-0">{idx + 1}</Badge>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium truncate">
-                  {task.task_type === "pickup" ? "Nouto" : "Palautus"} • {shortId(task.order_id)}
-                </p>
-                <p className="text-[11px] text-muted-foreground truncate">
-                  {task.origin_address} → {task.destination_address}
-                </p>
-              </div>
-              <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:block">
-                {task.scheduled_time_slot}
-              </span>
-              <div className="flex gap-1 shrink-0">
-                <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => moveTask(idx, -1)} disabled={idx === 0}>
-                  <ArrowUp className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="h-7 w-7"
-                  onClick={() => moveTask(idx, 1)}
-                  disabled={idx === routeTasks.length - 1}
-                >
-                  <ArrowDown className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
     </div>
   );
 };
