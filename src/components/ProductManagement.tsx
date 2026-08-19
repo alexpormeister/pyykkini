@@ -26,6 +26,7 @@ interface Product {
   description: string | null;
   image_url: string | null;
   base_price: number;
+  commission_percent: number | null;
   is_active: boolean;
 }
 
@@ -42,7 +43,8 @@ export const ProductManagement = () => {
     category_id: "",
     description: "",
     image_url: "",
-    base_price: ""
+    base_price: "",
+    commission_percent: "15"
   });
   const [editFormData, setEditFormData] = useState({
     name: "",
@@ -50,6 +52,7 @@ export const ProductManagement = () => {
     description: "",
     image_url: "",
     base_price: "",
+    commission_percent: "15",
     is_active: true
   });
 
@@ -108,7 +111,8 @@ export const ProductManagement = () => {
           category_id: formData.category_id,
           description: formData.description || undefined,
           image_url: formData.image_url || undefined,
-          base_price: parseFloat(formData.base_price)
+          base_price: parseFloat(formData.base_price),
+          commission_percent: parseFloat(formData.commission_percent || "15")
         }
       });
 
@@ -125,7 +129,8 @@ export const ProductManagement = () => {
         category_id: "",
         description: "",
         image_url: "",
-        base_price: ""
+        base_price: "",
+        commission_percent: "15"
       });
       
       fetchProducts();
@@ -149,6 +154,7 @@ export const ProductManagement = () => {
       description: product.description || "",
       image_url: product.image_url || "",
       base_price: product.base_price.toString(),
+      commission_percent: (product.commission_percent ?? 15).toString(),
       is_active: product.is_active
     });
     setShowEditDialog(true);
@@ -169,6 +175,7 @@ export const ProductManagement = () => {
           description: editFormData.description || null,
           image_url: editFormData.image_url || null,
           base_price: parseFloat(editFormData.base_price),
+          commission_percent: parseFloat(editFormData.commission_percent || "15"),
           is_active: editFormData.is_active
         })
         .eq("id", editingProduct.id);
