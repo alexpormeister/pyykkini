@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { DispatchBoard } from "@/components/DispatchBoard";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertTriangle,
@@ -334,111 +335,7 @@ export const CustomerServicePanel = ({ section }: { section?: CSSection }) => {
 
       {/* --- 1. Dispatch --- */}
       <TabsContent value="dispatch" className="space-y-4 animate-fade-in">
-        {alerts.length > 0 && (
-          <Card className="border-destructive/50 bg-destructive/5">
-            <CardContent className="p-4 flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
-              <div className="text-sm">
-                <p className="font-medium text-destructive">{alerts.length} tilausta vaatii huomiota</p>
-                <p className="text-muted-foreground">Ei kuljettajaa, ja noutoaika on lähellä tai ohitettu.</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {ACTIVE_GROUPS.map((group) => {
-            const groupOrders = activeOrders.filter((o) => group.statuses.includes(o.status));
-            return (
-              <Card key={group.key}>
-                <CardHeader className="p-4 pb-2">
-                  <CardTitle className="text-sm flex items-center justify-between">
-                    <span>{group.label}</span>
-                    <Badge variant="secondary">{groupOrders.length}</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-0 space-y-3">
-                  {groupOrders.length === 0 && (
-                    <p className="text-xs text-muted-foreground">Ei tilauksia</p>
-                  )}
-                  {groupOrders.map((order) => {
-                    const late = !order.driver_id && isLate(order);
-                    const soon = !order.driver_id && isSoon(order);
-                    return (
-                      <div
-                        key={order.id}
-                        className={`rounded-lg border p-3 space-y-2 ${
-                          late
-                            ? "border-destructive bg-destructive/5"
-                            : soon
-                            ? "border-amber-500 bg-amber-500/5"
-                            : "border-border"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">
-                              {order.first_name} {order.last_name}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate">{order.address}</p>
-                          </div>
-                          <span className="text-xs text-muted-foreground shrink-0">{shortId(order.id)}</span>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                          <span className="inline-flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {new Date(`${order.pickup_date}T${order.pickup_time}`).toLocaleString("fi-FI", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                          {late && <Badge variant="destructive" className="text-[10px]">Myöhässä</Badge>}
-                          {soon && <Badge className="text-[10px] bg-amber-500 text-white">Kiireellinen</Badge>}
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <Select
-                            value={order.driver_id || ""}
-                            onValueChange={(v) => assignDriver(order.id, v)}
-                          >
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue placeholder="Aseta kuljettaja" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {drivers.map((d) => (
-                                <SelectItem key={d.user_id} value={d.user_id} className="text-xs">
-                                  {fullName(d)} {d.is_active ? "• vuorossa" : ""}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Select
-                            value={order.laundry_id || ""}
-                            onValueChange={(v) => changeLaundry(order.id, v)}
-                          >
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue placeholder="Valitse pesula" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {laundries.map((l) => (
-                                <SelectItem key={l.id} value={l.id} className="text-xs">
-                                  {l.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        <DispatchBoard />
       </TabsContent>
 
       {/* --- 2. Inbox --- */}
