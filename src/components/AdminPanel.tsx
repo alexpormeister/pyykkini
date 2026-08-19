@@ -16,6 +16,7 @@ import { Reports } from "@/components/Reports";
 import { CouponManagement } from "@/components/CouponManagement";
 import { ProductManagement } from "@/components/ProductManagement";
 import { ChatManagement } from "@/components/ChatManagement";
+import { ServiceAreaManagement } from "@/components/ServiceAreaManagement";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
@@ -654,6 +655,7 @@ export const AdminPanel = () => {
               <SelectItem value="customers">👥 Käyttäjien hallinta</SelectItem>
               <SelectItem value="products">📦 Tuotteiden hallinta</SelectItem>
               <SelectItem value="coupons">🎫 Kuponkien hallinta</SelectItem>
+              <SelectItem value="service-areas">🗺️ Palvelualueet</SelectItem>
               <SelectItem value="chat">
                 💬 Viestit {unreadChatsCount > 0 ? `(${unreadChatsCount})` : ''}
               </SelectItem>
@@ -710,6 +712,12 @@ export const AdminPanel = () => {
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'coupons' ? 'bg-primary/10 text-primary font-medium' : ''}`}
                         >
                           Kuponkien hallinta
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('service-areas')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'service-areas' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Palvelualueet
                         </button>
                         <button
                           onClick={() => setActiveTab('chat')}
@@ -1127,6 +1135,11 @@ export const AdminPanel = () => {
           {/* Chat Tab */}
           <TabsContent value="chat" className="animate-fade-in">
             <ChatManagement />
+          </TabsContent>
+
+          {/* Service Areas Tab */}
+          <TabsContent value="service-areas" className="animate-fade-in">
+            <ServiceAreaManagement />
           </TabsContent>
 
           {/* Free Orders Tab */}
