@@ -26,6 +26,11 @@ interface UserWithRole {
 }
 
 export const UserManagement = () => {
+  const GROUPS = [
+    { key: 'admin' as const, label: 'Työntekijät', description: 'Ylläpitäjät ja henkilöstö', icon: Briefcase },
+    { key: 'customer' as const, label: 'Asiakkaat', description: 'Palvelun käyttäjät', icon: Users },
+    { key: 'driver' as const, label: 'Kuljettajat', description: 'Noudot ja toimitukset', icon: Truck },
+  ];
   const { toast } = useToast();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [group, setGroup] = useState<'admin' | 'customer' | 'driver' | null>(null);
