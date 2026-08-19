@@ -909,39 +909,9 @@ export const DriverPanel = () => {
 
                 {myOrders.length > 0 ? (
                   <div className="space-y-3 sm:space-y-4">
-                    {/* Pagination controls for my orders */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                      <div className="text-xs sm:text-sm text-muted-foreground">
-                        {myOrdersPage * 3 + 1}-{Math.min((myOrdersPage + 1) * 3, myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length)} / {myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setMyOrdersPage(Math.max(0, myOrdersPage - 1))}
-                          disabled={myOrdersPage === 0}
-                          className="text-xs px-2 sm:px-3"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                          <span className="hidden sm:inline">Edellinen</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setMyOrdersPage(myOrdersPage + 1)}
-                          disabled={(myOrdersPage + 1) * 3 >= myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length}
-                          className="text-xs px-2 sm:px-3"
-                        >
-                          <span className="hidden sm:inline">Seuraava</span>
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    
                     {[...myOrders]
                       .filter(o => myStatusFilter === 'all' || o.status === myStatusFilter)
                       .sort((a, b) => mySort === 'newest' ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime() : new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                      .slice(myOrdersPage * 3, (myOrdersPage + 1) * 3)
                       .map((order) => {
                         const StatusIcon = getStatusIcon(order.status);
                         // Can progress if status isn't delivered
