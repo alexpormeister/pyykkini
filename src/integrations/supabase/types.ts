@@ -1172,6 +1172,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          laundry_status: string
           phone: string
           pickup_date: string
           pickup_time: string
