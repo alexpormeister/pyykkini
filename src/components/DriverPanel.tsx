@@ -230,7 +230,9 @@ export const DriverPanel = () => {
 
       // Separate pending and assigned orders
       const pending = allDriverOrders?.filter(order => 
-        order.status === 'pending' && order.driver_id === null
+        order.status === 'pending' &&
+        order.driver_id === null &&
+        (order as any).laundry_status === 'accepted'
       ) || [];
       
       const assigned = allDriverOrders?.filter(order => 
@@ -675,12 +677,8 @@ export const DriverPanel = () => {
       itemsPayout = items.reduce((sum, item) => {
         const stored = item.driver_payout != null ? Number(item.driver_payout) : null;
         if (stored != null) return sum + stored;
-        const lineTotal = Number(item.total_price ?? 0);
-        const commission = Number(item.commission_percent ?? DEFAULT_COMMISSION_PERCENT);
-        return sum + lineTotal * (1 - commission / 100);
+        return sum;
       }, 0);
-    } else {
-      itemsPayout = orderTotal * (1 - DEFAULT_COMMISSION_PERCENT / 100);
     }
 
     const deliveryFee = getDeliveryFee(order.address);
