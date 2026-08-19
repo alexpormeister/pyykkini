@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { DriverTimeManager } from "./DriverTimeManager";
 import { DriverOpenTasks } from "@/components/DriverOpenTasks";
+import { DriverCompletedTasks } from "@/components/DriverCompletedTasks";
 import { DriverTaskList } from "./DriverTaskList";
 
 const getStatusIcon = (status: string) => {
