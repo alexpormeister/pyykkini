@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut, Scale, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, Clock, CheckCircle, X, Phone, Package, Truck, Sparkles, RotateCcw, LogIn, LogOut, Scale } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -76,12 +76,6 @@ export const DriverPanel = () => {
   const [weightInput, setWeightInput] = useState('');
   const [weightType, setWeightType] = useState<'pickup' | 'return'>('pickup');
   
-  // Pagination for pending orders
-  const [pendingPage, setPendingPage] = useState(0);
-  // Pagination for my orders
-  const [myOrdersPage, setMyOrdersPage] = useState(0);
-  const ordersPerPage = 3;
-
   useEffect(() => {
     if (user) {
       checkShiftStatus();
@@ -632,6 +626,62 @@ export const DriverPanel = () => {
   };
 
   const renderWeightInfo = (order: any) => {
+    return renderWeightInfoInner(order);
+  };
+
+  const formatEuro = (value: number | string | null | undefined) => {
+    const num = Number(value ?? 0);
+    return `${num.toFixed(2).replace('.', ',')} €`;
+  };
+
+  const formatDateTimeMinutes = (value: string) =>
+    new Date(value).toLocaleString('fi-FI', {
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+  const formatDayTime = (date?: string | null, time?: string | null) => {
+    if (!date) return '—';
+    const d = new Date(date);
+    const day = isNaN(d.getTime())
+      ? date
+      : d.toLocaleDateString('fi-FI', { weekday: 'short', day: 'numeric', month: 'numeric' });
+    return time ? `${day} klo ${time.slice(0, 5)}` : day;
+  };
+
+  // Area only – exact street address is revealed after accepting the gig
+  const getAreaLabel = (address?: string | null) => {
+    if (!address) return 'Alue ei tiedossa';
+    const parts = address.split(',').map(p => p.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      return parts
+        .slice(1)
+        .join(', ')
+        .replace(/\b\d{5}\b/g, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/^,\s*|,\s*$/g, '')
+        .trim() || 'Alue ei tiedossa';
+    }
+    const withoutNumber = parts[0].replace(/\s*\d+.*$/, '').trim();
+    return withoutNumber || 'Alue ei tiedossa';
+  };
+
+  const getOrderItemTags = (order: any) => {
+    const items = (order.order_items || []) as any[];
+    if (items.length === 0) {
+      return order.service_name ? [order.service_name] : [];
+    }
+    return items.map(item => {
+      const name = item.product_name || item.service_name;
+      const qty = Number(item.quantity || 1);
+      return qty > 1 ? `${name} ${qty} kpl` : name;
+    });
+  };
+
+  const renderWeightInfoInner = (order: any) => {
     const hasPickupWeight = order.pickup_weight_kg !== null && order.pickup_weight_kg !== undefined;
     const hasReturnWeight = order.return_weight_kg !== null && order.return_weight_kg !== undefined;
     const weightDiff = hasPickupWeight && hasReturnWeight 
@@ -791,38 +841,19 @@ export const DriverPanel = () => {
             </span>
           </div>
           
-          {/* Quick Stats - Mobile optimized grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 max-w-2xl mx-auto">
-            <Card className="text-center">
-              <CardContent className="p-2 sm:p-4">
-                <div className="text-lg sm:text-2xl font-bold text-yellow-600">{pendingOrders.length}</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Odottaa</div>
-              </CardContent>
-            </Card>
-            <Card className="text-center">
-              <CardContent className="p-2 sm:p-4">
-                <div className="text-lg sm:text-2xl font-bold text-blue-600">
-                  {myOrders.filter(o => o.status === 'accepted').length}
-                </div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Hyväksytty</div>
-              </CardContent>
-            </Card>
-            <Card className="text-center">
-              <CardContent className="p-2 sm:p-4">
-                <div className="text-lg sm:text-2xl font-bold text-purple-600">
-                  {myOrders.filter(o => ['picking_up', 'washing', 'returning'].includes(o.status)).length}
-                </div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Käsittelyssä</div>
-              </CardContent>
-            </Card>
-            <Card className="text-center">
-              <CardContent className="p-2 sm:p-4">
-                <div className="text-lg sm:text-2xl font-bold text-green-600">
-                  {myOrders.filter(o => o.status === 'delivered').length}
-                </div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Toimitettu</div>
-              </CardContent>
-            </Card>
+          {/* Compact stats bar */}
+          <div className="max-w-2xl mx-auto rounded-xl border bg-card/60 divide-x flex overflow-hidden">
+            {[
+              { label: 'Odottaa', value: pendingOrders.length },
+              { label: 'Hyväksytty', value: myOrders.filter(o => o.status === 'accepted').length },
+              { label: 'Käsittelyssä', value: myOrders.filter(o => ['picking_up', 'washing', 'returning'].includes(o.status)).length },
+              { label: 'Toimitettu', value: myOrders.filter(o => o.status === 'delivered').length },
+            ].map(stat => (
+              <div key={stat.label} className="flex-1 py-2 px-1 text-center">
+                <div className="text-base sm:text-lg font-semibold leading-none">{stat.value}</div>
+                <div className="text-[11px] sm:text-xs text-muted-foreground mt-1">{stat.label}</div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -872,39 +903,9 @@ export const DriverPanel = () => {
 
                 {myOrders.length > 0 ? (
                   <div className="space-y-3 sm:space-y-4">
-                    {/* Pagination controls for my orders */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                      <div className="text-xs sm:text-sm text-muted-foreground">
-                        {myOrdersPage * 3 + 1}-{Math.min((myOrdersPage + 1) * 3, myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length)} / {myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setMyOrdersPage(Math.max(0, myOrdersPage - 1))}
-                          disabled={myOrdersPage === 0}
-                          className="text-xs px-2 sm:px-3"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                          <span className="hidden sm:inline">Edellinen</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setMyOrdersPage(myOrdersPage + 1)}
-                          disabled={(myOrdersPage + 1) * 3 >= myOrders.filter(o => myStatusFilter === 'all' || o.status === myStatusFilter).length}
-                          className="text-xs px-2 sm:px-3"
-                        >
-                          <span className="hidden sm:inline">Seuraava</span>
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    
                     {[...myOrders]
                       .filter(o => myStatusFilter === 'all' || o.status === myStatusFilter)
                       .sort((a, b) => mySort === 'newest' ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime() : new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                      .slice(myOrdersPage * 3, (myOrdersPage + 1) * 3)
                       .map((order) => {
                         const StatusIcon = getStatusIcon(order.status);
                         // Can progress if status isn't delivered
@@ -1001,106 +1002,98 @@ export const DriverPanel = () => {
 
               <TabsContent value="free">
                 {pendingOrders.length > 0 ? (
-                  <div className="space-y-3 sm:space-y-4">
-                    {/* Pagination controls */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                      <div className="text-xs sm:text-sm text-muted-foreground">
-                        {pendingPage * ordersPerPage + 1}-{Math.min((pendingPage + 1) * ordersPerPage, pendingOrders.length)} / {pendingOrders.length}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setPendingPage(Math.max(0, pendingPage - 1))}
-                          disabled={pendingPage === 0}
-                          className="text-xs px-2 sm:px-3"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                          <span className="hidden sm:inline">Edellinen</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setPendingPage(pendingPage + 1)}
-                          disabled={(pendingPage + 1) * ordersPerPage >= pendingOrders.length}
-                          className="text-xs px-2 sm:px-3"
-                        >
-                          <span className="hidden sm:inline">Seuraava</span>
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {pendingOrders
-                      .slice(pendingPage * ordersPerPage, (pendingPage + 1) * ordersPerPage)
-                      .map((order) => (
+                  <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1 -mr-1">
+                    {pendingOrders.map((order) => {
+                      const tags = getOrderItemTags(order);
+                      return (
                       <Card key={order.id} className="hover:shadow-elegant transition-all duration-300 overflow-hidden">
-                        <CardContent className="p-3 sm:p-6">
-                          {/* Mobile-first layout */}
-                          <div className="flex flex-col gap-3">
-                            {/* Header */}
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-yellow-100">
-                                  <Clock className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-600" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <h3 className="font-semibold text-sm sm:text-base truncate">{getCustomerName(order)}</h3>
-                                  <Badge variant="outline" className="text-xs">{order.service_name}</Badge>
-                                </div>
+                        <CardContent className="p-4 space-y-4">
+                          {/* Header: area + payout */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="flex items-center gap-1.5 text-sm font-semibold">
+                                <MapPin className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                <span className="truncate">{getAreaLabel(order.address)}</span>
                               </div>
-                              <div className="text-right flex-shrink-0">
-                                <div className="font-bold text-base sm:text-lg text-primary">{order.final_price}€</div>
+                              <p className="text-xs text-muted-foreground">
+                                Tarkka katuosoite avautuu hyväksymisen jälkeen
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="text-lg font-bold text-primary leading-none">
+                                {formatEuro(order.final_price)}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground mt-1">Palkkio</div>
+                            </div>
+                          </div>
+
+                          {/* Order contents as tags */}
+                          {tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {tags.map((tag, i) => (
+                                <Badge key={i} variant="secondary" className="text-xs font-normal">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Schedule timeline */}
+                          <div className="space-y-3">
+                            <div className="flex gap-3">
+                              <div className="flex flex-col items-center pt-1">
+                                <div className="h-2 w-2 rounded-full bg-foreground/70" />
+                                <div className="w-px flex-1 bg-border my-1" />
+                              </div>
+                              <div className="pb-1">
+                                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Nouto</div>
+                                <div className="text-sm font-medium">{formatDayTime(order.pickup_date, order.pickup_time)}</div>
                               </div>
                             </div>
-                            
-                            {/* Details */}
-                            <div className="space-y-1">
-                              <div className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground">
-                                <MapPin className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 mt-0.5" />
-                                <span className="break-words">{order.address}</span>
+                            <div className="flex gap-3">
+                              <div className="flex flex-col items-center">
+                                <div className="h-2 w-2 rounded-full border border-foreground/40 bg-background" />
                               </div>
-                              <div className="text-xs sm:text-sm text-muted-foreground">
-                                Tilattu: {new Date(order.created_at).toLocaleString('fi-FI')}
-                              </div>
-                              {renderRugDimensions(order.order_items || [])}
-                            </div>
-                            
-                            {/* Actions - stacked on mobile */}
-                            <div className="flex flex-col gap-2 pt-2 border-t">
-                              <DriverTimeManager 
-                                order={order} 
-                                onOrderUpdate={async () => {
-                                  console.log('🔄 Order accepted via DriverTimeManager, switching to My orders tab');
-                                  setActiveTab('my');
-                                  await fetchOrders();
-                                }}
-                              />
-                              <div className="flex gap-2">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onClick={() => setShowRejectDialog(order.id)} 
-                                  className="flex-1 text-xs sm:text-sm"
-                                >
-                                  <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                                  Hylkää
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => window.open(`tel:${order.phone}`)} 
-                                  className="flex-1 text-xs sm:text-sm"
-                                >
-                                  <Phone className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                                  Soita
-                                </Button>
+                              <div>
+                                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Palautus</div>
+                                <div className="text-sm font-medium">{formatDayTime(order.return_date, order.return_time)}</div>
                               </div>
                             </div>
                           </div>
+
+                          {order.special_instructions && (
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-medium">Lisätiedot:</span> {order.special_instructions}
+                            </p>
+                          )}
+                          {renderRugDimensions(order.order_items || [])}
+
+                          <div className="text-[11px] text-muted-foreground">
+                            Tilattu {formatDateTimeMinutes(order.created_at)}
+                          </div>
+
+                          {/* CTA */}
+                          <div className="space-y-2 pt-1 border-t">
+                            <Button
+                              onClick={() => handleAcceptOrder(order.id)}
+                              className="w-full mt-3"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Ota keikka vastaan
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              onClick={() => setShowRejectDialog(order.id)}
+                              className="w-full text-muted-foreground"
+                            >
+                              <X className="h-4 w-4 mr-2" />
+                              Hylkää
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-12">
