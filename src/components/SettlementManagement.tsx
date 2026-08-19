@@ -314,9 +314,10 @@ export const SettlementManagement = () => {
       const orderItems = (itemsByOrder[orderId] || []).filter(
         (it) => detail.type === "driver" || (it.laundry_id || order?.laundry_id || "unassigned") === detail.group.key
       );
-      return { order, orderItems };
+      const tasks = periodDriverTasks.filter((t) => t.order_id === orderId && t.driver_id === detail.group.key);
+      return { orderId, order, orderItems, tasks };
     });
-  }, [detail, orders, itemsByOrder]);
+  }, [detail, orders, itemsByOrder, periodDriverTasks]);
 
   const downloadCsv = (type: "laundry" | "driver", group: Group) => {
     const header =
@@ -342,7 +343,7 @@ export const SettlementManagement = () => {
             ]);
           });
       } else {
-        const payout = orderItems.reduce((s, it) => s + Number(it.driver_payout || 0), 0);
+        const payout = driverOrderPayouts[group.key]?.[orderId] || 0;
         lines.push([
           orderId.slice(0, 8),
           fmtDate(order?.created_at ?? null),
@@ -373,7 +374,7 @@ export const SettlementManagement = () => {
       .map((orderId) => {
         const order = orders.find((o) => o.id === orderId);
         const orderItems = itemsByOrder[orderId] || [];
-        const payout = orderItems.reduce((s, it) => s + Number(it.driver_payout || 0), 0);
+        const payout = driverOrderPayouts[group.key]?.[orderId] || 0;
         const value =
           type === "laundry"
             ? orderItems
