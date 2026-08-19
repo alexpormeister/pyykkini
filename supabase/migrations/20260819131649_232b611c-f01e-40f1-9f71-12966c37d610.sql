@@ -1,0 +1,3 @@
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS commission_percent numeric NOT NULL DEFAULT 15 CHECK (commission_percent >= 0 AND commission_percent <= 100);
+ALTER TABLE public.order_items ADD COLUMN IF NOT EXISTS commission_percent numeric NOT NULL DEFAULT 15 CHECK (commission_percent >= 0 AND commission_percent <= 100);
+ALTER TABLE public.order_items ADD COLUMN IF NOT EXISTS driver_payout numeric;
