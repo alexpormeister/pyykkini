@@ -209,6 +209,31 @@ export const LaundryPanel = () => {
     fetchData();
   };
 
+  const confirmReceipt = async (order: LaundryOrder) => {
+    if (!laundryId) return;
+    const code = (codeInput[order.id] || "").trim();
+    const { data, error } = await supabase.rpc("laundry_confirm_receipt" as never, {
+      p_order_id: order.id,
+      p_laundry_id: laundryId,
+      p_code: code,
+    } as never);
+    if (error) {
+      toast({ title: "Kuittaus epäonnistui", description: error.message, variant: "destructive" });
+      return;
+    }
+    const result = data as { success?: boolean; reason?: string } | null;
+    if (!result?.success) {
+      toast({
+        title: result?.reason === "not_arrived" ? "Kuljettaja ei ole vielä tuonut pyykkejä" : "Virheellinen koodi",
+        variant: "destructive",
+      });
+      return;
+    }
+    setCodeInput((prev) => ({ ...prev, [order.id]: "" }));
+    toast({ title: "Vastaanotettu", description: "Tilaus siirtyi käsittelyyn." });
+    fetchData();
+  };
+
   const saveNote = async () => {
     if (!noteOrder || !laundryId || !user) return;
     if (!noteText.trim() && !noteFile) {
@@ -460,16 +485,46 @@ export const LaundryPanel = () => {
               action={(o) => decide(o, "accepted")}
               actionLabel="Hyväksy tilaus"
               actionIcon={<CheckCircle2 className="mr-2 h-5 w-5" />}
-              secondaryAction={(o) => decide(o, "rejected")}
-              secondaryLabel="Hylkää"
             />
             <Column
               title="Saapuvat"
               icon={<Truck className="h-5 w-5 text-primary" />}
               items={incoming}
-              action={(o) => setStatus(o, "WASHING")}
-              actionLabel="Kuittaa vastaanotetuksi"
-              actionIcon={<CheckCircle2 className="mr-2 h-5 w-5" />}
+              renderCard={(o) => {
+                const arrived = track(o) === "PICKED_UP";
+                return (
+                  <OrderCard
+                    order={o}
+                    action={arrived ? () => confirmReceipt(o) : undefined}
+                    actionLabel="Kuittaa vastaanotetuksi"
+                    actionIcon={<CheckCircle2 className="mr-2 h-5 w-5" />}
+                    actionDisabled={(codeInput[o.id] || "").trim().length < 4}
+                    extra={
+                      arrived ? (
+                        <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
+                          <p className="text-xs text-muted-foreground">
+                            Syötä kuljettajan luovutuskoodi
+                          </p>
+                          <Input
+                            inputMode="numeric"
+                            maxLength={6}
+                            placeholder="••••"
+                            value={codeInput[o.id] || ""}
+                            onChange={(e) =>
+                              setCodeInput((prev) => ({ ...prev, [o.id]: e.target.value }))
+                            }
+                            className="h-12 text-center text-lg tracking-[0.4em]"
+                          />
+                        </div>
+                      ) : (
+                        <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+                          Odottaa kuljettajaa – kuittaus avautuu, kun kuljettaja tuo pyykit.
+                        </p>
+                      )
+                    }
+                  />
+                );
+              }}
             />
             <Column
               title="Käsittelyssä"
