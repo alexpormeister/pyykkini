@@ -490,6 +490,24 @@ export const ProductManagement = () => {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="edit-commission_percent">Alustan komissio (%) *</Label>
+              <Input
+                id="edit-commission_percent"
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                value={editFormData.commission_percent}
+                onChange={(e) => setEditFormData({ ...editFormData, commission_percent: e.target.value })}
+                placeholder="15"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Käytetään tilauksen rivikohtaisessa komissiolaskennassa (suositus 15–20 %).
+              </p>
+            </div>
+
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
