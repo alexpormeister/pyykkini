@@ -276,6 +276,130 @@ export type Database = {
         }
         Relationships: []
       }
+      laundry_contracts: {
+        Row: {
+          created_at: string
+          file_url: string | null
+          id: string
+          laundry_id: string
+          notes: string | null
+          payment_terms: string | null
+          status: string
+          title: string
+          updated_at: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          laundry_id: string
+          notes?: string | null
+          payment_terms?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          laundry_id?: string
+          notes?: string | null
+          payment_terms?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "laundry_contracts_laundry_id_fkey"
+            columns: ["laundry_id"]
+            isOneToOne: false
+            referencedRelation: "laundries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      laundry_order_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          image_urls: string[]
+          laundry_id: string
+          note: string | null
+          order_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_urls?: string[]
+          laundry_id: string
+          note?: string | null
+          order_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_urls?: string[]
+          laundry_id?: string
+          note?: string | null
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "laundry_order_notes_laundry_id_fkey"
+            columns: ["laundry_id"]
+            isOneToOne: false
+            referencedRelation: "laundries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "laundry_order_notes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      laundry_users: {
+        Row: {
+          created_at: string
+          id: string
+          laundry_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          laundry_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          laundry_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "laundry_users_laundry_id_fkey"
+            columns: ["laundry_id"]
+            isOneToOne: false
+            referencedRelation: "laundries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_history: {
         Row: {
           change_description: string | null
@@ -982,6 +1106,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_laundry_member: {
+        Args: { _laundry_id: string; _user_id: string }
+        Returns: boolean
+      }
       log_order_change: {
         Args: {
           p_change_type: string
@@ -1002,7 +1130,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "driver" | "customer"
+      app_role: "admin" | "driver" | "customer" | "laundry"
       order_status:
         | "pending"
         | "accepted"
@@ -1148,7 +1276,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "driver", "customer"],
+      app_role: ["admin", "driver", "customer", "laundry"],
       order_status: [
         "pending",
         "accepted",
