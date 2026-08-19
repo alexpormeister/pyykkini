@@ -728,12 +728,6 @@ export const AdminPanel = () => {
                           </div>
                         </button>
                         <button
-                          onClick={() => setActiveTab('complaints')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'complaints' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Reklamaatiot
-                        </button>
-                        <button
                           onClick={() => setActiveTab('crm')}
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'crm' ? 'bg-primary/10 text-primary font-medium' : ''}`}
                         >
@@ -743,53 +737,6 @@ export const AdminPanel = () => {
                     )}
                   </div>
 
-                  {/* Orders Section */}
-                  <div>
-                    <button
-                      onClick={() => toggleMenu('orders')}
-                      className="flex items-center justify-between w-full p-2 text-left hover:bg-muted rounded-lg"
-                    >
-                      <span className="font-medium text-primary">Tilaukset</span>
-                      {expandedMenus.orders ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </button>
-                     {expandedMenus.orders && (
-                      <div className="ml-4 mt-2 space-y-1">
-                        <button
-                          onClick={() => setActiveTab('orders')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'orders' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Kaikki tilaukset
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('free-orders')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'free-orders' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Vapaat ajot
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Analytics Section */}
-                  <div>
-                    <button
-                      onClick={() => toggleMenu('analytics')}
-                      className="flex items-center justify-between w-full p-2 text-left hover:bg-muted rounded-lg"
-                    >
-                      <span className="font-medium text-primary">Analytiikka</span>
-                      {expandedMenus.analytics ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </button>
-                    {expandedMenus.analytics && (
-                      <div className="ml-4 mt-2 space-y-1">
-                        <button
-                          onClick={() => setActiveTab('reports')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'reports' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Raportit ja tilastot
-                        </button>
-                      </div>
-                    )}
-                  </div>
                 </nav>
               </CardContent>
             </Card>
