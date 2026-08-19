@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Package, Plus, Trash2, Pencil } from "lucide-react";
+import { Package, Plus, Trash2, Pencil, Building2, Euro } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { logger } from "@/lib/logger";
 
@@ -27,13 +27,42 @@ interface Product {
   image_url: string | null;
   base_price: number;
   commission_percent: number | null;
+  platform_fee_type: string | null;
+  platform_fee_value: number | null;
+  driver_fee_type: string | null;
+  driver_fee_value: number | null;
   is_active: boolean;
 }
+
+interface Laundry {
+  id: string;
+  name: string;
+  city: string | null;
+  is_active: boolean;
+}
+
+interface LaundryPriceRow {
+  id?: string;
+  laundry_id: string;
+  price: string;
+}
+
+const emptyFees = {
+  platform_fee_type: "percent",
+  platform_fee_value: "15",
+  driver_fee_type: "percent",
+  driver_fee_value: "10"
+};
 
 export const ProductManagement = () => {
   const { toast } = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [laundries, setLaundries] = useState<Laundry[]>([]);
+  const [priceRows, setPriceRows] = useState<LaundryPriceRow[]>([]);
+  const [editPriceRows, setEditPriceRows] = useState<LaundryPriceRow[]>([]);
+  const [showLaundryDialog, setShowLaundryDialog] = useState(false);
+  const [laundryForm, setLaundryForm] = useState({ name: "", city: "" });
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -44,7 +73,7 @@ export const ProductManagement = () => {
     description: "",
     image_url: "",
     base_price: "",
-    commission_percent: "15"
+    ...emptyFees
   });
   const [editFormData, setEditFormData] = useState({
     name: "",
@@ -52,13 +81,14 @@ export const ProductManagement = () => {
     description: "",
     image_url: "",
     base_price: "",
-    commission_percent: "15",
+    ...emptyFees,
     is_active: true
   });
 
   useEffect(() => {
     fetchCategories();
     fetchProducts();
+    fetchLaundries();
   }, []);
 
   const fetchCategories = async () => {
@@ -88,7 +118,7 @@ export const ProductManagement = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setProducts(data || []);
+      setProducts((data as any) || []);
     } catch (error) {
       logger.error("Error fetching products:", error);
       toast({
@@ -97,6 +127,68 @@ export const ProductManagement = () => {
         description: "Tuotteiden lataaminen epäonnistui"
       });
     }
+  };
+
+  const fetchLaundries = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("laundries")
+        .select("id, name, city, is_active")
+        .order("name");
+      if (error) throw error;
+      setLaundries((data as any) || []);
+    } catch (error) {
+      logger.error("Error fetching laundries:", error);
+    }
+  };
+
+  const handleCreateLaundry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const { error } = await supabase.from("laundries").insert({
+        name: laundryForm.name,
+        city: laundryForm.city || null
+      });
+      if (error) throw error;
+      toast({ title: "Pesula lisätty", description: `${laundryForm.name} on lisätty` });
+      setLaundryForm({ name: "", city: "" });
+      setShowLaundryDialog(false);
+      fetchLaundries();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Virhe", description: error.message || "Pesulan lisääminen epäonnistui" });
+    }
+  };
+
+  const feeAmount = (base: number, type: string, value: string) => {
+    const v = parseFloat(value || "0") || 0;
+    return type === "fixed" ? v : Math.round(base * v) / 100;
+  };
+
+  const savePriceRows = async (productId: string, rows: LaundryPriceRow[]) => {
+    const valid = rows.filter((r) => r.laundry_id && r.price !== "");
+    if (valid.length > 0) {
+      const { error } = await supabase
+        .from("product_laundry_prices")
+        .upsert(
+          valid.map((r) => ({
+            product_id: productId,
+            laundry_id: r.laundry_id,
+            price: parseFloat(r.price)
+          })),
+          { onConflict: "product_id,laundry_id" }
+        );
+      if (error) throw error;
+    }
+  };
+
+  const loadPriceRows = async (productId: string) => {
+    const { data } = await supabase
+      .from("product_laundry_prices")
+      .select("id, laundry_id, price")
+      .eq("product_id", productId);
+    setEditPriceRows(
+      ((data as any[]) || []).map((r) => ({ id: r.id, laundry_id: r.laundry_id, price: String(r.price) }))
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,7 +204,16 @@ export const ProductManagement = () => {
           description: formData.description || undefined,
           image_url: formData.image_url || undefined,
           base_price: parseFloat(formData.base_price),
-          commission_percent: parseFloat(formData.commission_percent || "15")
+          commission_percent: formData.platform_fee_type === 'percent'
+            ? parseFloat(formData.platform_fee_value || "15")
+            : 15,
+          platform_fee_type: formData.platform_fee_type,
+          platform_fee_value: parseFloat(formData.platform_fee_value || "0"),
+          driver_fee_type: formData.driver_fee_type,
+          driver_fee_value: parseFloat(formData.driver_fee_value || "0"),
+          laundry_prices: priceRows
+            .filter((r) => r.laundry_id && r.price !== "")
+            .map((r) => ({ laundry_id: r.laundry_id, price: parseFloat(r.price) }))
         }
       });
 
@@ -130,8 +231,9 @@ export const ProductManagement = () => {
         description: "",
         image_url: "",
         base_price: "",
-        commission_percent: "15"
+        ...emptyFees
       });
+      setPriceRows([]);
       
       fetchProducts();
     } catch (error: any) {
@@ -154,9 +256,13 @@ export const ProductManagement = () => {
       description: product.description || "",
       image_url: product.image_url || "",
       base_price: product.base_price.toString(),
-      commission_percent: (product.commission_percent ?? 15).toString(),
+      platform_fee_type: product.platform_fee_type || "percent",
+      platform_fee_value: (product.platform_fee_value ?? product.commission_percent ?? 15).toString(),
+      driver_fee_type: product.driver_fee_type || "percent",
+      driver_fee_value: (product.driver_fee_value ?? 10).toString(),
       is_active: product.is_active
     });
+    loadPriceRows(product.product_id);
     setShowEditDialog(true);
   };
 
@@ -175,12 +281,20 @@ export const ProductManagement = () => {
           description: editFormData.description || null,
           image_url: editFormData.image_url || null,
           base_price: parseFloat(editFormData.base_price),
-          commission_percent: parseFloat(editFormData.commission_percent || "15"),
+          commission_percent: editFormData.platform_fee_type === 'percent'
+            ? parseFloat(editFormData.platform_fee_value || "15")
+            : (editingProduct.commission_percent ?? 15),
+          platform_fee_type: editFormData.platform_fee_type,
+          platform_fee_value: parseFloat(editFormData.platform_fee_value || "0"),
+          driver_fee_type: editFormData.driver_fee_type,
+          driver_fee_value: parseFloat(editFormData.driver_fee_value || "0"),
           is_active: editFormData.is_active
-        })
+        } as any)
         .eq("id", editingProduct.id);
 
       if (error) throw error;
+
+      await savePriceRows(editingProduct.product_id, editPriceRows);
 
       toast({
         title: "Tuote päivitetty",
