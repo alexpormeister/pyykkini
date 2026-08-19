@@ -36,6 +36,8 @@ export const UserManagement = () => {
   const [group, setGroup] = useState<'admin' | 'customer' | 'driver' | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const USERS_PER_PAGE = 5;
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
