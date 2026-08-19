@@ -167,12 +167,23 @@ export const LaundryPanel = () => {
   const history = orders.filter((o) => ["OUT_FOR_DELIVERY", "COMPLETED"].includes(track(o)) || o.status === "delivered");
 
   const decide = async (order: LaundryOrder, decision: "accepted" | "rejected") => {
-    const { error } = await supabase
-      .from("orders")
-      .update({ laundry_status: decision } as never)
-      .eq("id", order.id);
+    if (!laundryId) return;
+    const { data, error } = await supabase.rpc("laundry_decide_order" as never, {
+      p_order_id: order.id,
+      p_laundry_id: laundryId,
+      p_decision: decision,
+    } as never);
     if (error) {
       toast({ title: "Päivitys epäonnistui", description: error.message, variant: "destructive" });
+      return;
+    }
+    const result = data as { success?: boolean; reason?: string } | null;
+    if (result && result.success === false) {
+      toast({
+        title: result.reason === "already_claimed" ? "Toinen pesula ehti ensin" : "Tilaus on jo käsitelty",
+        variant: "destructive",
+      });
+      fetchData();
       return;
     }
     toast({
