@@ -105,7 +105,7 @@ export const AdminPanel = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("customers");
   const [activeDrivers, setActiveDrivers] = useState<ActiveDriver[]>([]);
   const [expandedMenus, setExpandedMenus] = useState<{[key: string]: boolean}>({
     management: true,
