@@ -586,7 +586,7 @@ export const ProductManagement = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="base_price">Hinta (€) *</Label>
+              <Label htmlFor="base_price">Perushinta / pesulan oletushinta (€) *</Label>
               <Input
                 id="base_price"
                 type="number"
@@ -597,25 +597,24 @@ export const ProductManagement = () => {
                 placeholder="0.00"
                 required
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="commission_percent">Alustan komissio (%) *</Label>
-              <Input
-                id="commission_percent"
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
-                value={formData.commission_percent}
-                onChange={(e) => setFormData({ ...formData, commission_percent: e.target.value })}
-                placeholder="15"
-                required
-              />
               <p className="text-xs text-muted-foreground">
-                Osuus, joka jää alustalle. Loput maksetaan kuljettajalle (suositus 15–20 %).
+                Käytetään, jos pesulalle ei ole omaa hintaa.
               </p>
             </div>
+
+            <FeeFields
+              idPrefix="new"
+              values={formData}
+              onChange={(patch) => setFormData({ ...formData, ...patch })}
+            />
+
+            <LaundryPriceEditor
+              laundries={laundries}
+              rows={priceRows}
+              setRows={setPriceRows}
+              fees={formData}
+              onAddLaundry={() => setShowLaundryDialog(true)}
+            />
 
             <Button type="submit" disabled={loading} className="w-full">
               <Plus className="h-4 w-4 mr-2" />
