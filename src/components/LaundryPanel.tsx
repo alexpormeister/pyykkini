@@ -120,11 +120,20 @@ export const LaundryPanel = () => {
   const fetchData = useCallback(async () => {
     if (!laundryId) return;
     setLoading(true);
-    const [o, s, c, p] = await Promise.all([
+    const itemsSelect =
+      "id, access_code, service_name, special_instructions, pickup_date, pickup_time, return_date, return_time, status, tracking_status, laundry_status, final_price, created_at, updated_at, order_items(id, service_type, service_name, product_name, quantity, laundry_price, total_price)";
+    const [o, unclaimed, s, c, p] = await Promise.all([
       supabase
         .from("orders")
-        .select("id, access_code, service_name, special_instructions, pickup_date, pickup_time, return_date, return_time, status, tracking_status, laundry_status, created_at, updated_at, order_items(id, service_name, product_name, quantity, laundry_price, total_price)")
+        .select(itemsSelect)
         .eq("laundry_id", laundryId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("orders")
+        .select(itemsSelect)
+        .is("laundry_id", null)
+        .eq("laundry_status", "pending")
+        .eq("status", "pending")
         .order("created_at", { ascending: false }),
       supabase
         .from("settlements")
@@ -135,7 +144,7 @@ export const LaundryPanel = () => {
       supabase.from("laundry_contracts").select("*").eq("laundry_id", laundryId).order("created_at", { ascending: false }),
       supabase.from("product_laundry_prices").select("product_id, price").eq("laundry_id", laundryId).eq("is_active", true),
     ]);
-    setOrders((o.data || []) as unknown as LaundryOrder[]);
+    setOrders([...(unclaimed.data || []), ...(o.data || [])] as unknown as LaundryOrder[]);
     setSettlements((s.data || []) as Settlement[]);
     setContracts((c.data || []) as Contract[]);
     setPrices((p.data || []) as { product_id: string; price: number }[]);
