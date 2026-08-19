@@ -49,6 +49,8 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
   const [info, setInfo] = useState<Record<string, HandoverInfo>>({});
   const [weighTask, setWeighTask] = useState<TaskRow | null>(null);
   const [weight, setWeight] = useState("");
+  const [weighMode, setWeighMode] = useState<"pickup" | "return">("pickup");
+  const readyNotified = useRef<Set<string>>(new Set());
 
   const fetchTasks = useCallback(async () => {
     const { data, error } = await supabase
@@ -86,11 +88,27 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
     const channel = supabase
       .channel("driver_tasks")
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_tasks" }, () => fetchTasks())
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => fetchTasks())
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [fetchTasks]);
+
+  // Notify the driver when the laundry has finished an order they are returning
+  useEffect(() => {
+    for (const task of tasks) {
+      if (task.task_type !== "delivery") continue;
+      const track = info[task.order_id]?.tracking_status;
+      if (track === "PACKAGING" && !readyNotified.current.has(task.id)) {
+        readyNotified.current.add(task.id);
+        toast({
+          title: "Tilaus valmiina noudettavaksi",
+          description: `${shortId(task.order_id)} on pesty ja pakattu — voit noutaa sen pesulalta.`,
+        });
+      }
+    }
+  }, [tasks, info, toast]);
 
   const startTask = async (task: TaskRow) => {
     setBusy(task.id);
@@ -135,19 +153,36 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
           description: "Vie pyykit pesulaan ja kerro koodi. Keikka sulkeutuu, kun pesula kuittaa sen.",
         });
       } else {
-        const { data, error } = await supabase.rpc("driver_complete_delivery" as never, {
-          p_task_id: task.id,
-        } as never);
-        if (error) throw error;
-        const result = data as { success?: boolean; reason?: string } | null;
-        if (!result?.success) {
+        const kg = Number(String(weight).replace(",", "."));
+        if (!kg || kg <= 0) {
           toast({
-            title: "Menokyyti täytyy kuitata ensin",
-            description: "Paluukeikan voi kuitata vasta kun tilaus on noudettu asiakkaalta pesulaan.",
+            title: "Punnitse pyykit",
+            description: "Kirjaa palautuspaino kiloina ennen kuittausta.",
             variant: "destructive",
           });
           return;
         }
+        const { data, error } = await supabase.rpc("driver_complete_delivery" as never, {
+          p_task_id: task.id,
+          p_weight_kg: kg,
+        } as never);
+        if (error) throw error;
+        const result = data as { success?: boolean; reason?: string } | null;
+        if (!result?.success) {
+          const reasons: Record<string, string> = {
+            pickup_not_done: "Paluukeikan voi kuitata vasta kun tilaus on noudettu asiakkaalta pesulaan.",
+            not_picked_from_laundry: "Merkitse ensin tilaus noudetuksi pesulalta.",
+            weight_required: "Kirjaa palautuspaino kiloina.",
+          };
+          toast({
+            title: "Kuittaus ei onnistunut",
+            description: reasons[result?.reason || ""] || "Tarkista tilauksen tila ja yritä uudelleen.",
+            variant: "destructive",
+          });
+          return;
+        }
+        setWeighTask(null);
+        setWeight("");
         toast({
           title: "Toimitus kuitattu",
           description: `Palkkio ${Number(task.driver_payout).toFixed(2)} € • tilaus valmis`,
@@ -157,6 +192,32 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
     } catch (error) {
       console.error(error);
       toast({ title: "Virhe", description: "Kuittaus epäonnistui", variant: "destructive" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const pickupFromLaundry = async (task: TaskRow) => {
+    setBusy(task.id);
+    try {
+      const { data, error } = await supabase.rpc("driver_pickup_from_laundry" as never, {
+        p_task_id: task.id,
+      } as never);
+      if (error) throw error;
+      const result = data as { success?: boolean; reason?: string } | null;
+      if (!result?.success) {
+        toast({
+          title: "Tilaus ei ole vielä valmis",
+          description: "Pesula ei ole merkinnyt tilausta valmiiksi. Saat ilmoituksen kun se on noudettavissa.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: "Noudettu pesulalta", description: "Tilaus on nyt matkalla asiakkaalle." });
+      fetchTasks();
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Virhe", description: "Toiminto epäonnistui", variant: "destructive" });
     } finally {
       setBusy(null);
     }
