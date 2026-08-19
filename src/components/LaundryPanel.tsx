@@ -70,7 +70,7 @@ interface Contract {
 
 const eur = (n: number) => `${(n || 0).toFixed(2).replace(".", ",")} €`;
 
-const orderRef = (o: LaundryOrder) => o.access_code || o.id.slice(0, 8).toUpperCase();
+const orderRef = (o: LaundryOrder) => o.id.slice(0, 8).toUpperCase();
 
 const fmtDateTime = (date: string, time: string) => {
   const d = new Date(`${date}T${time}`);
@@ -90,6 +90,7 @@ export const LaundryPanel = () => {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [prices, setPrices] = useState<{ product_id: string; price: number }[]>([]);
   const [search, setSearch] = useState("");
+  const [codeInput, setCodeInput] = useState<Record<string, string>>({});
   const [noteOrder, setNoteOrder] = useState<LaundryOrder | null>(null);
   const [noteText, setNoteText] = useState("");
   const [noteFile, setNoteFile] = useState<File | null>(null);
@@ -209,6 +210,31 @@ export const LaundryPanel = () => {
     fetchData();
   };
 
+  const confirmReceipt = async (order: LaundryOrder) => {
+    if (!laundryId) return;
+    const code = (codeInput[order.id] || "").trim();
+    const { data, error } = await supabase.rpc("laundry_confirm_receipt" as never, {
+      p_order_id: order.id,
+      p_laundry_id: laundryId,
+      p_code: code,
+    } as never);
+    if (error) {
+      toast({ title: "Kuittaus epäonnistui", description: error.message, variant: "destructive" });
+      return;
+    }
+    const result = data as { success?: boolean; reason?: string } | null;
+    if (!result?.success) {
+      toast({
+        title: result?.reason === "not_arrived" ? "Kuljettaja ei ole vielä tuonut pyykkejä" : "Virheellinen koodi",
+        variant: "destructive",
+      });
+      return;
+    }
+    setCodeInput((prev) => ({ ...prev, [order.id]: "" }));
+    toast({ title: "Vastaanotettu", description: "Tilaus siirtyi käsittelyyn." });
+    fetchData();
+  };
+
   const saveNote = async () => {
     if (!noteOrder || !laundryId || !user) return;
     if (!noteText.trim() && !noteFile) {
@@ -309,69 +335,54 @@ export const LaundryPanel = () => {
     action,
     actionLabel,
     actionIcon,
-    secondaryAction,
-    secondaryLabel,
+    actionDisabled,
+    extra,
   }: {
     order: LaundryOrder;
     action?: () => void;
     actionLabel?: string;
     actionIcon?: React.ReactNode;
-    secondaryAction?: () => void;
-    secondaryLabel?: string;
+    actionDisabled?: boolean;
+    extra?: React.ReactNode;
   }) => (
     <Card className="border-2">
       <CardContent className="p-4 space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <div className="text-lg font-bold">#{orderRef(order)}</div>
+        <div className="flex items-start justify-between gap-2 min-w-0">
+          <div className="min-w-0">
+            <div className="truncate text-lg font-bold">#{orderRef(order)}</div>
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              Valmis {fmtDateTime(order.return_date, order.return_time)}
+              <Clock className="h-4 w-4 shrink-0" />
+              <span className="truncate">Valmis {fmtDateTime(order.return_date, order.return_time)}</span>
             </div>
           </div>
-          <div className="text-right text-sm font-semibold">{eur(laundryTotal(order))}</div>
+          <div className="shrink-0 text-right text-sm font-semibold">{eur(laundryTotal(order))}</div>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
           {order.order_items.map((it) => (
-            <Badge key={it.id} variant="secondary" className="text-sm py-1">
+            <Badge key={it.id} variant="secondary" className="max-w-full truncate py-1 text-sm">
               {(it.product_name || it.service_name)} × {it.quantity}
             </Badge>
           ))}
         </div>
 
         {order.special_instructions && (
-          <p className="rounded-lg bg-muted p-3 text-sm">{order.special_instructions}</p>
+          <p className="break-words rounded-lg bg-muted p-3 text-sm">{order.special_instructions}</p>
         )}
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          {action && (
-            <Button size="lg" className="h-14 flex-1 text-base" onClick={action}>
-              {actionIcon}
-              {actionLabel}
-            </Button>
-          )}
-          {secondaryAction && (
-            <Button
-              size="lg"
-              variant="ghost"
-              className="h-14 text-base text-muted-foreground sm:w-auto"
-              onClick={secondaryAction}
-            >
-              <XCircle className="mr-2 h-5 w-5" />
-              {secondaryLabel}
-            </Button>
-          )}
+        {extra}
+
+        {action && (
           <Button
             size="lg"
-            variant="outline"
-            className="h-14 sm:w-auto"
-            onClick={() => setNoteOrder(order)}
+            className="h-12 w-full text-sm sm:text-base"
+            onClick={action}
+            disabled={actionDisabled}
           >
-            <Camera className="mr-2 h-5 w-5" />
-            Huomio
+            {actionIcon}
+            <span className="truncate">{actionLabel}</span>
           </Button>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -383,8 +394,7 @@ export const LaundryPanel = () => {
     action,
     actionLabel,
     actionIcon,
-    secondaryAction,
-    secondaryLabel,
+    renderCard,
   }: {
     title: string;
     icon: React.ReactNode;
@@ -392,8 +402,7 @@ export const LaundryPanel = () => {
     action?: (o: LaundryOrder) => void;
     actionLabel?: string;
     actionIcon?: React.ReactNode;
-    secondaryAction?: (o: LaundryOrder) => void;
-    secondaryLabel?: string;
+    renderCard?: (o: LaundryOrder) => React.ReactNode;
   }) => (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -405,6 +414,8 @@ export const LaundryPanel = () => {
         <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
           Ei tilauksia
         </div>
+      ) : renderCard ? (
+        items.map((o) => <div key={o.id}>{renderCard(o)}</div>)
       ) : (
         items.map((o) => (
           <OrderCard
@@ -413,8 +424,6 @@ export const LaundryPanel = () => {
             action={action ? () => action(o) : undefined}
             actionLabel={actionLabel}
             actionIcon={actionIcon}
-            secondaryAction={secondaryAction ? () => secondaryAction(o) : undefined}
-            secondaryLabel={secondaryLabel}
           />
         ))
       )}
@@ -477,16 +486,46 @@ export const LaundryPanel = () => {
               action={(o) => decide(o, "accepted")}
               actionLabel="Hyväksy tilaus"
               actionIcon={<CheckCircle2 className="mr-2 h-5 w-5" />}
-              secondaryAction={(o) => decide(o, "rejected")}
-              secondaryLabel="Hylkää"
             />
             <Column
               title="Saapuvat"
               icon={<Truck className="h-5 w-5 text-primary" />}
               items={incoming}
-              action={(o) => setStatus(o, "WASHING")}
-              actionLabel="Kuittaa vastaanotetuksi"
-              actionIcon={<CheckCircle2 className="mr-2 h-5 w-5" />}
+              renderCard={(o) => {
+                const arrived = track(o) === "PICKED_UP";
+                return (
+                  <OrderCard
+                    order={o}
+                    action={arrived ? () => confirmReceipt(o) : undefined}
+                    actionLabel="Kuittaa vastaanotetuksi"
+                    actionIcon={<CheckCircle2 className="mr-2 h-5 w-5" />}
+                    actionDisabled={(codeInput[o.id] || "").trim().length < 4}
+                    extra={
+                      arrived ? (
+                        <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
+                          <p className="text-xs text-muted-foreground">
+                            Syötä kuljettajan luovutuskoodi
+                          </p>
+                          <Input
+                            inputMode="numeric"
+                            maxLength={6}
+                            placeholder="••••"
+                            value={codeInput[o.id] || ""}
+                            onChange={(e) =>
+                              setCodeInput((prev) => ({ ...prev, [o.id]: e.target.value }))
+                            }
+                            className="h-12 text-center text-lg tracking-[0.4em]"
+                          />
+                        </div>
+                      ) : (
+                        <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+                          Odottaa kuljettajaa – kuittaus avautuu, kun kuljettaja tuo pyykit.
+                        </p>
+                      )
+                    }
+                  />
+                );
+              }}
             />
             <Column
               title="Käsittelyssä"
