@@ -644,6 +644,55 @@ export const DriverPanel = () => {
     return `${num.toFixed(2).replace('.', ',')} €`;
   };
 
+  // Osuus toimitusmaksusta, joka maksetaan kuljettajalle
+  const DRIVER_DELIVERY_FEE_SHARE = 0.8;
+  // Oletuskomissio, jos tuotteelle ei ole tallennettu prosenttia
+  const DEFAULT_COMMISSION_PERCENT = 15;
+
+  const getDeliveryFee = (address?: string | null) => {
+    if (!address || serviceAreas.length === 0) return 0;
+    const lower = address.toLowerCase();
+    const postal = address.match(/\b\d{5}\b/)?.[0];
+    const byPostal = postal
+      ? serviceAreas.find(a => a.postal_code && a.postal_code === postal)
+      : undefined;
+    if (byPostal) return Number(byPostal.delivery_fee ?? 0);
+    const byCity = serviceAreas.find(
+      a => !a.postal_code && a.city && lower.includes(String(a.city).toLowerCase())
+    );
+    return byCity ? Number(byCity.delivery_fee ?? 0) : 0;
+  };
+
+  // Kuljettajan palkkio = rivikohtainen osuus komission jälkeen + osuus toimitusmaksusta
+  const getDriverEarnings = (order: any) => {
+    const items = (order.order_items || []) as any[];
+    const orderTotal = Number(order.final_price ?? order.price ?? 0);
+
+    let itemsPayout = 0;
+    if (items.length > 0) {
+      itemsPayout = items.reduce((sum, item) => {
+        const stored = item.driver_payout != null ? Number(item.driver_payout) : null;
+        if (stored != null) return sum + stored;
+        const lineTotal = Number(item.total_price ?? 0);
+        const commission = Number(item.commission_percent ?? DEFAULT_COMMISSION_PERCENT);
+        return sum + lineTotal * (1 - commission / 100);
+      }, 0);
+    } else {
+      itemsPayout = orderTotal * (1 - DEFAULT_COMMISSION_PERCENT / 100);
+    }
+
+    const deliveryFee = getDeliveryFee(order.address);
+    const deliveryShare = deliveryFee * DRIVER_DELIVERY_FEE_SHARE;
+
+    return {
+      itemsPayout,
+      deliveryFee,
+      deliveryShare,
+      total: itemsPayout + deliveryShare,
+      orderTotal
+    };
+  };
+
   const formatDateTimeMinutes = (value: string) =>
     new Date(value).toLocaleString('fi-FI', {
       day: 'numeric',
