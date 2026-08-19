@@ -847,38 +847,19 @@ export const DriverPanel = () => {
             </span>
           </div>
           
-          {/* Quick Stats - Mobile optimized grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 max-w-2xl mx-auto">
-            <Card className="text-center">
-              <CardContent className="p-2 sm:p-4">
-                <div className="text-lg sm:text-2xl font-bold text-yellow-600">{pendingOrders.length}</div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Odottaa</div>
-              </CardContent>
-            </Card>
-            <Card className="text-center">
-              <CardContent className="p-2 sm:p-4">
-                <div className="text-lg sm:text-2xl font-bold text-blue-600">
-                  {myOrders.filter(o => o.status === 'accepted').length}
-                </div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Hyväksytty</div>
-              </CardContent>
-            </Card>
-            <Card className="text-center">
-              <CardContent className="p-2 sm:p-4">
-                <div className="text-lg sm:text-2xl font-bold text-purple-600">
-                  {myOrders.filter(o => ['picking_up', 'washing', 'returning'].includes(o.status)).length}
-                </div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Käsittelyssä</div>
-              </CardContent>
-            </Card>
-            <Card className="text-center">
-              <CardContent className="p-2 sm:p-4">
-                <div className="text-lg sm:text-2xl font-bold text-green-600">
-                  {myOrders.filter(o => o.status === 'delivered').length}
-                </div>
-                <div className="text-xs sm:text-sm text-muted-foreground">Toimitettu</div>
-              </CardContent>
-            </Card>
+          {/* Compact stats bar */}
+          <div className="max-w-2xl mx-auto rounded-xl border bg-card/60 divide-x flex overflow-hidden">
+            {[
+              { label: 'Odottaa', value: pendingOrders.length },
+              { label: 'Hyväksytty', value: myOrders.filter(o => o.status === 'accepted').length },
+              { label: 'Käsittelyssä', value: myOrders.filter(o => ['picking_up', 'washing', 'returning'].includes(o.status)).length },
+              { label: 'Toimitettu', value: myOrders.filter(o => o.status === 'delivered').length },
+            ].map(stat => (
+              <div key={stat.label} className="flex-1 py-2 px-1 text-center">
+                <div className="text-base sm:text-lg font-semibold leading-none">{stat.value}</div>
+                <div className="text-[11px] sm:text-xs text-muted-foreground mt-1">{stat.label}</div>
+              </div>
+            ))}
           </div>
         </div>
 
