@@ -196,39 +196,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Award points for the order (1 € = 1 point)
-    const pointsToAward = Math.floor(validatedOrder.finalPrice);
-    if (pointsToAward > 0) {
-      // Insert points transaction with 12 month expiration
-      await serviceRoleClient
-        .from('points_transactions')
-        .insert({
-          user_id: user.id,
-          order_id: orderData.id,
-          points: pointsToAward,
-          transaction_type: 'earned',
-          description: 'Pisteet tilauksesta',
-          expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-        });
-
-      // Update user's points balance
-      const { data: currentProfile } = await serviceRoleClient
-        .from('profiles')
-        .select('points_balance')
-        .eq('user_id', user.id)
-        .single();
-
-      if (currentProfile) {
-        await serviceRoleClient
-          .from('profiles')
-          .update({ 
-            points_balance: (currentProfile.points_balance || 0) + pointsToAward 
-          })
-          .eq('user_id', user.id);
-      }
-
-      console.log(`Awarded ${pointsToAward} points to user ${user.id} for order ${orderData.id}`);
-    }
+    // Points are awarded automatically by the DB trigger when the order is delivered.
 
     // Update user profile address/phone
     const { data: currentProfile } = await supabaseClient
