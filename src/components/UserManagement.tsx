@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, User, Mail, Shield, Edit, UserPlus, Phone, MapPin, Trash2, Users, Truck, Briefcase, ArrowLeft, WashingMachine } from 'lucide-react';
 import { CreateUserDialog } from './CreateUserDialog';
+import { LaundryPricingManagement } from './LaundryPricingManagement';
 
 interface UserWithRole {
   id: string;
@@ -310,6 +311,7 @@ export const UserManagement = () => {
           </div>
         ) : (
         <>
+        {group === 'laundry' && <LaundryPricingManagement />}
         {/* Search and Create User */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
