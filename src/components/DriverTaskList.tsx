@@ -267,7 +267,7 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
           return (
             <Card key={task.id} className="overflow-hidden">
               <CardContent className="p-4 space-y-3">
-                {code && (
+                {code && isPickup && (
                   <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-center">
                     <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5">
                       <KeyRound className="h-3.5 w-3.5" /> Luovutuskoodi pesulalle
