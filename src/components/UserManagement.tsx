@@ -330,7 +330,7 @@ export const UserManagement = () => {
 
         {/* Users List */}
         <div className="space-y-4">
-          {filteredUsers.map((user) => (
+          {paginatedUsers.map((user) => (
             <div key={user.id} className="border rounded-xl p-6 hover:shadow-elegant transition-all duration-300 bg-card">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
