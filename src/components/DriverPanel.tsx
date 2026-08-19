@@ -655,7 +655,20 @@ export const DriverPanel = () => {
   // Area only – exact street address is revealed after accepting the gig
   const getAreaLabel = (address?: string | null) => {
     if (!address) return 'Alue ei tiedossa';
-    const parts = address.split(',').map(p => p.trim()).filter(Boolean);
+    const parts = address
+      .split(',')
+      .map(p => p.trim())
+      .filter(Boolean)
+      .filter(p => !/piilotettu/i.test(p));
+    if (parts.length === 0) return 'Alue ei tiedossa';
+    if (parts.length === 1) {
+      const single = parts[0]
+        .replace(/\b\d{5}\b/g, '')
+        .replace(/\s*\d+\s*[a-zA-Z]?\s*$/, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      return single || 'Alue ei tiedossa';
+    }
     if (parts.length > 1) {
       return parts
         .slice(1)
