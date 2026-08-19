@@ -12,7 +12,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserManagement } from "@/components/UserManagement";
-import { Reports } from "@/components/Reports";
 import { CouponManagement } from "@/components/CouponManagement";
 import { ProductManagement } from "@/components/ProductManagement";
 import { CustomerServicePanel } from "@/components/CustomerServicePanel";
@@ -35,8 +34,7 @@ import {
   ChevronRight,
   UserCheck,
   Filter,
-  RotateCcw,
-  MessageSquare
+  RotateCcw
 } from "lucide-react";
 
 interface Order {
@@ -132,9 +130,6 @@ export const AdminPanel = () => {
     const preferredTab = sessionStorage.getItem('adminTab');
     if (preferredTab === 'users') {
       setActiveTab('customers');
-      sessionStorage.removeItem('adminTab');
-    } else if (preferredTab === 'reports') {
-      setActiveTab('reports');
       sessionStorage.removeItem('adminTab');
     }
 
@@ -717,7 +712,6 @@ export const AdminPanel = () => {
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              <MessageSquare className="h-4 w-4" />
                               Viestit
                             </div>
                             {unreadChatsCount > 0 && (
