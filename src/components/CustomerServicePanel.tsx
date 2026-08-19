@@ -102,7 +102,9 @@ const fullName = (p?: Profile | null) =>
 
 const money = (n: number) => `${Number(n || 0).toFixed(2).replace(".", ",")} €`;
 
-export const CustomerServicePanel = () => {
+type CSSection = "dispatch" | "inbox" | "complaints" | "crm";
+
+export const CustomerServicePanel = ({ section }: { section?: CSSection }) => {
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -320,15 +322,17 @@ export const CustomerServicePanel = () => {
   }
 
   return (
-    <Tabs defaultValue="dispatch" className="space-y-4">
-      <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
-        <TabsTrigger value="dispatch" className="text-xs sm:text-sm">Tilannekuva</TabsTrigger>
-        <TabsTrigger value="inbox" className="text-xs sm:text-sm">
-          Viestit{chats.filter((c) => !c.is_read).length > 0 ? ` (${chats.filter((c) => !c.is_read).length})` : ""}
-        </TabsTrigger>
-        <TabsTrigger value="complaints" className="text-xs sm:text-sm">Reklamaatiot</TabsTrigger>
-        <TabsTrigger value="crm" className="text-xs sm:text-sm">Tilaushaku</TabsTrigger>
-      </TabsList>
+    <Tabs value={section ?? undefined} defaultValue={section ? undefined : "dispatch"} className="space-y-4">
+      {!section && (
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
+          <TabsTrigger value="dispatch" className="text-xs sm:text-sm">Välitys</TabsTrigger>
+          <TabsTrigger value="inbox" className="text-xs sm:text-sm">
+            Viestit{chats.filter((c) => !c.is_read).length > 0 ? ` (${chats.filter((c) => !c.is_read).length})` : ""}
+          </TabsTrigger>
+          <TabsTrigger value="complaints" className="text-xs sm:text-sm">Reklamaatiot</TabsTrigger>
+          <TabsTrigger value="crm" className="text-xs sm:text-sm">Tilaushaku</TabsTrigger>
+        </TabsList>
+      )}
 
       {/* --- 1. Dispatch --- */}
       <TabsContent value="dispatch" className="space-y-4 animate-fade-in">
