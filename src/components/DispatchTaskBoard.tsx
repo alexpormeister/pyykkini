@@ -220,6 +220,28 @@ export const DispatchTaskBoard = () => {
     fetchAll();
   };
 
+  const rejectOrder = async (task: TaskRow) => {
+    try {
+      const { error: taskError } = await supabase
+        .from("delivery_tasks")
+        .update({ status: "cancelled", driver_id: null, route_order: null, batch_id: null })
+        .eq("order_id", task.order_id);
+      if (taskError) throw taskError;
+
+      const { error: orderError } = await supabase
+        .from("orders")
+        .update({ status: "rejected", rejected_at: new Date().toISOString() })
+        .eq("id", task.order_id);
+      if (orderError) throw orderError;
+
+      toast({ title: "Tilaus hylätty", description: "Nouto- ja paluukeikka hylättiin." });
+      fetchAll();
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Virhe", description: "Hylkäys epäonnistui", variant: "destructive" });
+    }
+  };
+
   const routeTasks = useMemo(
     () =>
       tasks
@@ -412,17 +434,26 @@ export const DispatchTaskBoard = () => {
                           <span className="text-[11px] text-muted-foreground truncate">
                             {task.driver_id ? fullName(driverOf(task.driver_id)) : STATUS_LABELS[task.status]}
                           </span>
-                          <span className="text-xs font-semibold">{Number(task.driver_payout).toFixed(2)} €</span>
                         </div>
 
-                        {task.driver_id && (
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-[10px]">Reitti #{task.route_order ?? "-"}</Badge>
-                            <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => unassign(task)}>
-                              Vapauta
-                            </Button>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {task.driver_id && (
+                            <>
+                              <Badge variant="secondary" className="text-[10px]">Reitti #{task.route_order ?? "-"}</Badge>
+                              <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => unassign(task)}>
+                                Vapauta
+                              </Button>
+                            </>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-[11px] text-destructive hover:text-destructive ml-auto"
+                            onClick={() => rejectOrder(task)}
+                          >
+                            Hylkää
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
