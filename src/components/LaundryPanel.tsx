@@ -90,6 +90,7 @@ export const LaundryPanel = () => {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [prices, setPrices] = useState<{ product_id: string; price: number }[]>([]);
   const [search, setSearch] = useState("");
+  const [codeInput, setCodeInput] = useState<Record<string, string>>({});
   const [noteOrder, setNoteOrder] = useState<LaundryOrder | null>(null);
   const [noteText, setNoteText] = useState("");
   const [noteFile, setNoteFile] = useState<File | null>(null);
