@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, User, Mail, Shield, Edit, UserPlus, Phone, MapPin, Trash2, Users, Truck, Briefcase, ArrowLeft } from 'lucide-react';
+import { Search, User, Mail, Shield, Edit, UserPlus, Phone, MapPin, Trash2, Users, Truck, Briefcase, ArrowLeft, WashingMachine } from 'lucide-react';
 import { CreateUserDialog } from './CreateUserDialog';
 
 interface UserWithRole {
@@ -30,10 +30,11 @@ export const UserManagement = () => {
     { key: 'admin' as const, label: 'Työntekijät', description: 'Ylläpitäjät ja henkilöstö', icon: Briefcase },
     { key: 'customer' as const, label: 'Asiakkaat', description: 'Palvelun käyttäjät', icon: Users },
     { key: 'driver' as const, label: 'Kuljettajat', description: 'Noudot ja toimitukset', icon: Truck },
+    { key: 'laundry' as const, label: 'Pesulat', description: 'Pesulakumppanit', icon: WashingMachine },
   ];
   const { toast } = useToast();
   const [users, setUsers] = useState<UserWithRole[]>([]);
-  const [group, setGroup] = useState<'admin' | 'customer' | 'driver' | null>(null);
+  const [group, setGroup] = useState<'admin' | 'customer' | 'driver' | 'laundry' | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -122,7 +123,7 @@ export const UserManagement = () => {
         .from('user_roles')
         .insert({
           user_id: userId,
-          role: newRole as 'admin' | 'driver' | 'customer'
+          role: newRole as 'admin' | 'driver' | 'customer' | 'laundry'
         });
 
       if (error) throw error;
@@ -235,6 +236,7 @@ export const UserManagement = () => {
       case 'admin': return 'bg-red-100 text-red-800';
       case 'driver': return 'bg-blue-100 text-blue-800';
       case 'customer': return 'bg-green-100 text-green-800';
+      case 'laundry': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -391,6 +393,7 @@ export const UserManagement = () => {
                       <SelectItem value="customer">Customer</SelectItem>
                       <SelectItem value="driver">Driver</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="laundry">Pesula</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
