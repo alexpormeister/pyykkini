@@ -88,7 +88,7 @@ export const LaundryPanel = () => {
   const [orders, setOrders] = useState<LaundryOrder[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
-  const [prices, setPrices] = useState<{ product_id: string; price: number }[]>([]);
+  const [prices, setPrices] = useState<{ product_id: string; price: number; name: string }[]>([]);
   const [search, setSearch] = useState("");
   const [codeInput, setCodeInput] = useState<Record<string, string>>({});
   const [noteOrder, setNoteOrder] = useState<LaundryOrder | null>(null);
@@ -143,12 +143,24 @@ export const LaundryPanel = () => {
         .eq("payee_id", laundryId)
         .order("created_at", { ascending: false }),
       supabase.from("laundry_contracts").select("*").eq("laundry_id", laundryId).order("created_at", { ascending: false }),
-      supabase.from("product_laundry_prices").select("product_id, price").eq("laundry_id", laundryId).eq("is_active", true),
+      supabase
+        .from("product_laundry_prices")
+        .select("product_id, price, products(name)")
+        .eq("laundry_id", laundryId)
+        .eq("is_active", true),
     ]);
     setOrders([...(unclaimed.data || []), ...(o.data || [])] as unknown as LaundryOrder[]);
     setSettlements((s.data || []) as Settlement[]);
     setContracts((c.data || []) as Contract[]);
-    setPrices((p.data || []) as { product_id: string; price: number }[]);
+    setPrices(
+      ((p.data || []) as unknown as { product_id: string; price: number; products?: { name?: string } | null }[]).map(
+        (row) => ({
+          product_id: row.product_id,
+          price: row.price,
+          name: row.products?.name || row.product_id,
+        })
+      )
+    );
     setLoading(false);
   }, [laundryId]);
 
