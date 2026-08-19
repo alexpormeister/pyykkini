@@ -54,6 +54,175 @@ const emptyFees = {
   driver_fee_value: "10"
 };
 
+const feeSum = (base: number, type: string, value: string) => {
+  const v = parseFloat(value || "0") || 0;
+  return type === "fixed" ? v : (base * v) / 100;
+};
+
+const FeeFields = ({
+  idPrefix,
+  values,
+  onChange
+}: {
+  idPrefix: string;
+  values: { platform_fee_type: string; platform_fee_value: string; driver_fee_type: string; driver_fee_value: string };
+  onChange: (patch: Partial<typeof values>) => void;
+}) => (
+  <div className="grid gap-4 sm:grid-cols-2">
+    <div className="space-y-2 rounded-lg border p-3">
+      <Label>Alustamaksu / komissio *</Label>
+      <div className="flex gap-2">
+        <Select value={values.platform_fee_type} onValueChange={(v) => onChange({ platform_fee_type: v })}>
+          <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="percent">%</SelectItem>
+            <SelectItem value="fixed">€</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          id={`${idPrefix}-platform_fee_value`}
+          type="number"
+          step="0.01"
+          min="0"
+          value={values.platform_fee_value}
+          onChange={(e) => onChange({ platform_fee_value: e.target.value })}
+          required
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">Alustan kate pesulan hinnan päälle.</p>
+    </div>
+
+    <div className="space-y-2 rounded-lg border p-3">
+      <Label>Kuljettajan palkkio *</Label>
+      <div className="flex gap-2">
+        <Select value={values.driver_fee_type} onValueChange={(v) => onChange({ driver_fee_type: v })}>
+          <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="percent">%</SelectItem>
+            <SelectItem value="fixed">€</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          id={`${idPrefix}-driver_fee_value`}
+          type="number"
+          step="0.01"
+          min="0"
+          value={values.driver_fee_value}
+          onChange={(e) => onChange({ driver_fee_value: e.target.value })}
+          required
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">Tuotteesta kuljettajalle maksettava toimitusosuus.</p>
+    </div>
+  </div>
+);
+
+const LaundryPriceEditor = ({
+  laundries,
+  rows,
+  setRows,
+  fees,
+  onAddLaundry
+}: {
+  laundries: Laundry[];
+  rows: LaundryPriceRow[];
+  setRows: (rows: LaundryPriceRow[]) => void;
+  fees: { platform_fee_type: string; platform_fee_value: string; driver_fee_type: string; driver_fee_value: string };
+  onAddLaundry: () => void;
+}) => (
+  <div className="space-y-3 rounded-lg border p-3">
+    <div className="flex items-center justify-between gap-2">
+      <div>
+        <Label className="flex items-center gap-2">
+          <Building2 className="h-4 w-4" />
+          Pesulakohtainen hinnasto
+        </Label>
+        <p className="text-xs text-muted-foreground">
+          Asiakashinta = pesulan hinta + alustamaksu + kuljettajan palkkio.
+        </p>
+      </div>
+      <Button type="button" variant="ghost" size="sm" onClick={onAddLaundry}>
+        + Uusi pesula
+      </Button>
+    </div>
+
+    {rows.length === 0 && (
+      <p className="text-xs text-muted-foreground">
+        Ei pesulahintoja — käytetään tuotteen perushintaa.
+      </p>
+    )}
+
+    {rows.map((row, index) => {
+      const price = parseFloat(row.price || "0") || 0;
+      const platform = feeSum(price, fees.platform_fee_type, fees.platform_fee_value);
+      const driver = feeSum(price, fees.driver_fee_type, fees.driver_fee_value);
+      return (
+        <div key={index} className="space-y-2 rounded-md bg-muted/40 p-2">
+          <div className="flex gap-2">
+            <Select
+              value={row.laundry_id}
+              onValueChange={(v) => {
+                const next = [...rows];
+                next[index] = { ...next[index], laundry_id: v };
+                setRows(next);
+              }}
+            >
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Valitse pesula" />
+              </SelectTrigger>
+              <SelectContent>
+                {laundries.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}{l.city ? ` — ${l.city}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              className="w-28"
+              placeholder="0.00"
+              value={row.price}
+              onChange={(e) => {
+                const next = [...rows];
+                next[index] = { ...next[index], price: e.target.value };
+                setRows(next);
+              }}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setRows(rows.filter((_, i) => i !== index))}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Pesula {price.toFixed(2)} € + alusta {platform.toFixed(2)} € + kuljettaja {driver.toFixed(2)} € ={" "}
+            <span className="font-medium text-foreground">
+              asiakashinta {(price + platform + driver).toFixed(2)} €
+            </span>
+          </p>
+        </div>
+      );
+    })}
+
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="w-full"
+      onClick={() => setRows([...rows, { laundry_id: "", price: "" }])}
+    >
+      <Plus className="h-4 w-4 mr-1" />
+      Lisää pesula ja hinta
+    </Button>
+  </div>
+);
+
 export const ProductManagement = () => {
   const { toast } = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
