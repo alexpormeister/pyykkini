@@ -90,7 +90,7 @@ export const OrderTracking = () => {
     
     const statusMap: Record<string, { label: string; icon: any; color: string }> = {
       PENDING: { label: "Tilaus vastaanotettu", icon: Clock, color: "bg-blue-500" },
-      PICKED_UP: { label: "Noudettu", icon: Package, color: "bg-purple-500" },
+      PICKED_UP: { label: "Noudettu – viedään pesulaan", icon: Package, color: "bg-purple-500" },
       WASHING: { label: "Pesussa", icon: Sparkles, color: "bg-cyan-500" },
       PACKAGING: { label: "Pakataan", icon: Box, color: "bg-orange-500" },
       OUT_FOR_DELIVERY: { label: "Matkalla sinulle", icon: Truck, color: "bg-indigo-500" },

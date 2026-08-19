@@ -54,6 +54,7 @@ const STATUS_LABELS: Record<string, string> = {
   unassigned: "Ei kuskia",
   assigned: "Kuski määritetty",
   in_progress: "Käynnissä",
+  awaiting_laundry: "Odottaa pesulan kuittausta",
   completed: "Valmis",
   failed: "Epäonnistui",
 };
@@ -79,6 +80,7 @@ export const DispatchTaskBoard = () => {
 
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [drivers, setDrivers] = useState<DriverInfo[]>([]);
+  const [handover, setHandover] = useState<Record<string, { access_code: string | null; pickup_weight_kg: number | null }>>({});
   const [loading, setLoading] = useState(true);
 
   const [typeFilter, setTypeFilter] = useState<"all" | "pickup" | "delivery">("all");
@@ -112,7 +114,20 @@ export const DispatchTaskBoard = () => {
         supabase.from("driver_shifts").select("driver_id").eq("is_active", true),
       ]);
 
-      setTasks((tasksRes.data || []) as unknown as TaskRow[]);
+      const taskRows = (tasksRes.data || []) as unknown as TaskRow[];
+      setTasks(taskRows);
+
+      const orderIds = Array.from(new Set(taskRows.map((t) => t.order_id)));
+      if (orderIds.length > 0) {
+        const { data: infoRows } = await supabase.rpc("get_orders_handover_info" as never, {
+          p_order_ids: orderIds,
+        } as never);
+        const map: Record<string, { access_code: string | null; pickup_weight_kg: number | null }> = {};
+        for (const row of (infoRows || []) as any[]) {
+          map[row.order_id] = { access_code: row.access_code, pickup_weight_kg: row.pickup_weight_kg };
+        }
+        setHandover(map);
+      }
 
       const driverIds = (rolesRes.data || []).map((r: any) => r.user_id as string);
       const activeIds = new Set((shiftsRes.data || []).map((s: any) => s.driver_id as string));
@@ -167,7 +182,12 @@ export const DispatchTaskBoard = () => {
       { key: "pending", label: "Odottaa pesulaa", icon: Package, tasks: filtered.filter((t) => t.status === "pending") },
       { key: "unassigned", label: "Vapaat keikat", icon: AlertTriangle, tasks: filtered.filter((t) => t.status === "unassigned") },
       { key: "assigned", label: "Kuskille liitetty", icon: UserCheck, tasks: filtered.filter((t) => t.status === "assigned") },
-      { key: "in_progress", label: "Käynnissä", icon: Truck, tasks: filtered.filter((t) => t.status === "in_progress") },
+      {
+        key: "in_progress",
+        label: "Käynnissä",
+        icon: Truck,
+        tasks: filtered.filter((t) => ["in_progress", "awaiting_laundry"].includes(t.status)),
+      },
     ],
     [filtered]
   );
@@ -439,6 +459,21 @@ export const DispatchTaskBoard = () => {
                             {task.driver_id ? fullName(driverOf(task.driver_id)) : STATUS_LABELS[task.status]}
                           </span>
                         </div>
+
+                        {(handover[task.order_id]?.access_code || handover[task.order_id]?.pickup_weight_kg != null) && (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {handover[task.order_id]?.access_code && (
+                              <Badge variant="outline" className="text-[10px] font-mono tracking-widest">
+                                Koodi {handover[task.order_id]?.access_code}
+                              </Badge>
+                            )}
+                            {handover[task.order_id]?.pickup_weight_kg != null && (
+                              <Badge variant="secondary" className="text-[10px]">
+                                {Number(handover[task.order_id]?.pickup_weight_kg).toFixed(1)} kg
+                              </Badge>
+                            )}
+                          </div>
+                        )}
 
                         <div className="flex items-center gap-2">
                           {task.driver_id && (

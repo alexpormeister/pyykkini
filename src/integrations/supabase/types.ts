@@ -1166,7 +1166,10 @@ export type Database = {
         Returns: Json
       }
       driver_complete_delivery: { Args: { p_task_id: string }; Returns: Json }
-      driver_complete_pickup: { Args: { p_task_id: string }; Returns: Json }
+      driver_complete_pickup: {
+        Args: { p_task_id: string; p_weight_kg?: number }
+        Returns: Json
+      }
       get_driver_orders: {
         Args: never
         Returns: {
@@ -1205,6 +1208,16 @@ export type Database = {
           scheduled_time_slot: string
           status: string
           task_type: string
+        }[]
+      }
+      get_order_handover_info: { Args: { p_order_id: string }; Returns: Json }
+      get_orders_handover_info: {
+        Args: { p_order_ids: string[] }
+        Returns: {
+          access_code: string
+          order_id: string
+          pickup_weight_kg: number
+          tracking_status: string
         }[]
       }
       get_product_pricing: {
