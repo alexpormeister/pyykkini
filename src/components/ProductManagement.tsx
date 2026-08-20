@@ -340,6 +340,9 @@ export const ProductManagement = () => {
   });
   const [newPromo, setNewPromo] = useState({ badge_text: "", is_featured: false, sort_order: "1" });
   const [editPromo, setEditPromo] = useState({ badge_text: "", is_featured: false, sort_order: "1" });
+  const [newDiscount, setNewDiscount] = useState<DiscountValues>({ ...emptyDiscount });
+  const [editDiscount, setEditDiscount] = useState<DiscountValues>({ ...emptyDiscount });
+  const [onlyDiscounted, setOnlyDiscounted] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -397,6 +400,10 @@ export const ProductManagement = () => {
           description: formData.description || undefined,
           image_url: formData.image_url || undefined,
           base_price: parseFloat(formData.base_price),
+          discount_price: newDiscount.discount_price === "" ? null : parseFloat(newDiscount.discount_price),
+          discount_bearer: newDiscount.discount_bearer,
+          discount_custom_partner_fee: newDiscount.discount_custom_partner_fee === "" ? null : parseFloat(newDiscount.discount_custom_partner_fee),
+          discount_custom_driver_fee: newDiscount.discount_custom_driver_fee === "" ? null : parseFloat(newDiscount.discount_custom_driver_fee),
           commission_percent: formData.platform_fee_type === 'percent'
             ? parseFloat(formData.platform_fee_value || "15")
             : 15,
@@ -427,6 +434,7 @@ export const ProductManagement = () => {
         ...emptyFees
       });
       setNewPromo({ badge_text: "", is_featured: false, sort_order: "1" });
+      setNewDiscount({ ...emptyDiscount });
       
       fetchProducts();
     } catch (error: any) {
@@ -460,6 +468,13 @@ export const ProductManagement = () => {
       is_featured: !!product.is_featured,
       sort_order: String(product.sort_order ?? 1)
     });
+    setEditDiscount({
+      discount_price: product.discount_price != null ? String(product.discount_price) : "",
+      discount_bearer: product.discount_bearer || "platform",
+      discount_custom_partner_fee: product.discount_custom_partner_fee != null ? String(product.discount_custom_partner_fee) : "",
+      discount_custom_driver_fee: product.discount_custom_driver_fee != null ? String(product.discount_custom_driver_fee) : "",
+      preview_laundry_price: ""
+    });
     setShowEditDialog(true);
   };
 
@@ -470,6 +485,16 @@ export const ProductManagement = () => {
     setLoading(true);
 
     try {
+      const editDiscountPrice = editDiscount.discount_price === "" ? null : parseFloat(editDiscount.discount_price);
+      if (editDiscountPrice != null && editDiscountPrice >= parseFloat(editFormData.base_price || "0")) {
+        toast({
+          variant: "destructive",
+          title: "Virheellinen alennushinta",
+          description: "Alennushinta ei voi olla suurempi tai yhtä suuri kuin normaalihinta."
+        });
+        setLoading(false);
+        return;
+      }
       const { error } = await supabase
         .from("products")
         .update({
@@ -478,6 +503,10 @@ export const ProductManagement = () => {
           description: editFormData.description || null,
           image_url: editFormData.image_url || null,
           base_price: parseFloat(editFormData.base_price),
+          discount_price: editDiscountPrice,
+          discount_bearer: editDiscount.discount_bearer,
+          discount_custom_partner_fee: editDiscount.discount_custom_partner_fee === "" ? null : parseFloat(editDiscount.discount_custom_partner_fee),
+          discount_custom_driver_fee: editDiscount.discount_custom_driver_fee === "" ? null : parseFloat(editDiscount.discount_custom_driver_fee),
           commission_percent: editFormData.platform_fee_type === 'percent'
             ? parseFloat(editFormData.platform_fee_value || "15")
             : (editingProduct.commission_percent ?? 15),
