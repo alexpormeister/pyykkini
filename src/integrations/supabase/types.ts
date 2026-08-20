@@ -972,6 +972,10 @@ export type Database = {
           commission_percent: number
           created_at: string
           description: string | null
+          discount_bearer: string
+          discount_custom_driver_fee: number | null
+          discount_custom_partner_fee: number | null
+          discount_price: number | null
           driver_fee_type: string
           driver_fee_value: number
           id: string
@@ -993,6 +997,10 @@ export type Database = {
           commission_percent?: number
           created_at?: string
           description?: string | null
+          discount_bearer?: string
+          discount_custom_driver_fee?: number | null
+          discount_custom_partner_fee?: number | null
+          discount_price?: number | null
           driver_fee_type?: string
           driver_fee_value?: number
           id?: string
@@ -1014,6 +1022,10 @@ export type Database = {
           commission_percent?: number
           created_at?: string
           description?: string | null
+          discount_bearer?: string
+          discount_custom_driver_fee?: number | null
+          discount_custom_partner_fee?: number | null
+          discount_price?: number | null
           driver_fee_type?: string
           driver_fee_value?: number
           id?: string
