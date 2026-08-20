@@ -18,6 +18,9 @@ const productSchema = z.object({
   platform_fee_value: z.number().min(0).max(10000).optional(),
   driver_fee_type: z.enum(['percent', 'fixed']).optional(),
   driver_fee_value: z.number().min(0).max(10000).optional(),
+  badge_text: z.string().trim().max(60).optional().or(z.literal('')),
+  is_featured: z.boolean().optional(),
+  sort_order: z.number().int().min(1).max(9999).optional(),
   laundry_prices: z.array(z.object({
     laundry_id: z.string().uuid(),
     price: z.number().min(0).max(10000)
@@ -121,6 +124,9 @@ Deno.serve(async (req) => {
         driver_fee_type: validated.driver_fee_type ?? 'percent',
         driver_fee_value: validated.driver_fee_value ?? 10,
         is_active: true,
+        badge_text: validated.badge_text || null,
+        is_featured: validated.is_featured ?? false,
+        sort_order: validated.sort_order ?? 1,
         pricing_model: 'FIXED'
       })
       .select()
