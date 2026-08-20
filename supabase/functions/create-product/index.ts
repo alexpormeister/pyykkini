@@ -13,6 +13,10 @@ const productSchema = z.object({
   description: z.string().max(2000, "Description too long").optional(),
   image_url: z.string().url("Must be valid URL").startsWith('https://', "Must use HTTPS").max(500).optional().or(z.literal('')),
   base_price: z.number().positive("Price must be positive").min(0.01, "Minimum price is 0.01€").max(10000, "Maximum price is 10000€"),
+  discount_price: z.number().min(0).max(10000).nullable().optional(),
+  discount_bearer: z.enum(['platform', 'pro_rata', 'partner', 'custom']).optional(),
+  discount_custom_partner_fee: z.number().min(0).max(10000).nullable().optional(),
+  discount_custom_driver_fee: z.number().min(0).max(10000).nullable().optional(),
   commission_percent: z.number().min(0, "Commission must be 0-100").max(100, "Commission must be 0-100").optional(),
   platform_fee_type: z.enum(['percent', 'fixed']).optional(),
   platform_fee_value: z.number().min(0).max(10000).optional(),
@@ -70,6 +74,13 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const validated = productSchema.parse(body);
 
+    if (validated.discount_price != null && validated.discount_price >= validated.base_price) {
+      return new Response(JSON.stringify({ error: 'Discount price must be lower than base price' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Verify category exists
     const { data: category, error: categoryError } = await supabaseClient
       .from('categories')
@@ -118,6 +129,10 @@ Deno.serve(async (req) => {
         description: validated.description || null,
         image_url: validated.image_url || null,
         base_price: validated.base_price,
+        discount_price: validated.discount_price ?? null,
+        discount_bearer: validated.discount_bearer ?? 'platform',
+        discount_custom_partner_fee: validated.discount_custom_partner_fee ?? null,
+        discount_custom_driver_fee: validated.discount_custom_driver_fee ?? null,
         commission_percent: validated.commission_percent ?? 15,
         platform_fee_type: validated.platform_fee_type ?? 'percent',
         platform_fee_value: validated.platform_fee_value ?? validated.commission_percent ?? 15,
