@@ -18,6 +18,7 @@ import { CustomerServicePanel } from "@/components/CustomerServicePanel";
 import { ServiceAreaManagement } from "@/components/ServiceAreaManagement";
 import { TimeSlotManagement } from "@/components/TimeSlotManagement";
 import { CategoryManagement } from "@/components/CategoryManagement";
+import { AppSettingsManagement } from "@/components/AppSettingsManagement";
 import { SettlementManagement } from "@/components/SettlementManagement";
 import { AppManager } from "@/components/AppManager";
 import { useToast } from "@/hooks/use-toast";
@@ -53,6 +54,11 @@ interface Order {
   actual_return_time?: string;
   price: number;
   final_price: number;
+  service_fee?: number;
+  delivery_fee?: number;
+  vat_rate?: number;
+  vat_amount?: number;
+  payment_amount?: number;
   first_name: string;
   last_name: string;
   phone: string;
@@ -634,6 +640,7 @@ export const AdminPanel = () => {
               <SelectItem value="service-areas">🗺️ Palvelualueet</SelectItem>
               <SelectItem value="time-slots">🕒 Toimitus- ja noutoajat</SelectItem>
               <SelectItem value="settlements">💰 Maksuliikenne</SelectItem>
+              <SelectItem value="app-settings">⚙️ Järjestelmäasetukset</SelectItem>
               <SelectItem value="dispatch">🚦 Välitys</SelectItem>
               <SelectItem value="chat">
                 💬 Viestit {unreadChatsCount > 0 ? `(${unreadChatsCount})` : ''}
@@ -696,6 +703,12 @@ export const AdminPanel = () => {
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'time-slots' ? 'bg-primary/10 text-primary font-medium' : ''}`}
                         >
                           Toimitus- ja noutoajat
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('app-settings')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'app-settings' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Järjestelmäasetukset
                         </button>
                         <button
                           onClick={() => setActiveTab('settlements')}
@@ -827,6 +840,10 @@ export const AdminPanel = () => {
             <TimeSlotManagement />
           </TabsContent>
 
+          <TabsContent value="app-settings" className="animate-fade-in">
+            <AppSettingsManagement />
+          </TabsContent>
+
           <TabsContent value="settlements" className="animate-fade-in">
             <SettlementManagement />
           </TabsContent>
@@ -880,8 +897,8 @@ export const AdminPanel = () => {
                       <p className="font-medium">{selectedOrder.service_name}</p>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Hinta:</span>
-                      <p className="font-medium">{selectedOrder.final_price}€</p>
+                      <span className="text-muted-foreground">Kokonaissumma:</span>
+                      <p className="font-medium">{Number(selectedOrder.payment_amount ?? selectedOrder.final_price ?? 0).toFixed(2)} €</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Tila:</span>
