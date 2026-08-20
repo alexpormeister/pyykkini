@@ -64,6 +64,33 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          delivery_fee: number
+          id: string
+          min_order_amount: number
+          service_fee: number
+          updated_at: string
+          vat_rate: number
+        }
+        Insert: {
+          delivery_fee?: number
+          id?: string
+          min_order_amount?: number
+          service_fee?: number
+          updated_at?: string
+          vat_rate?: number
+        }
+        Update: {
+          delivery_fee?: number
+          id?: string
+          min_order_amount?: number
+          service_fee?: number
+          updated_at?: string
+          vat_rate?: number
+        }
+        Relationships: []
+      }
       app_trust_badges: {
         Row: {
           created_at: string
@@ -722,6 +749,7 @@ export type Database = {
           address: string
           coupon_id: string | null
           created_at: string
+          delivery_fee: number
           delivery_slot: string | null
           discount_code: string | null
           driver_id: string | null
@@ -750,6 +778,7 @@ export type Database = {
           return_option: string | null
           return_time: string
           return_weight_kg: number | null
+          service_fee: number
           service_name: string
           service_type: string
           special_instructions: string | null
@@ -762,6 +791,8 @@ export type Database = {
             | null
           updated_at: string
           user_id: string
+          vat_amount: number | null
+          vat_rate: number | null
         }
         Insert: {
           accepted_at?: string | null
@@ -771,6 +802,7 @@ export type Database = {
           address: string
           coupon_id?: string | null
           created_at?: string
+          delivery_fee?: number
           delivery_slot?: string | null
           discount_code?: string | null
           driver_id?: string | null
@@ -799,6 +831,7 @@ export type Database = {
           return_option?: string | null
           return_time: string
           return_weight_kg?: number | null
+          service_fee?: number
           service_name: string
           service_type: string
           special_instructions?: string | null
@@ -811,6 +844,8 @@ export type Database = {
             | null
           updated_at?: string
           user_id: string
+          vat_amount?: number | null
+          vat_rate?: number | null
         }
         Update: {
           accepted_at?: string | null
@@ -820,6 +855,7 @@ export type Database = {
           address?: string
           coupon_id?: string | null
           created_at?: string
+          delivery_fee?: number
           delivery_slot?: string | null
           discount_code?: string | null
           driver_id?: string | null
@@ -848,6 +884,7 @@ export type Database = {
           return_option?: string | null
           return_time?: string
           return_weight_kg?: number | null
+          service_fee?: number
           service_name?: string
           service_type?: string
           special_instructions?: string | null
@@ -860,6 +897,8 @@ export type Database = {
             | null
           updated_at?: string
           user_id?: string
+          vat_amount?: number | null
+          vat_rate?: number | null
         }
         Relationships: [
           {
