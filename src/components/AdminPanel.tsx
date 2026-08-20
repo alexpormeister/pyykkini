@@ -686,12 +686,6 @@ export const AdminPanel = () => {
                           Kategoriat
                         </button>
                         <button
-                          onClick={() => setActiveTab('__unused_coupons')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'coupons' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Kuponkien hallinta
-                        </button>
-                        <button
                           onClick={() => setActiveTab('service-areas')}
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'service-areas' ? 'bg-primary/10 text-primary font-medium' : ''}`}
                         >
