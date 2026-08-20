@@ -760,11 +760,17 @@ export const ProductManagement = () => {
           <CardDescription>
             Hallitse olemassa olevia tuotteita
           </CardDescription>
+          <div className="flex items-center gap-2 pt-2">
+            <Switch id="only-discounted" checked={onlyDiscounted} onCheckedChange={setOnlyDiscounted} />
+            <Label htmlFor="only-discounted" className="cursor-pointer text-sm font-normal">
+              Näytä vain aletuotteet
+            </Label>
+          </div>
         </CardHeader>
         <CardContent>
-          {products.length === 0 ? (
+          {visibleProducts.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">
-              Ei tuotteita vielä
+              {onlyDiscounted ? "Ei aletuotteita" : "Ei tuotteita vielä"}
             </p>
           ) : (
             <Table>
@@ -780,13 +786,27 @@ export const ProductManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {products.map((product) => (
+                {visibleProducts.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell className="font-medium">{product.name}</TableCell>
                     <TableCell>
                       {categories.find(c => c.category_id === product.category_id)?.name || product.category_id}
                     </TableCell>
-                    <TableCell>{product.base_price.toFixed(2)}€</TableCell>
+                    <TableCell>
+                      {hasDiscount(product) ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-muted-foreground line-through">{product.base_price.toFixed(2)} €</span>
+                          <span className="font-semibold text-destructive">
+                            {Number(product.discount_price).toFixed(2)} €
+                          </span>
+                          <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                            -{Math.round(((product.base_price - Number(product.discount_price)) / product.base_price) * 100)}%
+                          </span>
+                        </div>
+                      ) : (
+                        <span>{product.base_price.toFixed(2)} €</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {Number(product.platform_fee_value ?? product.commission_percent ?? 15).toFixed(2)}
                       {' %'}
