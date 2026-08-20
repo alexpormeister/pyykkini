@@ -741,8 +741,6 @@ export const AdminPanel = () => {
                     )}
                   </div>
 
-                </nav>
-
                   {/* App Manager Section */}
                   <div>
                     <button
@@ -763,6 +761,7 @@ export const AdminPanel = () => {
                       </div>
                     )}
                   </div>
+                </nav>
               </CardContent>
             </Card>
           </div>
