@@ -783,6 +783,10 @@ export const AdminPanel = () => {
             <ServiceAreaManagement />
           </TabsContent>
 
+          <TabsContent value="time-slots" className="animate-fade-in">
+            <TimeSlotManagement />
+          </TabsContent>
+
           <TabsContent value="settlements" className="animate-fade-in">
             <SettlementManagement />
           </TabsContent>
