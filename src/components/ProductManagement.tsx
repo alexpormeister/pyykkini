@@ -32,6 +32,9 @@ interface Product {
   driver_fee_type: string | null;
   driver_fee_value: number | null;
   is_active: boolean;
+  badge_text?: string | null;
+  is_featured?: boolean | null;
+  sort_order?: number | null;
 }
 
 const emptyFees = {
@@ -117,6 +120,8 @@ export const ProductManagement = () => {
     ...emptyFees,
     is_active: true
   });
+  const [newPromo, setNewPromo] = useState({ badge_text: "", is_featured: false, sort_order: "1" });
+  const [editPromo, setEditPromo] = useState({ badge_text: "", is_featured: false, sort_order: "1" });
 
   useEffect(() => {
     fetchCategories();
