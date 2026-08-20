@@ -703,6 +703,14 @@ export const ProductManagement = () => {
               onChange={(patch) => setFormData({ ...formData, ...patch })}
             />
 
+            <DiscountFields
+              idPrefix="new"
+              basePrice={parseFloat(formData.base_price || "0") || 0}
+              platformPct={parseFloat(formData.platform_fee_value || "0") || 0}
+              values={newDiscount}
+              onChange={(patch) => setNewDiscount({ ...newDiscount, ...patch })}
+            />
+
             <div className="grid gap-4 rounded-lg border p-3">
               <div className="space-y-2">
                 <Label htmlFor="new-badge_text">Badge-teksti (sovelluksessa)</Label>
@@ -907,6 +915,14 @@ export const ProductManagement = () => {
               idPrefix="edit"
               values={editFormData}
               onChange={(patch) => setEditFormData({ ...editFormData, ...patch })}
+            />
+
+            <DiscountFields
+              idPrefix="edit"
+              basePrice={parseFloat(editFormData.base_price || "0") || 0}
+              platformPct={parseFloat(editFormData.platform_fee_value || "0") || 0}
+              values={editDiscount}
+              onChange={(patch) => setEditDiscount({ ...editDiscount, ...patch })}
             />
 
             <div className="grid gap-4 rounded-lg border p-3">
