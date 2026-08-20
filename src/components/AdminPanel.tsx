@@ -16,6 +16,7 @@ import { CouponManagement } from "@/components/CouponManagement";
 import { ProductManagement } from "@/components/ProductManagement";
 import { CustomerServicePanel } from "@/components/CustomerServicePanel";
 import { ServiceAreaManagement } from "@/components/ServiceAreaManagement";
+import { TimeSlotManagement } from "@/components/TimeSlotManagement";
 import { SettlementManagement } from "@/components/SettlementManagement";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -628,6 +629,7 @@ export const AdminPanel = () => {
               <SelectItem value="products">📦 Tuotteiden hallinta</SelectItem>
               <SelectItem value="coupons">🎫 Kuponkien hallinta</SelectItem>
               <SelectItem value="service-areas">🗺️ Palvelualueet</SelectItem>
+              <SelectItem value="time-slots">🕒 Toimitus- ja noutoajat</SelectItem>
               <SelectItem value="settlements">💰 Maksuliikenne</SelectItem>
               <SelectItem value="dispatch">🚦 Välitys</SelectItem>
               <SelectItem value="chat">
@@ -678,6 +680,12 @@ export const AdminPanel = () => {
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'service-areas' ? 'bg-primary/10 text-primary font-medium' : ''}`}
                         >
                           Palvelualueet
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('time-slots')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'time-slots' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Toimitus- ja noutoajat
                         </button>
                         <button
                           onClick={() => setActiveTab('settlements')}
