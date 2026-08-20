@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     for (const item of validated.cartItems) {
       const { data: product, error: productError } = await supabaseClient
         .from('products')
-        .select('product_id, name, base_price, is_active, platform_fee_type, platform_fee_value, driver_fee_type, driver_fee_value')
+        .select('product_id, name, base_price, is_active, platform_fee_type, platform_fee_value, driver_fee_type, driver_fee_value, discount_price, discount_bearer, discount_custom_partner_fee, discount_custom_driver_fee')
         .eq('product_id', item.serviceId)
         .eq('is_active', true)
         .single();
@@ -88,11 +88,14 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Customer price is the product price shown in the catalog
-      const customerUnitPrice = Number(product.base_price);
+      // Customer price is the product price shown in the catalog (discounted price when set)
+      const normalUnitPrice = Number(product.base_price);
+      const discountPrice = product.discount_price != null ? Number(product.discount_price) : null;
+      const hasDiscount = discountPrice != null && discountPrice > 0 && discountPrice < normalUnitPrice;
+      const customerUnitPrice = hasDiscount ? (discountPrice as number) : normalUnitPrice;
 
       // Resolve laundry-specific purchase price (fallback: customer price -> zero margin)
-      let laundryPrice = customerUnitPrice;
+      let laundryPrice = normalUnitPrice;
       if (validated.laundryId) {
         const { data: laundryPriceRow } = await supabaseClient
           .from('product_laundry_prices')
@@ -108,11 +111,32 @@ Deno.serve(async (req) => {
       const platformFeeValue = Number(product.platform_fee_value ?? 15);
 
       const round2 = (n: number) => Math.round(n * 100) / 100;
-      // Margin = customer price - laundry price. Platform takes its % of the margin,
+      // Margin (on the normal price) = normal price - laundry price. Platform takes its % of the margin,
       // the rest is the drivers' payout (split 50/50 between pickup and return).
-      const margin = Math.max(round2(customerUnitPrice - laundryPrice), 0);
-      const platformFee = round2(platformFeeType === 'fixed' ? Math.min(platformFeeValue, margin) : margin * platformFeeValue / 100);
-      const driverPayout = round2(margin - platformFee);
+      const margin = Math.max(round2(normalUnitPrice - laundryPrice), 0);
+      let laundryShare = laundryPrice;
+      let platformFee = round2(platformFeeType === 'fixed' ? Math.min(platformFeeValue, margin) : margin * platformFeeValue / 100);
+      let driverPayout = round2(margin - platformFee);
+
+      if (hasDiscount) {
+        const bearer = product.discount_bearer ?? 'platform';
+        if (bearer === 'pro_rata') {
+          const ratio = normalUnitPrice > 0 ? customerUnitPrice / normalUnitPrice : 1;
+          laundryShare = round2(laundryPrice * ratio);
+          platformFee = round2(platformFee * ratio);
+          driverPayout = round2(customerUnitPrice - laundryShare - platformFee);
+        } else if (bearer === 'partner') {
+          laundryShare = round2(customerUnitPrice - platformFee - driverPayout);
+        } else if (bearer === 'custom') {
+          laundryShare = round2(Number(product.discount_custom_partner_fee ?? laundryPrice));
+          driverPayout = round2(Number(product.discount_custom_driver_fee ?? 0));
+          platformFee = round2(customerUnitPrice - laundryShare - driverPayout);
+        } else {
+          // platform bears the discount
+          platformFee = round2(customerUnitPrice - laundryShare - driverPayout);
+        }
+      }
+
       const unitPrice = customerUnitPrice;
 
       const itemTotal = round2(unitPrice * item.quantity);
@@ -123,7 +147,7 @@ Deno.serve(async (req) => {
         name: product.name,
         price: unitPrice,
         laundryId: validated.laundryId ?? null,
-        laundryPrice,
+        laundryPrice: laundryShare,
         platformFee,
         driverPayout,
         quantity: item.quantity,
