@@ -344,6 +344,11 @@ export const ProductManagement = () => {
   const [editDiscount, setEditDiscount] = useState<DiscountValues>({ ...emptyDiscount });
   const [onlyDiscounted, setOnlyDiscounted] = useState(false);
 
+  const hasDiscount = (p: Product) =>
+    p.discount_price != null && Number(p.discount_price) > 0 && Number(p.discount_price) < p.base_price;
+
+  const visibleProducts = onlyDiscounted ? products.filter(hasDiscount) : products;
+
   useEffect(() => {
     fetchCategories();
     fetchProducts();
