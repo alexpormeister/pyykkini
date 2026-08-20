@@ -74,6 +74,13 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const validated = productSchema.parse(body);
 
+    if (validated.discount_price != null && validated.discount_price >= validated.base_price) {
+      return new Response(JSON.stringify({ error: 'Discount price must be lower than base price' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Verify category exists
     const { data: category, error: categoryError } = await supabaseClient
       .from('categories')
