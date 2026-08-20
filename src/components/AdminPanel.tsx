@@ -17,6 +17,7 @@ import { ProductManagement } from "@/components/ProductManagement";
 import { CustomerServicePanel } from "@/components/CustomerServicePanel";
 import { ServiceAreaManagement } from "@/components/ServiceAreaManagement";
 import { TimeSlotManagement } from "@/components/TimeSlotManagement";
+import { CategoryManagement } from "@/components/CategoryManagement";
 import { SettlementManagement } from "@/components/SettlementManagement";
 import { AppManager } from "@/components/AppManager";
 import { useToast } from "@/hooks/use-toast";
@@ -628,6 +629,7 @@ export const AdminPanel = () => {
             <SelectContent>
               <SelectItem value="customers">👥 Käyttäjien hallinta</SelectItem>
               <SelectItem value="products">📦 Tuotteiden hallinta</SelectItem>
+              <SelectItem value="categories">🗂️ Kategoriat</SelectItem>
               <SelectItem value="coupons">🎫 Kuponkien hallinta</SelectItem>
               <SelectItem value="service-areas">🗺️ Palvelualueet</SelectItem>
               <SelectItem value="time-slots">🕒 Toimitus- ja noutoajat</SelectItem>
@@ -676,6 +678,12 @@ export const AdminPanel = () => {
                           className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'coupons' ? 'bg-primary/10 text-primary font-medium' : ''}`}
                         >
                           Kuponkien hallinta
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('categories')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'categories' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Kategoriat
                         </button>
                         <button
                           onClick={() => setActiveTab('service-areas')}
@@ -785,6 +793,11 @@ export const AdminPanel = () => {
           {/* Coupons Tab */}
           <TabsContent value="coupons" className="animate-fade-in">
             <CouponManagement />
+          </TabsContent>
+
+          {/* Categories Tab */}
+          <TabsContent value="categories" className="animate-fade-in">
+            <CategoryManagement />
           </TabsContent>
 
           {/* Customer service sections */}
