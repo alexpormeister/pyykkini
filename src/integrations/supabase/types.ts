@@ -14,6 +14,86 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_banners: {
+        Row: {
+          badge_text: string | null
+          button_text: string
+          created_at: string
+          id: string
+          image_url: string | null
+          is_active: boolean
+          product_id: string | null
+          sort_order: number
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          badge_text?: string | null
+          button_text?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          product_id?: string | null
+          sort_order?: number
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          badge_text?: string | null
+          button_text?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          product_id?: string | null
+          sort_order?: number
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_banners_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["product_id"]
+          },
+        ]
+      }
+      app_trust_badges: {
+        Row: {
+          created_at: string
+          icon_name: string
+          id: string
+          is_active: boolean
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          icon_name?: string
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          icon_name?: string
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -886,6 +966,7 @@ export type Database = {
       }
       products: {
         Row: {
+          badge_text: string | null
           base_price: number
           category_id: string
           commission_percent: number
@@ -896,14 +977,17 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          is_featured: boolean
           name: string
           platform_fee_type: string
           platform_fee_value: number
           pricing_model: Database["public"]["Enums"]["pricing_model"]
           product_id: string
+          sort_order: number
           updated_at: string
         }
         Insert: {
+          badge_text?: string | null
           base_price: number
           category_id: string
           commission_percent?: number
@@ -914,14 +998,17 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_featured?: boolean
           name: string
           platform_fee_type?: string
           platform_fee_value?: number
           pricing_model?: Database["public"]["Enums"]["pricing_model"]
           product_id: string
+          sort_order?: number
           updated_at?: string
         }
         Update: {
+          badge_text?: string | null
           base_price?: number
           category_id?: string
           commission_percent?: number
@@ -932,11 +1019,13 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_featured?: boolean
           name?: string
           platform_fee_type?: string
           platform_fee_value?: number
           pricing_model?: Database["public"]["Enums"]["pricing_model"]
           product_id?: string
+          sort_order?: number
           updated_at?: string
         }
         Relationships: [

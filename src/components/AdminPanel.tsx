@@ -18,6 +18,7 @@ import { CustomerServicePanel } from "@/components/CustomerServicePanel";
 import { ServiceAreaManagement } from "@/components/ServiceAreaManagement";
 import { TimeSlotManagement } from "@/components/TimeSlotManagement";
 import { SettlementManagement } from "@/components/SettlementManagement";
+import { AppManager } from "@/components/AppManager";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
@@ -636,6 +637,7 @@ export const AdminPanel = () => {
                 💬 Viestit {unreadChatsCount > 0 ? `(${unreadChatsCount})` : ''}
               </SelectItem>
               <SelectItem value="crm">🔍 Tilaushaku</SelectItem>
+              <SelectItem value="app-campaigns">📣 Kampanjat</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -739,6 +741,26 @@ export const AdminPanel = () => {
                     )}
                   </div>
 
+                  {/* App Manager Section */}
+                  <div>
+                    <button
+                      onClick={() => toggleMenu('appmanager')}
+                      className="flex items-center justify-between w-full p-2 text-left hover:bg-muted rounded-lg"
+                    >
+                      <span className="font-medium text-primary">App Manager</span>
+                      {expandedMenus.appmanager ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                    {expandedMenus.appmanager && (
+                      <div className="ml-4 mt-2 space-y-1">
+                        <button
+                          onClick={() => setActiveTab('app-campaigns')}
+                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'app-campaigns' ? 'bg-primary/10 text-primary font-medium' : ''}`}
+                        >
+                          Kampanjat
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </nav>
               </CardContent>
             </Card>
@@ -776,6 +798,11 @@ export const AdminPanel = () => {
 
           <TabsContent value="crm" className="animate-fade-in">
             <CustomerServicePanel section="crm" />
+          </TabsContent>
+
+          {/* App Manager */}
+          <TabsContent value="app-campaigns" className="animate-fade-in">
+            <AppManager />
           </TabsContent>
 
           {/* Service Areas Tab */}

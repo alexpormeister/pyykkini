@@ -32,6 +32,9 @@ interface Product {
   driver_fee_type: string | null;
   driver_fee_value: number | null;
   is_active: boolean;
+  badge_text?: string | null;
+  is_featured?: boolean | null;
+  sort_order?: number | null;
 }
 
 const emptyFees = {
@@ -117,6 +120,8 @@ export const ProductManagement = () => {
     ...emptyFees,
     is_active: true
   });
+  const [newPromo, setNewPromo] = useState({ badge_text: "", is_featured: false, sort_order: "1" });
+  const [editPromo, setEditPromo] = useState({ badge_text: "", is_featured: false, sort_order: "1" });
 
   useEffect(() => {
     fetchCategories();
@@ -180,7 +185,10 @@ export const ProductManagement = () => {
           platform_fee_type: formData.platform_fee_type,
           platform_fee_value: parseFloat(formData.platform_fee_value || "0"),
           driver_fee_type: formData.driver_fee_type,
-          driver_fee_value: parseFloat(formData.driver_fee_value || "0")
+          driver_fee_value: parseFloat(formData.driver_fee_value || "0"),
+          badge_text: newPromo.badge_text || undefined,
+          is_featured: newPromo.is_featured,
+          sort_order: parseInt(newPromo.sort_order || "1", 10) || 1
         }
       });
 
@@ -200,6 +208,7 @@ export const ProductManagement = () => {
         base_price: "",
         ...emptyFees
       });
+      setNewPromo({ badge_text: "", is_featured: false, sort_order: "1" });
       
       fetchProducts();
     } catch (error: any) {
@@ -228,6 +237,11 @@ export const ProductManagement = () => {
       driver_fee_value: String(100 - (product.platform_fee_value ?? product.commission_percent ?? 15)),
       is_active: product.is_active
     });
+    setEditPromo({
+      badge_text: product.badge_text || "",
+      is_featured: !!product.is_featured,
+      sort_order: String(product.sort_order ?? 1)
+    });
     setShowEditDialog(true);
   };
 
@@ -253,6 +267,9 @@ export const ProductManagement = () => {
           platform_fee_value: parseFloat(editFormData.platform_fee_value || "0"),
           driver_fee_type: editFormData.driver_fee_type,
           driver_fee_value: parseFloat(editFormData.driver_fee_value || "0"),
+          badge_text: editPromo.badge_text || null,
+          is_featured: editPromo.is_featured,
+          sort_order: parseInt(editPromo.sort_order || "1", 10) || 1,
           is_active: editFormData.is_active
         } as any)
         .eq("id", editingProduct.id);
@@ -439,6 +456,37 @@ export const ProductManagement = () => {
               onChange={(patch) => setFormData({ ...formData, ...patch })}
             />
 
+            <div className="grid gap-4 rounded-lg border p-3">
+              <div className="space-y-2">
+                <Label htmlFor="new-badge_text">Badge-teksti (sovelluksessa)</Label>
+                <Input
+                  id="new-badge_text"
+                  value={newPromo.badge_text}
+                  onChange={(e) => setNewPromo({ ...newPromo, badge_text: e.target.value })}
+                  placeholder="Esim. Suosituin, 24h Pika, Säästöpaketti"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-sort_order">Järjestys sovelluksessa</Label>
+                <Input
+                  id="new-sort_order"
+                  type="number"
+                  min="1"
+                  value={newPromo.sort_order}
+                  onChange={(e) => setNewPromo({ ...newPromo, sort_order: e.target.value })}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="new-is_featured"
+                  checked={newPromo.is_featured}
+                  onChange={(e) => setNewPromo({ ...newPromo, is_featured: e.target.checked })}
+                  className="w-4 h-4 rounded border-input"
+                />
+                <Label htmlFor="new-is_featured" className="cursor-pointer">Korosta tuote kärjessä</Label>
+              </div>
+            </div>
 
             <Button type="submit" disabled={loading} className="w-full">
               <Plus className="h-4 w-4 mr-2" />
@@ -614,6 +662,37 @@ export const ProductManagement = () => {
               onChange={(patch) => setEditFormData({ ...editFormData, ...patch })}
             />
 
+            <div className="grid gap-4 rounded-lg border p-3">
+              <div className="space-y-2">
+                <Label htmlFor="edit-badge_text">Badge-teksti (sovelluksessa)</Label>
+                <Input
+                  id="edit-badge_text"
+                  value={editPromo.badge_text}
+                  onChange={(e) => setEditPromo({ ...editPromo, badge_text: e.target.value })}
+                  placeholder="Esim. Suosituin, 24h Pika, Säästöpaketti"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-sort_order">Järjestys sovelluksessa</Label>
+                <Input
+                  id="edit-sort_order"
+                  type="number"
+                  min="1"
+                  value={editPromo.sort_order}
+                  onChange={(e) => setEditPromo({ ...editPromo, sort_order: e.target.value })}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="edit-is_featured"
+                  checked={editPromo.is_featured}
+                  onChange={(e) => setEditPromo({ ...editPromo, is_featured: e.target.checked })}
+                  className="w-4 h-4 rounded border-input"
+                />
+                <Label htmlFor="edit-is_featured" className="cursor-pointer">Korosta tuote kärjessä</Label>
+              </div>
+            </div>
 
             <div className="flex items-center space-x-2">
               <input
