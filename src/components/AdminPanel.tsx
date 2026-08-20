@@ -922,6 +922,33 @@ export const AdminPanel = () => {
                   </div>
                 </div>
 
+                {/* Price breakdown */}
+                <div>
+                  <h3 className="font-semibold mb-2">Hinnan erittely</h3>
+                  <div className="rounded-lg border p-3 space-y-1.5 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tuotteiden välisumma</span>
+                      <span>{Number(selectedOrder.price ?? 0).toFixed(2)} €</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Toimitusmaksu (kaupunkikohtainen)</span>
+                      <span>{Number(selectedOrder.delivery_fee ?? 0).toFixed(2)} €</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Palvelumaksu</span>
+                      <span>{Number(selectedOrder.service_fee ?? 0).toFixed(2)} €</span>
+                    </div>
+                    <div className="flex justify-between font-semibold border-t pt-1.5">
+                      <span>Kokonaissumma</span>
+                      <span>{Number(selectedOrder.payment_amount ?? selectedOrder.final_price ?? 0).toFixed(2)} €</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Sisältää ALV {Number(selectedOrder.vat_rate ?? 0).toFixed(1)} %</span>
+                      <span>{Number(selectedOrder.vat_amount ?? 0).toFixed(2)} €</span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Pickup/Return Options */}
                 <div>
                   <h3 className="font-semibold mb-2">Nouto ja palautus</h3>
