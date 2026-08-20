@@ -110,7 +110,7 @@ export const ProductCatalog = ({
 
   const calculatePrice = (product: Product, width?: string, length?: string) => {
     if (product.pricing_model === "FIXED") {
-      return product.base_price;
+      return effectivePrice(product);
     }
     
     if (!width || !length) return 0;
@@ -119,7 +119,7 @@ export const ProductCatalog = ({
     if (isNaN(w) || isNaN(l)) return 0;
     
     const squareMeters = (w * l) / 10000; // Convert cm² to m²
-    return squareMeters * product.base_price;
+    return squareMeters * effectivePrice(product);
   };
 
   const handleDimensionChange = (productId: string, field: "width" | "length", value: string) => {
@@ -158,7 +158,7 @@ export const ProductCatalog = ({
         product_id: product.product_id,
         product_name: product.name,
         quantity: 1,
-        unit_price_charged: product.base_price
+        unit_price_charged: effectivePrice(product)
       });
       toast.success(`${product.name} lisätty ostoskoriin`);
     } else {
@@ -298,7 +298,7 @@ export const ProductCatalog = ({
                 const dims = dimensions[product.id] || { width: "", length: "" };
                 const calculatedPrice = product.pricing_model === "PER_M2" 
                   ? calculatePrice(product, dims.width, dims.length)
-                  : product.base_price;
+                  : effectivePrice(product);
 
                 return (
                    <Card key={product.id}>
@@ -321,8 +321,13 @@ export const ProductCatalog = ({
                     <CardContent className="space-y-4">
                       {product.pricing_model === "FIXED" ? (
                         <>
-                          <div className="text-2xl font-bold">
-                            {product.base_price.toFixed(2)} €
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-bold">{effectivePrice(product).toFixed(2)} €</span>
+                            {effectivePrice(product) < product.base_price && (
+                              <span className="text-sm text-muted-foreground line-through">
+                                {product.base_price.toFixed(2)} €
+                              </span>
+                            )}
                           </div>
                           <Button 
                             onClick={() => handleAddToCart(product)}
@@ -334,8 +339,13 @@ export const ProductCatalog = ({
                         </>
                       ) : (
                         <>
-                          <div className="text-xl font-semibold">
-                            {product.base_price.toFixed(2)} € / m²
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-xl font-semibold">{effectivePrice(product).toFixed(2)} € / m²</span>
+                            {effectivePrice(product) < product.base_price && (
+                              <span className="text-sm text-muted-foreground line-through">
+                                {product.base_price.toFixed(2)} €
+                              </span>
+                            )}
                           </div>
                           
                           <div className="space-y-3">
