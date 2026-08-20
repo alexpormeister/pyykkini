@@ -456,6 +456,37 @@ export const ProductManagement = () => {
               onChange={(patch) => setFormData({ ...formData, ...patch })}
             />
 
+            <div className="grid gap-4 rounded-lg border p-3">
+              <div className="space-y-2">
+                <Label htmlFor="new-badge_text">Badge-teksti (sovelluksessa)</Label>
+                <Input
+                  id="new-badge_text"
+                  value={newPromo.badge_text}
+                  onChange={(e) => setNewPromo({ ...newPromo, badge_text: e.target.value })}
+                  placeholder="Esim. Suosituin, 24h Pika, Säästöpaketti"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-sort_order">Järjestys sovelluksessa</Label>
+                <Input
+                  id="new-sort_order"
+                  type="number"
+                  min="1"
+                  value={newPromo.sort_order}
+                  onChange={(e) => setNewPromo({ ...newPromo, sort_order: e.target.value })}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="new-is_featured"
+                  checked={newPromo.is_featured}
+                  onChange={(e) => setNewPromo({ ...newPromo, is_featured: e.target.checked })}
+                  className="w-4 h-4 rounded border-input"
+                />
+                <Label htmlFor="new-is_featured" className="cursor-pointer">Korosta tuote kärjessä</Label>
+              </div>
+            </div>
 
             <Button type="submit" disabled={loading} className="w-full">
               <Plus className="h-4 w-4 mr-2" />
@@ -631,6 +662,37 @@ export const ProductManagement = () => {
               onChange={(patch) => setEditFormData({ ...editFormData, ...patch })}
             />
 
+            <div className="grid gap-4 rounded-lg border p-3">
+              <div className="space-y-2">
+                <Label htmlFor="edit-badge_text">Badge-teksti (sovelluksessa)</Label>
+                <Input
+                  id="edit-badge_text"
+                  value={editPromo.badge_text}
+                  onChange={(e) => setEditPromo({ ...editPromo, badge_text: e.target.value })}
+                  placeholder="Esim. Suosituin, 24h Pika, Säästöpaketti"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-sort_order">Järjestys sovelluksessa</Label>
+                <Input
+                  id="edit-sort_order"
+                  type="number"
+                  min="1"
+                  value={editPromo.sort_order}
+                  onChange={(e) => setEditPromo({ ...editPromo, sort_order: e.target.value })}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="edit-is_featured"
+                  checked={editPromo.is_featured}
+                  onChange={(e) => setEditPromo({ ...editPromo, is_featured: e.target.checked })}
+                  className="w-4 h-4 rounded border-input"
+                />
+                <Label htmlFor="edit-is_featured" className="cursor-pointer">Korosta tuote kärjessä</Label>
+              </div>
+            </div>
 
             <div className="flex items-center space-x-2">
               <input
