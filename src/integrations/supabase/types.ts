@@ -1126,6 +1126,45 @@ export type Database = {
         }
         Relationships: []
       }
+      time_slots: {
+        Row: {
+          created_at: string
+          end_hour: number
+          id: string
+          is_active: boolean
+          label: string
+          max_orders: number | null
+          slot_type: string
+          sort_order: number
+          start_hour: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_hour: number
+          id?: string
+          is_active?: boolean
+          label: string
+          max_orders?: number | null
+          slot_type?: string
+          sort_order?: number
+          start_hour: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_hour?: number
+          id?: string
+          is_active?: boolean
+          label?: string
+          max_orders?: number | null
+          slot_type?: string
+          sort_order?: number
+          start_hour?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
