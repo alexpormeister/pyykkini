@@ -33,7 +33,13 @@ interface Product {
   base_price: number;
   pricing_model: "FIXED" | "PER_M2";
   is_active: boolean;
+  discount_price?: number | null;
 }
+
+const effectivePrice = (product: Product) =>
+  product.discount_price != null && Number(product.discount_price) > 0 && Number(product.discount_price) < product.base_price
+    ? Number(product.discount_price)
+    : product.base_price;
 
 interface CartItem {
   product_id: string;
