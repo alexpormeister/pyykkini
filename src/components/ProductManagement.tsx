@@ -185,7 +185,10 @@ export const ProductManagement = () => {
           platform_fee_type: formData.platform_fee_type,
           platform_fee_value: parseFloat(formData.platform_fee_value || "0"),
           driver_fee_type: formData.driver_fee_type,
-          driver_fee_value: parseFloat(formData.driver_fee_value || "0")
+          driver_fee_value: parseFloat(formData.driver_fee_value || "0"),
+          badge_text: newPromo.badge_text || undefined,
+          is_featured: newPromo.is_featured,
+          sort_order: parseInt(newPromo.sort_order || "1", 10) || 1
         }
       });
 
@@ -205,6 +208,7 @@ export const ProductManagement = () => {
         base_price: "",
         ...emptyFees
       });
+      setNewPromo({ badge_text: "", is_featured: false, sort_order: "1" });
       
       fetchProducts();
     } catch (error: any) {
@@ -233,6 +237,11 @@ export const ProductManagement = () => {
       driver_fee_value: String(100 - (product.platform_fee_value ?? product.commission_percent ?? 15)),
       is_active: product.is_active
     });
+    setEditPromo({
+      badge_text: product.badge_text || "",
+      is_featured: !!product.is_featured,
+      sort_order: String(product.sort_order ?? 1)
+    });
     setShowEditDialog(true);
   };
 
@@ -258,6 +267,9 @@ export const ProductManagement = () => {
           platform_fee_value: parseFloat(editFormData.platform_fee_value || "0"),
           driver_fee_type: editFormData.driver_fee_type,
           driver_fee_value: parseFloat(editFormData.driver_fee_value || "0"),
+          badge_text: editPromo.badge_text || null,
+          is_featured: editPromo.is_featured,
+          sort_order: parseInt(editPromo.sort_order || "1", 10) || 1,
           is_active: editFormData.is_active
         } as any)
         .eq("id", editingProduct.id);
