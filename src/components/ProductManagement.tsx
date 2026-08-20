@@ -9,6 +9,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Package, Plus, Trash2, Pencil } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { logger } from "@/lib/logger";
 
@@ -35,6 +38,10 @@ interface Product {
   badge_text?: string | null;
   is_featured?: boolean | null;
   sort_order?: number | null;
+  discount_price?: number | null;
+  discount_bearer?: string | null;
+  discount_custom_partner_fee?: number | null;
+  discount_custom_driver_fee?: number | null;
 }
 
 const emptyFees = {
@@ -42,6 +49,217 @@ const emptyFees = {
   platform_fee_value: "15",
   driver_fee_type: "percent",
   driver_fee_value: "85"
+};
+
+const emptyDiscount = {
+  discount_price: "",
+  discount_bearer: "platform",
+  discount_custom_partner_fee: "",
+  discount_custom_driver_fee: "",
+  preview_laundry_price: ""
+};
+
+type DiscountValues = typeof emptyDiscount;
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const eur = (n: number) => `${round2(n).toFixed(2)} €`;
+
+export const computeSplit = ({
+  basePrice,
+  discountPrice,
+  laundryPrice,
+  platformPct,
+  bearer,
+  customPartnerFee,
+  customDriverFee
+}: {
+  basePrice: number;
+  discountPrice: number | null;
+  laundryPrice: number;
+  platformPct: number;
+  bearer: string;
+  customPartnerFee: number | null;
+  customDriverFee: number | null;
+}) => {
+  const hasDiscount = discountPrice != null && discountPrice > 0 && discountPrice < basePrice;
+  const customerPrice = hasDiscount ? (discountPrice as number) : basePrice;
+  const margin = Math.max(round2(basePrice - laundryPrice), 0);
+  let laundry = laundryPrice;
+  let platform = round2((margin * platformPct) / 100);
+  let driver = round2(margin - platform);
+
+  if (hasDiscount) {
+    if (bearer === "pro_rata") {
+      const ratio = basePrice > 0 ? customerPrice / basePrice : 1;
+      laundry = round2(laundry * ratio);
+      platform = round2(platform * ratio);
+      driver = round2(customerPrice - laundry - platform);
+    } else if (bearer === "partner") {
+      laundry = round2(customerPrice - platform - driver);
+    } else if (bearer === "custom") {
+      laundry = round2(customPartnerFee ?? laundry);
+      driver = round2(customDriverFee ?? 0);
+      platform = round2(customerPrice - laundry - driver);
+    } else {
+      platform = round2(customerPrice - laundry - driver);
+    }
+  }
+
+  return { hasDiscount, customerPrice, laundry, driver, platform };
+};
+
+const bearerOptions = [
+  { value: "platform", label: "Alusta (Pesuni) kattaa", hint: "Suositus – pesula ja kuljettaja saavat täyden normaalin palkkion." },
+  { value: "pro_rata", label: "Suhteellinen jako", hint: "Kaikki osapuolet jakavat alennusprosentin." },
+  { value: "partner", label: "Pesula kattaa", hint: "Alennus vähennetään pesulan tilityksestä." },
+  { value: "custom", label: "Mukautettu jako", hint: "Syötä pesulan ja kuljettajan osuudet käsin." }
+];
+
+const DiscountFields = ({
+  idPrefix,
+  basePrice,
+  platformPct,
+  values,
+  onChange
+}: {
+  idPrefix: string;
+  basePrice: number;
+  platformPct: number;
+  values: DiscountValues;
+  onChange: (patch: Partial<DiscountValues>) => void;
+}) => {
+  const discountPrice = values.discount_price === "" ? null : parseFloat(values.discount_price);
+  const laundryPrice = values.preview_laundry_price === ""
+    ? basePrice
+    : (parseFloat(values.preview_laundry_price) || 0);
+  const split = computeSplit({
+    basePrice,
+    discountPrice: Number.isFinite(discountPrice as number) ? discountPrice : null,
+    laundryPrice,
+    platformPct,
+    bearer: values.discount_bearer,
+    customPartnerFee: values.discount_custom_partner_fee === "" ? null : parseFloat(values.discount_custom_partner_fee),
+    customDriverFee: values.discount_custom_driver_fee === "" ? null : parseFloat(values.discount_custom_driver_fee)
+  });
+  const invalid = discountPrice != null && Number.isFinite(discountPrice) && basePrice > 0 && discountPrice >= basePrice;
+  const pct = split.hasDiscount ? Math.round(((basePrice - split.customerPrice) / basePrice) * 100) : 0;
+
+  return (
+    <div className="space-y-4 rounded-lg border p-3">
+      <div className="space-y-2">
+        <Label htmlFor={`${idPrefix}-discount_price`}>Alennushinta (€)</Label>
+        <Input
+          id={`${idPrefix}-discount_price`}
+          type="number"
+          step="0.01"
+          min="0"
+          value={values.discount_price}
+          onChange={(e) => onChange({ discount_price: e.target.value })}
+          placeholder="Jätä tyhjäksi jos ei alennusta"
+        />
+        {split.hasDiscount && (
+          <Badge className="bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900 dark:text-green-300">
+            Alennus: -{pct} % (Säästö asiakkaalle: {eur(basePrice - split.customerPrice)})
+          </Badge>
+        )}
+        {invalid && (
+          <p className="text-xs text-destructive">
+            Alennushinta ei voi olla suurempi tai yhtä suuri kuin normaalihinta.
+          </p>
+        )}
+      </div>
+
+      {split.hasDiscount && (
+        <>
+          <div className="space-y-2">
+            <Label>Alennuksen kattaja maksuliikenteessä</Label>
+            <RadioGroup
+              value={values.discount_bearer}
+              onValueChange={(v) => onChange({ discount_bearer: v })}
+              className="gap-3"
+            >
+              {bearerOptions.map((opt) => (
+                <div key={opt.value} className="flex items-start gap-3">
+                  <RadioGroupItem value={opt.value} id={`${idPrefix}-bearer-${opt.value}`} className="mt-1" />
+                  <Label htmlFor={`${idPrefix}-bearer-${opt.value}`} className="cursor-pointer font-normal">
+                    <span className="font-medium">{opt.label}</span>
+                    <span className="block text-xs text-muted-foreground">{opt.hint}</span>
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+
+          {values.discount_bearer === "custom" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor={`${idPrefix}-custom_partner`}>Pesulan osuus (€)</Label>
+                <Input
+                  id={`${idPrefix}-custom_partner`}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={values.discount_custom_partner_fee}
+                  onChange={(e) => onChange({ discount_custom_partner_fee: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`${idPrefix}-custom_driver`}>Kuljettajan osuus (€)</Label>
+                <Input
+                  id={`${idPrefix}-custom_driver`}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={values.discount_custom_driver_fee}
+                  onChange={(e) => onChange({ discount_custom_driver_fee: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="space-y-2">
+        <Label htmlFor={`${idPrefix}-preview_laundry`}>Pesulan hinta laskurissa (€)</Label>
+        <Input
+          id={`${idPrefix}-preview_laundry`}
+          type="number"
+          step="0.01"
+          min="0"
+          value={values.preview_laundry_price}
+          onChange={(e) => onChange({ preview_laundry_price: e.target.value })}
+          placeholder={basePrice ? basePrice.toFixed(2) : "0.00"}
+        />
+        <p className="text-xs text-muted-foreground">
+          Vain laskurin esikatselua varten – todellinen tilitys käyttää pesulakohtaista hinnastoa.
+        </p>
+      </div>
+
+      <div className="rounded-lg bg-muted/50 p-3 space-y-1 text-sm">
+        <div className="flex justify-between">
+          <span>Asiakas maksaa</span>
+          <span className="font-semibold">
+            {eur(split.customerPrice)}
+            {split.hasDiscount && (
+              <span className="ml-2 text-xs text-muted-foreground line-through">{eur(basePrice)}</span>
+            )}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span>🧺 Pesulan tilitys</span>
+          <span className="font-semibold">{eur(split.laundry)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>🚗 Kuljettajan tilitys</span>
+          <span className="font-semibold">{eur(split.driver)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>🏢 Pesuni (alustamaksu)</span>
+          <span className={`font-semibold ${split.platform < 0 ? "text-destructive" : ""}`}>{eur(split.platform)}</span>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const feeSum = (base: number, type: string, value: string) => {
