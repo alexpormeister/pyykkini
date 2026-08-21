@@ -215,16 +215,15 @@ export const UserManagement = () => {
       // Keep laundry details in sync (name, business id, address, phone)
       const laundry = laundryByUser[editingUser.id];
       if (laundry) {
-        const laundryUpdate: Record<string, string | null> = {
-          business_id: editFormData.business_id || null,
-          address: editFormData.address,
-          contact_phone: editFormData.phone,
-          contact_email: editFormData.email || null,
-        };
-        if (editFormData.company_name) laundryUpdate.name = editFormData.company_name;
         const { error: laundryError } = await supabase
           .from('laundries')
-          .update(laundryUpdate)
+          .update({
+            business_id: editFormData.business_id || null,
+            address: editFormData.address,
+            contact_phone: editFormData.phone,
+            contact_email: editFormData.email || null,
+            ...(editFormData.company_name ? { name: editFormData.company_name } : {}),
+          })
           .eq('id', laundry.id);
         if (laundryError) throw laundryError;
       }
