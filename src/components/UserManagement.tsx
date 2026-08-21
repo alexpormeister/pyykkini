@@ -214,7 +214,7 @@ export const UserManagement = () => {
 
       if (error) throw error;
 
-      // Keep laundry details in sync (name, business id, address, postal_code, city, phone)
+      // Keep laundry details in sync (name, business id, address, city, phone)
       const laundry = laundryByUser[editingUser.id];
       if (laundry) {
         const parsedAddress = parseStructuredAddress(editFormData.address);
@@ -223,7 +223,6 @@ export const UserManagement = () => {
           .update({
             business_id: editFormData.business_id || null,
             address: editFormData.address,
-            postal_code: parsedAddress.postalCode || null,
             city: parsedAddress.city || null,
             contact_phone: editFormData.phone,
             contact_email: editFormData.email || null,
@@ -519,8 +518,8 @@ export const UserManagement = () => {
 
         {/* Edit User Dialog */}
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-xl max-h-[88vh] flex flex-col p-0 overflow-hidden">
+            <DialogHeader className="px-6 pt-6 pb-2 border-b">
               <DialogTitle className="flex items-center gap-2">
                 <Edit className="h-5 w-5" />
                 Muokkaa käyttäjää
@@ -530,7 +529,7 @@ export const UserManagement = () => {
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleEditSubmit} className="space-y-4">
+            <form onSubmit={handleEditSubmit} className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               {(editingUser?.user_roles?.[0]?.role === 'laundry' || editingUser?.user_roles?.[0]?.role === 'driver') && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -630,7 +629,7 @@ export const UserManagement = () => {
                 />
               </div>
 
-              <div className="flex gap-2 pt-4">
+              <div className="flex gap-2 pt-4 pb-2 sticky bottom-0 bg-background/95 backdrop-blur border-t mt-6">
                 <Button
                   type="button"
                   variant="outline"
