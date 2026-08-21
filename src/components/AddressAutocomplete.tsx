@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { MapPin, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { searchAddressPhoton } from '@/lib/addressUtils';
 import { cn } from '@/lib/utils';
 
 interface AddressSuggestion {
@@ -9,7 +9,7 @@ interface AddressSuggestion {
   street: string;
   city: string;
   postcode: string;
-  coordinates: {
+  coordinates?: {
     lat: number;
     lng: number;
   };
@@ -39,26 +39,26 @@ export const AddressAutocomplete = ({
 
   useEffect(() => {
     const fetchSuggestions = async () => {
-      if (value.length < 3) {
+      if (value.length < 2) {
         setSuggestions([]);
         return;
       }
 
       setIsLoading(true);
       try {
-        const { data, error } = await supabase.functions.invoke('address-autocomplete', {
-          body: { text: value }
-        });
-
-        if (error) {
-          console.error('Autocomplete error:', error);
-          setSuggestions([]);
-          return;
-        }
-
-        if (data?.suggestions) {
-          setSuggestions(data.suggestions);
+        const results = await searchAddressPhoton(value);
+        if (results && results.length > 0) {
+          setSuggestions(
+            results.map((r) => ({
+              address: r.formatted,
+              street: r.street + (r.housenumber ? ` ${r.housenumber}` : ''),
+              city: r.city || '',
+              postcode: r.postcode || '',
+            }))
+          );
           setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
         }
       } catch (error) {
         console.error('Error fetching suggestions:', error);
@@ -70,7 +70,7 @@ export const AddressAutocomplete = ({
 
     const debounceTimer = setTimeout(() => {
       fetchSuggestions();
-    }, 300);
+    }, 280);
 
     return () => clearTimeout(debounceTimer);
   }, [value]);

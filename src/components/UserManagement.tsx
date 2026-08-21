@@ -11,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Search, User, Mail, Shield, Edit, UserPlus, Phone, MapPin, Trash2, Users, Truck, Briefcase, ArrowLeft, WashingMachine, Euro, Building2, Hash } from 'lucide-react';
 import { CreateUserDialog } from './CreateUserDialog';
 import { LaundryPricingManagement } from './LaundryPricingManagement';
+import { StructuredAddressInput } from './StructuredAddressInput';
+import { parseStructuredAddress } from '@/lib/addressUtils';
 
 interface UserWithRole {
   id: string;
@@ -212,14 +214,17 @@ export const UserManagement = () => {
 
       if (error) throw error;
 
-      // Keep laundry details in sync (name, business id, address, phone)
+      // Keep laundry details in sync (name, business id, address, postal_code, city, phone)
       const laundry = laundryByUser[editingUser.id];
       if (laundry) {
+        const parsedAddress = parseStructuredAddress(editFormData.address);
         const { error: laundryError } = await supabase
           .from('laundries')
           .update({
             business_id: editFormData.business_id || null,
             address: editFormData.address,
+            postal_code: parsedAddress.postalCode || null,
+            city: parsedAddress.city || null,
             contact_phone: editFormData.phone,
             contact_email: editFormData.email || null,
             ...(editFormData.company_name ? { name: editFormData.company_name } : {}),
@@ -617,18 +622,12 @@ export const UserManagement = () => {
               </div>
 
               <div>
-                <Label htmlFor="edit_address">Osoite</Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="edit_address"
-                    value={editFormData.address}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, address: e.target.value }))}
-                    className="pl-10"
-                    placeholder="Osoite"
-                    required
-                  />
-                </div>
+                <StructuredAddressInput
+                  value={editFormData.address}
+                  onChange={(formatted) => setEditFormData(prev => ({ ...prev, address: formatted }))}
+                  required={editingUser?.user_roles?.[0]?.role === 'laundry'}
+                  label="Osoite"
+                />
               </div>
 
               <div className="flex gap-2 pt-4">
