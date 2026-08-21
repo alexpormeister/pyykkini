@@ -186,6 +186,16 @@ export const UserManagement = () => {
     e.preventDefault();
     if (!editingUser) return;
 
+    const isLaundry = editingUser.user_roles?.[0]?.role === 'laundry';
+    if (isLaundry && (!editFormData.address.trim() || !editFormData.phone.trim())) {
+      toast({
+        variant: 'destructive',
+        title: 'Puuttuvat tiedot',
+        description: 'Pesulalla on pakko olla osoite ja puhelinnumero.'
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('profiles')
