@@ -532,41 +532,16 @@ export const LaundryPanel = () => {
               title="Saapuvat"
               icon={<Truck className="h-5 w-5 text-primary" />}
               items={incoming}
-              renderCard={(o) => {
-                const arrived = track(o) === "PICKED_UP";
-                return (
-                  <OrderCard
-                    order={o}
-                    action={arrived ? () => confirmReceipt(o) : undefined}
-                    actionLabel="Kuittaa vastaanotetuksi"
-                    actionIcon={<CheckCircle2 className="mr-2 h-5 w-5" />}
-                    actionDisabled={(codeInput[o.id] || "").trim().length < 4}
-                    extra={
-                      arrived ? (
-                        <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
-                          <p className="text-xs text-muted-foreground">
-                            Syötä kuljettajan luovutuskoodi
-                          </p>
-                          <Input
-                            inputMode="numeric"
-                            maxLength={6}
-                            placeholder="••••"
-                            value={codeInput[o.id] || ""}
-                            onChange={(e) =>
-                              setCodeInput((prev) => ({ ...prev, [o.id]: e.target.value }))
-                            }
-                            className="h-12 text-center text-lg tracking-[0.4em]"
-                          />
-                        </div>
-                      ) : (
-                        <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-                          Odottaa kuljettajaa – kuittaus avautuu, kun kuljettaja tuo pyykit.
-                        </p>
-                      )
-                    }
-                  />
-                );
-              }}
+              renderCard={(o) => (
+                <OrderCard
+                  order={o}
+                  extra={
+                    <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+                      Odottaa kuljettajaa – tilaus siirtyy automaattisesti käsittelyyn, kun kuljettaja kuittaa noudon.
+                    </p>
+                  }
+                />
+              )}
             />
             <Column
               title="Käsittelyssä"
