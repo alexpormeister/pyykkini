@@ -1,18 +1,17 @@
 import { Button } from "@/components/ui/button";
-import { Truck, Settings, LogOut, UserCircle, WashingMachine } from "lucide-react";
+import { Settings, LogOut, UserCircle, WashingMachine } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 // Logo removed - using image directly from uploads
 
 interface NavigationProps {
-  activePanel: 'driver' | 'admin' | 'laundry';
-  onPanelChange: (panel: 'driver' | 'admin' | 'laundry') => void;
+  activePanel: 'admin' | 'laundry';
+  onPanelChange: (panel: 'admin' | 'laundry') => void;
 }
 
 export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
   const { userRole, signOut } = useAuth();
   
   const panels = [
-    { id: "driver" as const, label: "Kuljettaja", icon: Truck, roles: ["driver", "admin"] },
     { id: "laundry" as const, label: "Pesula", icon: WashingMachine, roles: ["laundry", "admin"] },
     { id: "admin" as const, label: "Ylläpito", icon: Settings, roles: ["admin"] },
   ];

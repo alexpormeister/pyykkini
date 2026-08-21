@@ -102,16 +102,16 @@ export const Auth = () => {
             <CardTitle className="text-2xl font-bold bg-gradient-hero bg-clip-text text-transparent">
               Pesuni
             </CardTitle>
-            <CardDescription>Kirjautuminen henkilöstölle (ylläpito, kuljettajat, pesulat)</CardDescription>
+            <CardDescription>Kirjautuminen henkilöstölle (ylläpito ja pesulat)</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {customerBlocked && (
               <Alert variant="destructive">
                 <Smartphone className="h-4 w-4" />
-                <AlertTitle>Asiakastili toimii vain mobiilisovelluksessa</AlertTitle>
+                <AlertTitle>Tämä tili toimii vain mobiilisovelluksessa</AlertTitle>
                 <AlertDescription>
-                  Tilaaminen ja tilausten seuranta tapahtuvat Pesuni-sovelluksessa. Selaimen kirjautuminen on
-                  tarkoitettu vain henkilöstölle.
+                  Asiakas- ja kuljettajatilit toimivat vain Pesuni-mobiilisovelluksessa. Selaimen kirjautuminen on
+                  tarkoitettu vain ylläpidolle ja pesuloille.
                 </AlertDescription>
               </Alert>
             )}
@@ -164,7 +164,7 @@ export const Auth = () => {
             </form>
 
             <p className="text-center text-xs text-muted-foreground">
-              Oletko asiakas? Tilaaminen tapahtuu Pesuni-mobiilisovelluksessa.
+              Oletko asiakas tai kuljettaja? Käytä Pesuni-mobiilisovellusta.
             </p>
           </CardContent>
         </Card>

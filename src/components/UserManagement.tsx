@@ -186,6 +186,16 @@ export const UserManagement = () => {
     e.preventDefault();
     if (!editingUser) return;
 
+    const isLaundry = editingUser.user_roles?.[0]?.role === 'laundry';
+    if (isLaundry && (!editFormData.address.trim() || !editFormData.phone.trim())) {
+      toast({
+        variant: 'destructive',
+        title: 'Puuttuvat tiedot',
+        description: 'Pesulalla on pakko olla osoite ja puhelinnumero.'
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('profiles')
@@ -202,13 +212,20 @@ export const UserManagement = () => {
 
       if (error) throw error;
 
-      // Keep laundry name in sync with company name
+      // Keep laundry details in sync (name, business id, address, phone)
       const laundry = laundryByUser[editingUser.id];
-      if (laundry && editFormData.company_name) {
-        await supabase
+      if (laundry) {
+        const { error: laundryError } = await supabase
           .from('laundries')
-          .update({ name: editFormData.company_name, business_id: editFormData.business_id || null })
+          .update({
+            business_id: editFormData.business_id || null,
+            address: editFormData.address,
+            contact_phone: editFormData.phone,
+            contact_email: editFormData.email || null,
+            ...(editFormData.company_name ? { name: editFormData.company_name } : {}),
+          })
           .eq('id', laundry.id);
+        if (laundryError) throw laundryError;
       }
 
       toast({
@@ -594,6 +611,7 @@ export const UserManagement = () => {
                     onChange={(e) => setEditFormData(prev => ({ ...prev, phone: e.target.value }))}
                     className="pl-10"
                     placeholder="+358 40 123 4567"
+                    required={editingUser?.user_roles?.[0]?.role === 'laundry'}
                   />
                 </div>
               </div>
