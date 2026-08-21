@@ -223,30 +223,8 @@ export const LaundryPanel = () => {
     fetchData();
   };
 
-  const confirmReceipt = async (order: LaundryOrder) => {
-    if (!laundryId) return;
-    const code = (codeInput[order.id] || "").trim();
-    const { data, error } = await supabase.rpc("laundry_confirm_receipt" as never, {
-      p_order_id: order.id,
-      p_laundry_id: laundryId,
-      p_code: code,
-    } as never);
-    if (error) {
-      toast({ title: "Kuittaus epäonnistui", description: error.message, variant: "destructive" });
-      return;
-    }
-    const result = data as { success?: boolean; reason?: string } | null;
-    if (!result?.success) {
-      toast({
-        title: result?.reason === "not_arrived" ? "Kuljettaja ei ole vielä tuonut pyykkejä" : "Virheellinen koodi",
-        variant: "destructive",
-      });
-      return;
-    }
-    setCodeInput((prev) => ({ ...prev, [order.id]: "" }));
-    toast({ title: "Vastaanotettu", description: "Tilaus siirtyi käsittelyyn." });
-    fetchData();
-  };
+
+
 
   const saveNote = async () => {
     if (!noteOrder || !laundryId || !user) return;
