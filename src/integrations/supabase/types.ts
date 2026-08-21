@@ -1413,7 +1413,6 @@ export type Database = {
       get_orders_handover_info: {
         Args: { p_order_ids: string[] }
         Returns: {
-          access_code: string
           order_id: string
           pickup_weight_kg: number
           tracking_status: string
@@ -1443,7 +1442,7 @@ export type Database = {
         Returns: boolean
       }
       laundry_confirm_receipt: {
-        Args: { p_code: string; p_laundry_id: string; p_order_id: string }
+        Args: { p_code?: string; p_laundry_id: string; p_order_id: string }
         Returns: Json
       }
       laundry_decide_order: {
