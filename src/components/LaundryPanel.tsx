@@ -29,7 +29,6 @@ interface OrderItem {
 
 interface LaundryOrder {
   id: string;
-  access_code: string | null;
   service_name: string;
   special_instructions: string | null;
   pickup_date: string;
@@ -91,7 +90,6 @@ export const LaundryPanel = () => {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [prices, setPrices] = useState<{ product_id: string; price: number; name: string }[]>([]);
   const [search, setSearch] = useState("");
-  const [codeInput, setCodeInput] = useState<Record<string, string>>({});
   const [noteOrder, setNoteOrder] = useState<LaundryOrder | null>(null);
   const [noteText, setNoteText] = useState("");
   const [noteFile, setNoteFile] = useState<File | null>(null);
@@ -123,7 +121,7 @@ export const LaundryPanel = () => {
     if (!laundryId) return;
     setLoading(true);
     const itemsSelect =
-      "id, access_code, service_name, special_instructions, pickup_date, pickup_time, return_date, return_time, status, tracking_status, laundry_status, final_price, created_at, updated_at, order_items(id, service_type, service_name, product_name, quantity, laundry_price, total_price)";
+      "id, service_name, special_instructions, pickup_date, pickup_time, return_date, return_time, status, tracking_status, laundry_status, final_price, created_at, updated_at, order_items(id, service_type, service_name, product_name, quantity, laundry_price, total_price)";
     const [o, unclaimed, s, c, p] = await Promise.all([
       supabase
         .from("orders")
