@@ -78,7 +78,7 @@ export const DispatchTaskBoard = () => {
 
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [drivers, setDrivers] = useState<DriverInfo[]>([]);
-  const [handover, setHandover] = useState<Record<string, { access_code: string | null; pickup_weight_kg: number | null }>>({});
+  const [handover, setHandover] = useState<Record<string, { pickup_weight_kg: number | null }>>({});
   const [loading, setLoading] = useState(true);
 
   const [typeFilter, setTypeFilter] = useState<"all" | "pickup" | "delivery">("all");
@@ -119,9 +119,9 @@ export const DispatchTaskBoard = () => {
         const { data: infoRows } = await supabase.rpc("get_orders_handover_info" as never, {
           p_order_ids: orderIds,
         } as never);
-        const map: Record<string, { access_code: string | null; pickup_weight_kg: number | null }> = {};
+        const map: Record<string, { pickup_weight_kg: number | null }> = {};
         for (const row of (infoRows || []) as any[]) {
-          map[row.order_id] = { access_code: row.access_code, pickup_weight_kg: row.pickup_weight_kg };
+          map[row.order_id] = { pickup_weight_kg: row.pickup_weight_kg };
         }
         setHandover(map);
       }
@@ -436,13 +436,8 @@ export const DispatchTaskBoard = () => {
                           </span>
                         </div>
 
-                        {(handover[task.order_id]?.access_code || handover[task.order_id]?.pickup_weight_kg != null) && (
+                        {handover[task.order_id]?.pickup_weight_kg != null && (
                           <div className="flex flex-wrap items-center gap-1.5">
-                            {handover[task.order_id]?.access_code && (
-                              <Badge variant="outline" className="text-[10px] font-mono tracking-widest">
-                                Koodi {handover[task.order_id]?.access_code}
-                              </Badge>
-                            )}
                             {handover[task.order_id]?.pickup_weight_kg != null && (
                               <Badge variant="secondary" className="text-[10px]">
                                 {Number(handover[task.order_id]?.pickup_weight_kg).toFixed(1)} kg

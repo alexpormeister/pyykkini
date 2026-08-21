@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowDown, CheckCircle, Clock, KeyRound, MapPin, Navigation as NavIcon, Package, Phone, Scale, Truck } from "lucide-react";
+import { ArrowDown, CheckCircle, Clock, MapPin, Navigation as NavIcon, Package, Phone, Scale, Truck } from "lucide-react";
 
 interface TaskRow {
   id: string;
@@ -36,7 +36,6 @@ interface TaskRow {
 const shortId = (id: string) => `#${id.slice(0, 8).toUpperCase()}`;
 
 interface HandoverInfo {
-  access_code: string | null;
   pickup_weight_kg: number | null;
   tracking_status: string | null;
 }
@@ -57,7 +56,7 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
       .from("delivery_tasks")
       .select("*")
       .eq("driver_id", driverId)
-      .in("status", ["assigned", "in_progress", "awaiting_laundry"])
+      .in("status", ["assigned", "in_progress"])
       .order("route_order", { ascending: true, nullsFirst: false });
     if (error) {
       console.error("Driver tasks error:", error);
@@ -73,7 +72,6 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
       const map: Record<string, HandoverInfo> = {};
       for (const row of (infoRows || []) as any[]) {
         map[row.order_id] = {
-          access_code: row.access_code,
           pickup_weight_kg: row.pickup_weight_kg,
           tracking_status: row.tracking_status,
         };
@@ -149,8 +147,8 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
         setWeighTask(null);
         setWeight("");
         toast({
-          title: `Luovutuskoodi ${result.code}`,
-          description: "Vie pyykit pesulaan ja kerro koodi. Keikka sulkeutuu, kun pesula kuittaa sen.",
+          title: "Nouto kuitattu",
+          description: `Palkkio ${Number(task.driver_payout).toFixed(2)} € • tilaus siirtyi pesulaan käsittelyyn.`,
         });
       } else {
         const kg = Number(String(weight).replace(",", "."));
@@ -258,8 +256,6 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
         {tasks.map((task, idx) => {
           const isPickup = task.task_type === "pickup";
           const orderInfo = info[task.order_id];
-          const code = orderInfo?.access_code;
-          const awaiting = task.status === "awaiting_laundry";
           const track = orderInfo?.tracking_status;
           const onTheWay = !isPickup && (track === "OUT_FOR_DELIVERY" || track === "COMPLETED");
           const laundryReady = !isPickup && (track === "PACKAGING" || onTheWay);
@@ -267,19 +263,6 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
           return (
             <Card key={task.id} className="overflow-hidden">
               <CardContent className="p-4 space-y-3">
-                {code && isPickup && (
-                  <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-center">
-                    <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5">
-                      <KeyRound className="h-3.5 w-3.5" /> Luovutuskoodi pesulalle
-                    </p>
-                    <p className="text-2xl font-bold tracking-[0.3em]">{code}</p>
-                    {orderInfo?.pickup_weight_kg != null && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Noutopaino {Number(orderInfo.pickup_weight_kg).toFixed(1)} kg
-                      </p>
-                    )}
-                  </div>
-                )}
                 <div className="flex items-start justify-between gap-2">
                   <span className="flex items-center gap-2 min-w-0">
                     <Badge variant="secondary" className="shrink-0">{task.route_order ?? idx + 1}</Badge>
@@ -360,11 +343,6 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
                   <Button className="w-full" onClick={() => startTask(task)} disabled={busy === task.id}>
                     <Truck className="h-4 w-4 mr-1.5" /> Aloita tehtävä
                   </Button>
-                ) : awaiting ? (
-                  <div className="rounded-lg border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
-                    Odottaa pesulan kuittausta. Kerro luovutuskoodi pesulalle — keikka siirtyy suoritettuihin, kun pesula
-                    kirjaa sen vastaanotetuksi.
-                  </div>
                 ) : (
                   <Button
                     className="w-full"
@@ -393,7 +371,7 @@ export const DriverTaskList = ({ driverId }: { driverId: string }) => {
             </DialogTitle>
             <DialogDescription>
               {weighMode === "pickup"
-                ? "Kirjaa pyykkien paino kiloina. Saat tämän jälkeen luovutuskoodin pesulalle."
+                ? "Kirjaa pyykkien paino kiloina. Tilaus siirtyy tämän jälkeen pesulalle käsittelyyn."
                 : "Kirjaa palautettavien pyykkien paino kiloina. Tilaus merkitään tämän jälkeen suoritetuksi."}
             </DialogDescription>
           </DialogHeader>

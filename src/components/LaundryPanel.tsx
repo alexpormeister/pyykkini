@@ -29,7 +29,6 @@ interface OrderItem {
 
 interface LaundryOrder {
   id: string;
-  access_code: string | null;
   service_name: string;
   special_instructions: string | null;
   pickup_date: string;
@@ -91,7 +90,6 @@ export const LaundryPanel = () => {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [prices, setPrices] = useState<{ product_id: string; price: number; name: string }[]>([]);
   const [search, setSearch] = useState("");
-  const [codeInput, setCodeInput] = useState<Record<string, string>>({});
   const [noteOrder, setNoteOrder] = useState<LaundryOrder | null>(null);
   const [noteText, setNoteText] = useState("");
   const [noteFile, setNoteFile] = useState<File | null>(null);
@@ -123,7 +121,7 @@ export const LaundryPanel = () => {
     if (!laundryId) return;
     setLoading(true);
     const itemsSelect =
-      "id, access_code, service_name, special_instructions, pickup_date, pickup_time, return_date, return_time, status, tracking_status, laundry_status, final_price, created_at, updated_at, order_items(id, service_type, service_name, product_name, quantity, laundry_price, total_price)";
+      "id, service_name, special_instructions, pickup_date, pickup_time, return_date, return_time, status, tracking_status, laundry_status, final_price, created_at, updated_at, order_items(id, service_type, service_name, product_name, quantity, laundry_price, total_price)";
     const [o, unclaimed, s, c, p] = await Promise.all([
       supabase
         .from("orders")
@@ -223,30 +221,8 @@ export const LaundryPanel = () => {
     fetchData();
   };
 
-  const confirmReceipt = async (order: LaundryOrder) => {
-    if (!laundryId) return;
-    const code = (codeInput[order.id] || "").trim();
-    const { data, error } = await supabase.rpc("laundry_confirm_receipt" as never, {
-      p_order_id: order.id,
-      p_laundry_id: laundryId,
-      p_code: code,
-    } as never);
-    if (error) {
-      toast({ title: "Kuittaus epäonnistui", description: error.message, variant: "destructive" });
-      return;
-    }
-    const result = data as { success?: boolean; reason?: string } | null;
-    if (!result?.success) {
-      toast({
-        title: result?.reason === "not_arrived" ? "Kuljettaja ei ole vielä tuonut pyykkejä" : "Virheellinen koodi",
-        variant: "destructive",
-      });
-      return;
-    }
-    setCodeInput((prev) => ({ ...prev, [order.id]: "" }));
-    toast({ title: "Vastaanotettu", description: "Tilaus siirtyi käsittelyyn." });
-    fetchData();
-  };
+
+
 
   const saveNote = async () => {
     if (!noteOrder || !laundryId || !user) return;
@@ -532,41 +508,16 @@ export const LaundryPanel = () => {
               title="Saapuvat"
               icon={<Truck className="h-5 w-5 text-primary" />}
               items={incoming}
-              renderCard={(o) => {
-                const arrived = track(o) === "PICKED_UP";
-                return (
-                  <OrderCard
-                    order={o}
-                    action={arrived ? () => confirmReceipt(o) : undefined}
-                    actionLabel="Kuittaa vastaanotetuksi"
-                    actionIcon={<CheckCircle2 className="mr-2 h-5 w-5" />}
-                    actionDisabled={(codeInput[o.id] || "").trim().length < 4}
-                    extra={
-                      arrived ? (
-                        <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
-                          <p className="text-xs text-muted-foreground">
-                            Syötä kuljettajan luovutuskoodi
-                          </p>
-                          <Input
-                            inputMode="numeric"
-                            maxLength={6}
-                            placeholder="••••"
-                            value={codeInput[o.id] || ""}
-                            onChange={(e) =>
-                              setCodeInput((prev) => ({ ...prev, [o.id]: e.target.value }))
-                            }
-                            className="h-12 text-center text-lg tracking-[0.4em]"
-                          />
-                        </div>
-                      ) : (
-                        <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-                          Odottaa kuljettajaa – kuittaus avautuu, kun kuljettaja tuo pyykit.
-                        </p>
-                      )
-                    }
-                  />
-                );
-              }}
+              renderCard={(o) => (
+                <OrderCard
+                  order={o}
+                  extra={
+                    <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+                      Odottaa kuljettajaa – tilaus siirtyy automaattisesti käsittelyyn, kun kuljettaja kuittaa noudon.
+                    </p>
+                  }
+                />
+              )}
             />
             <Column
               title="Käsittelyssä"
