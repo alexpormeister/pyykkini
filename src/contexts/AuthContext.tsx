@@ -16,7 +16,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Verkkoselaimessa saa käyttää vain työntekijäroolit – asiakastilit käyttävät mobiilisovellusta
-const WEB_ALLOWED_ROLES = ['admin', 'driver', 'laundry'];
+const WEB_ALLOWED_ROLES = ['admin', 'laundry'];
 export const CUSTOMER_WEB_BLOCK_KEY = 'pesuni_customer_web_blocked';
 
 export const useAuth = () => {

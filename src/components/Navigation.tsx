@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Truck, Settings, LogOut, UserCircle, WashingMachine } from "lucide-react";
+import { Settings, LogOut, UserCircle, WashingMachine } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 // Logo removed - using image directly from uploads
 
