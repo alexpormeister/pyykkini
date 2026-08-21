@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Settings, LogOut, UserCircle, WashingMachine } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-// Logo removed - using image directly from uploads
+import pesuniLogo from "@/assets/pesuni-logo.png";
 
 interface NavigationProps {
   activePanel: 'admin' | 'laundry';
@@ -22,8 +22,9 @@ export const Navigation = ({ activePanel, onPanelChange }: NavigationProps) => {
     <nav className="bg-card border-b border-border shadow-sm">
       <div className="container mx-auto px-2 sm:px-4">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center space-x-2 sm:space-x-4">
-            <img src="/lovable-uploads/08c6977a-49b1-49fc-84e2-ffb8957e8f41.png" alt="Pesuni" className="h-6 sm:h-8" />
+          <div className="flex items-center space-x-2 sm:space-x-3 cursor-pointer" onClick={() => window.location.href = '/'}>
+            <img src={pesuniLogo} alt="Pesuni" className="h-8 sm:h-9 w-auto object-contain" />
+            <span className="font-fredoka text-xl font-bold text-foreground tracking-tight">Pesuni</span>
           </div>
           
           <div className="flex items-center space-x-1 sm:space-x-2">

@@ -13,6 +13,7 @@ import { Bubbles } from "@/components/landing/Bubbles";
 import { AppStoreBadges } from "@/components/landing/AppStoreBadges";
 import { ServiceAreaChecker } from "@/components/landing/ServiceAreaChecker";
 import appMockup from "@/assets/pesuni-app-mockup.png";
+import pesuniLogo from "@/assets/pesuni-logo.png";
 
 const NAV_LINKS = [
   { href: "#miten-se-toimii", label: "Miten se toimii" },
@@ -71,11 +72,9 @@ export const Landing = () => {
       <header className="sticky top-0 z-50 border-b border-primary/10 bg-background/70 backdrop-blur-xl">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
-            <a href="#top" className="flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-primary shadow-elegant">
-                <Droplets className="h-5 w-5 text-primary-foreground" />
-              </span>
-              <span className="font-fredoka text-xl text-foreground">Pesuni</span>
+            <a href="#top" className="flex items-center gap-2.5">
+              <img src={pesuniLogo} alt="Pesuni" className="h-9 w-auto object-contain" />
+              <span className="font-fredoka text-2xl font-bold text-foreground tracking-tight">Pesuni</span>
             </a>
 
             <nav className="hidden items-center gap-1 md:flex">
