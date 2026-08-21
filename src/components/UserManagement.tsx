@@ -611,6 +611,7 @@ export const UserManagement = () => {
                     onChange={(e) => setEditFormData(prev => ({ ...prev, phone: e.target.value }))}
                     className="pl-10"
                     placeholder="+358 40 123 4567"
+                    required={editingUser?.user_roles?.[0]?.role === 'laundry'}
                   />
                 </div>
               </div>
