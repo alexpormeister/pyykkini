@@ -62,6 +62,16 @@ const fullName = (p?: Profile | null) =>
 
 const shortId = (id: string) => `#${id.slice(0, 8).toUpperCase()}`;
 
+const getPickupCode = (id?: string) => {
+  if (!id) return "48291";
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash) + id.charCodeAt(i);
+    hash |= 0;
+  }
+  return String((Math.abs(hash) % 90000) + 10000);
+};
+
 const cityOf = (address?: string | null) => {
   if (!address) return "Muu alue";
   const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
@@ -409,6 +419,9 @@ export const DispatchTaskBoard = () => {
                               />
                             )}
                             <span className="text-xs font-semibold truncate">{shortId(task.order_id)}</span>
+                            <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded">
+                              PIN: {getPickupCode(task.order_id)}
+                            </span>
                           </span>
                           <Badge variant="outline" className="text-[10px]">
                             {task.task_type === "pickup" ? "Nouto" : "Palautus"}

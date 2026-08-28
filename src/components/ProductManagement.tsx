@@ -42,6 +42,7 @@ interface Product {
   discount_bearer?: string | null;
   discount_custom_partner_fee?: number | null;
   discount_custom_driver_fee?: number | null;
+  verification_type?: "weight" | "photo" | "both" | null;
 }
 
 const emptyFees = {
@@ -327,6 +328,7 @@ export const ProductManagement = () => {
     description: "",
     image_url: "",
     base_price: "",
+    verification_type: "weight" as "weight" | "photo" | "both",
     ...emptyFees
   });
   const [editFormData, setEditFormData] = useState({
@@ -335,6 +337,7 @@ export const ProductManagement = () => {
     description: "",
     image_url: "",
     base_price: "",
+    verification_type: "weight" as "weight" | "photo" | "both",
     ...emptyFees,
     is_active: true
   });
@@ -405,6 +408,7 @@ export const ProductManagement = () => {
           description: formData.description || undefined,
           image_url: formData.image_url || undefined,
           base_price: parseFloat(formData.base_price),
+          verification_type: formData.verification_type,
           discount_price: newDiscount.discount_price === "" ? null : parseFloat(newDiscount.discount_price),
           discount_bearer: newDiscount.discount_bearer,
           discount_custom_partner_fee: newDiscount.discount_custom_partner_fee === "" ? null : parseFloat(newDiscount.discount_custom_partner_fee),
@@ -436,6 +440,7 @@ export const ProductManagement = () => {
         description: "",
         image_url: "",
         base_price: "",
+        verification_type: "weight",
         ...emptyFees
       });
       setNewPromo({ badge_text: "", is_featured: false, sort_order: "1" });
@@ -462,6 +467,7 @@ export const ProductManagement = () => {
       description: product.description || "",
       image_url: product.image_url || "",
       base_price: product.base_price.toString(),
+      verification_type: (product.verification_type as any) || "weight",
       platform_fee_type: product.platform_fee_type || "percent",
       platform_fee_value: (product.platform_fee_value ?? product.commission_percent ?? 15).toString(),
       driver_fee_type: "percent",
@@ -508,6 +514,7 @@ export const ProductManagement = () => {
           description: editFormData.description || null,
           image_url: editFormData.image_url || null,
           base_price: parseFloat(editFormData.base_price),
+          verification_type: editFormData.verification_type,
           discount_price: editDiscountPrice,
           discount_bearer: editDiscount.discount_bearer,
           discount_custom_partner_fee: editDiscount.discount_custom_partner_fee === "" ? null : parseFloat(editDiscount.discount_custom_partner_fee),
@@ -663,6 +670,26 @@ export const ProductManagement = () => {
               </Select>
             </div>
 
+            <div className="space-y-2 rounded-lg border p-3 bg-muted/30">
+              <Label htmlFor="verification_type">Noutotarkistuksen tyyppi (Kuljettaja noudossa) *</Label>
+              <Select
+                value={formData.verification_type}
+                onValueChange={(value: "weight" | "photo" | "both") => setFormData({ ...formData, verification_type: value })}
+              >
+                <SelectTrigger id="verification_type" className="bg-background">
+                  <SelectValue placeholder="Valitse noutotarkistus" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weight">⚖️ Kilomittaus (Kuljettaja punnitsee ja kirjaa kilot)</SelectItem>
+                  <SelectItem value="photo">📸 Valokuvaus (Kuljettaja ottaa tuotekuvat, esim. matot)</SelectItem>
+                  <SelectItem value="both">⚖️📸 Molemmat (Punnitus ja valokuvaus)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Määrittää mitä kuljettajalta vaaditaan noudon yhteydessä ennen pesulaan kuljetusta.
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="description">Kuvaus</Label>
               <Textarea
@@ -784,6 +811,7 @@ export const ProductManagement = () => {
                   <TableHead>Nimi</TableHead>
                   <TableHead>Kategoria</TableHead>
                   <TableHead>Hinta</TableHead>
+                  <TableHead>Noutotarkistus</TableHead>
                   <TableHead>Alusta %</TableHead>
                   <TableHead>Kuljettajat %</TableHead>
                   <TableHead>Tila</TableHead>
@@ -811,6 +839,15 @@ export const ProductManagement = () => {
                       ) : (
                         <span>{product.base_price.toFixed(2)} €</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs font-normal">
+                        {product.verification_type === 'photo' 
+                          ? '📸 Valokuvaus' 
+                          : product.verification_type === 'both' 
+                          ? '⚖️📸 Molemmat' 
+                          : '⚖️ Punnitus'}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       {Number(product.platform_fee_value ?? product.commission_percent ?? 15).toFixed(2)}
@@ -898,6 +935,26 @@ export const ProductManagement = () => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2 rounded-lg border p-3 bg-muted/30">
+              <Label htmlFor="edit-verification_type">Noutotarkistuksen tyyppi (Kuljettaja noudossa) *</Label>
+              <Select
+                value={editFormData.verification_type}
+                onValueChange={(value: "weight" | "photo" | "both") => setEditFormData({ ...editFormData, verification_type: value })}
+              >
+                <SelectTrigger id="edit-verification_type" className="bg-background">
+                  <SelectValue placeholder="Valitse noutotarkistus" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weight">⚖️ Kilomittaus (Kuljettaja punnitsee ja kirjaa kilot)</SelectItem>
+                  <SelectItem value="photo">📸 Valokuvaus (Kuljettaja ottaa tuotekuvat, esim. matot)</SelectItem>
+                  <SelectItem value="both">⚖️📸 Molemmat (Punnitus ja valokuvaus)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Määrittää mitä kuljettajalta vaaditaan noudon yhteydessä ennen pesulaan kuljetusta.
+              </p>
             </div>
 
             <div className="space-y-2">

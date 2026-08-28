@@ -25,6 +25,7 @@ const productSchema = z.object({
   badge_text: z.string().trim().max(60).optional().or(z.literal('')),
   is_featured: z.boolean().optional(),
   sort_order: z.number().int().min(1).max(9999).optional(),
+  verification_type: z.enum(['weight', 'photo', 'both']).optional(),
   laundry_prices: z.array(z.object({
     laundry_id: z.string().uuid(),
     price: z.number().min(0).max(10000)
@@ -142,6 +143,7 @@ Deno.serve(async (req) => {
         badge_text: validated.badge_text || null,
         is_featured: validated.is_featured ?? false,
         sort_order: validated.sort_order ?? 1,
+        verification_type: validated.verification_type ?? 'weight',
         pricing_model: 'FIXED'
       })
       .select()
