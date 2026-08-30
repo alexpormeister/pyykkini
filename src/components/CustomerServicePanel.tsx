@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { DispatchTaskBoard } from "@/components/DispatchTaskBoard";
 import { OrderSearchPanel } from "@/components/OrderSearchPanel";
+import { SupportChatInbox } from "@/components/SupportChatInbox";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertTriangle,
@@ -339,133 +340,9 @@ export const CustomerServicePanel = ({ section }: { section?: CSSection }) => {
         <DispatchTaskBoard />
       </TabsContent>
 
-      {/* --- 2. Inbox --- */}
-      <TabsContent value="inbox" className="animate-fade-in">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card className="lg:col-span-1">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" /> Keskustelut
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <ScrollArea className="h-[26rem]">
-                <div className="p-4 space-y-4">
-                  {[
-                    { key: "customer", label: "Asiakasviestit" },
-                    { key: "driver", label: "Kuljettajaviestit" },
-                    { key: "laundry", label: "Pesulaviestit" },
-                  ].map((section) => (
-                    <div key={section.key} className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        {section.label}
-                      </p>
-                      {chatGroups[section.key].length === 0 && (
-                        <p className="text-xs text-muted-foreground">Ei keskusteluja</p>
-                      )}
-                      {chatGroups[section.key].map((chat) => {
-                        const order = latestOrderFor(chat.user_id);
-                        return (
-                          <button
-                            key={chat.id}
-                            onClick={() => openChat(chat)}
-                            className={`w-full text-left rounded-lg border p-3 transition-colors ${
-                              selectedChatId === chat.id ? "border-primary bg-primary/5" : "hover:bg-muted"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium truncate">
-                                {fullName(profileOf(chat.user_id))}
-                              </span>
-                              {!chat.is_read && (
-                                <Badge variant="destructive" className="text-[10px] h-4 px-1.5">Uusi</Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {order ? shortId(order.id) : "Ei tilausta"} ·{" "}
-                              {new Date(chat.last_message_at).toLocaleDateString("fi-FI")}
-                            </p>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-2">
-            {selectedChat ? (
-              <>
-                <CardHeader className="p-4 pb-3">
-                  <CardTitle className="text-base">{fullName(profileOf(selectedChat.user_id))}</CardTitle>
-                  {selectedChatOrder ? (
-                    <CardDescription className="text-xs space-y-0.5">
-                      <span className="block">
-                        {shortId(selectedChatOrder.id)} · {selectedChatOrder.address}
-                      </span>
-                      <span className="block">
-                        Pesula: {laundryName(selectedChatOrder.laundry_id)} · Kuski:{" "}
-                        {selectedChatOrder.driver_id ? fullName(profileOf(selectedChatOrder.driver_id)) : "Ei kuskia"}
-                      </span>
-                    </CardDescription>
-                  ) : (
-                    <CardDescription className="text-xs">Ei liitettyä tilausta</CardDescription>
-                  )}
-                </CardHeader>
-                <Separator />
-                <CardContent className="p-4 flex flex-col h-[22rem]">
-                  <ScrollArea className="flex-1 pr-3 mb-3">
-                    <div className="space-y-3">
-                      {chatMessages.map((m) => (
-                        <div key={m.id} className={`flex ${m.is_admin_message ? "justify-end" : "justify-start"}`}>
-                          <div
-                            className={`max-w-[80%] rounded-lg p-3 text-sm ${
-                              m.is_admin_message ? "bg-primary text-primary-foreground" : "bg-muted"
-                            }`}
-                          >
-                            <p>{m.content}</p>
-                            <p className="text-[10px] opacity-70 mt-1">
-                              {new Date(m.created_at).toLocaleString("fi-FI", {
-                                day: "2-digit",
-                                month: "2-digit",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                  <div className="flex gap-2">
-                    <Textarea
-                      value={reply}
-                      onChange={(e) => setReply(e.target.value)}
-                      placeholder="Kirjoita vastaus..."
-                      rows={2}
-                      className="flex-1 text-sm"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          sendReply();
-                        }
-                      }}
-                    />
-                    <Button onClick={sendReply} disabled={!reply.trim() || sending} className="self-end">
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </>
-            ) : (
-              <div className="flex items-center justify-center h-[26rem] text-sm text-muted-foreground">
-                Valitse keskustelu
-              </div>
-            )}
-          </Card>
-        </div>
+      {/* --- 2. Inbox / Viestit --- */}
+      <TabsContent value="inbox" className="animate-fade-in space-y-4">
+        <SupportChatInbox />
       </TabsContent>
 
 
