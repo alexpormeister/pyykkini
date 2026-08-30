@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { DispatchTaskBoard } from "@/components/DispatchTaskBoard";
+import { OrderSearchPanel } from "@/components/OrderSearchPanel";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertTriangle,
@@ -468,122 +469,9 @@ export const CustomerServicePanel = ({ section }: { section?: CSSection }) => {
       </TabsContent>
 
 
-      {/* --- 4. CRM --- */}
+      {/* --- 3. CRM / Tilaushaku --- */}
       <TabsContent value="crm" className="animate-fade-in space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={crmQuery}
-            onChange={(e) => setCrmQuery(e.target.value)}
-            placeholder="Hae tilausnumerolla, nimellä, puhelimella tai osoitteella"
-            className="pl-10"
-          />
-        </div>
-
-        {crmQuery.trim().length >= 2 && (
-          <Card>
-            <CardContent className="p-2">
-              {crmResults.length === 0 ? (
-                <p className="p-4 text-sm text-muted-foreground">Ei tuloksia</p>
-              ) : (
-                crmResults.map((o) => (
-                  <button
-                    key={o.id}
-                    onClick={() => setCrmSelectedUser(o.user_id)}
-                    className="w-full text-left p-3 rounded-lg hover:bg-muted"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium truncate">
-                        {o.first_name} {o.last_name}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{shortId(o.id)}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {o.address} · {o.phone}
-                    </p>
-                  </button>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {crmSelectedUser && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="p-4 pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <User className="h-4 w-4" /> Asiakas
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0 space-y-2 text-sm">
-                <p className="font-medium">{fullName(profileOf(crmSelectedUser))}</p>
-                <p className="text-muted-foreground text-xs">{profileOf(crmSelectedUser)?.phone || "Ei puhelinta"}</p>
-                <Separator />
-                <p className="text-xs text-muted-foreground">
-                  Tilauksia {crmUserOrders.length} kpl · Yhteensä{" "}
-                  {money(crmUserOrders.reduce((s, o) => s + Number(o.final_price || 0), 0))}
-                </p>
-                {crmUserOrders.some((o) => o.special_instructions) && (
-                  <div className="rounded-lg bg-muted p-3 text-xs space-y-1">
-                    <p className="font-medium">Lisätiedot / ovikoodit</p>
-                    {Array.from(
-                      new Set(crmUserOrders.map((o) => o.special_instructions).filter(Boolean) as string[])
-                    ).map((note) => (
-                      <p key={note} className="text-muted-foreground">{note}</p>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="p-4 pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Truck className="h-4 w-4" /> Tilaushistoria
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <ScrollArea className="h-52 pr-3">
-                  <div className="space-y-2">
-                    {crmUserOrders.map((o) => (
-                      <div key={o.id} className="rounded-lg border p-2 text-xs">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium">{shortId(o.id)}</span>
-                          <span>{money(o.final_price)}</span>
-                        </div>
-                        <p className="text-muted-foreground truncate">{o.service_name}</p>
-                        <p className="text-muted-foreground">
-                          {new Date(o.created_at).toLocaleDateString("fi-FI")} · {o.status}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-
-            <Card className="lg:col-span-2">
-              <CardHeader className="p-4 pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" /> Aiemmat viestit
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0 space-y-2">
-                {crmUserMessages.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Ei viestejä</p>
-                ) : (
-                  crmUserMessages.map((m) => (
-                    <div key={m.id} className="text-xs">
-                      <span className="font-medium">{m.is_admin_message ? "Tuki" : "Asiakas"}: </span>
-                      <span className="text-muted-foreground">{m.content}</span>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        <OrderSearchPanel />
       </TabsContent>
     </Tabs>
   );
