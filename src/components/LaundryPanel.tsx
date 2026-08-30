@@ -192,10 +192,14 @@ export const LaundryPanel = () => {
 
   const awaiting = orders.filter((o) => lStatus(o) === "pending" && !isCancelledOrRejected(o));
   const incoming = orders.filter(
-    (o) => lStatus(o) === "accepted" && ["PENDING", "PICKED_UP"].includes(track(o)) && o.status !== "delivered" && !isCancelledOrRejected(o),
+    (o) => lStatus(o) === "accepted" && track(o) === "PENDING" && o.status !== "delivered" && !isCancelledOrRejected(o),
   );
-  const inProgress = orders.filter((o) => lStatus(o) === "accepted" && track(o) === "WASHING" && !isCancelledOrRejected(o));
-  const ready = orders.filter((o) => lStatus(o) === "accepted" && track(o) === "PACKAGING" && !isCancelledOrRejected(o));
+  const inProgress = orders.filter(
+    (o) => lStatus(o) === "accepted" && (["WASHING", "PICKED_UP"].includes(track(o)) || o.status === "washing") && !isCancelledOrRejected(o),
+  );
+  const ready = orders.filter(
+    (o) => lStatus(o) === "accepted" && (["PACKAGING", "READY_FOR_DELIVERY"].includes(track(o)) || o.status === "ready_for_delivery") && !isCancelledOrRejected(o),
+  );
   const history = orders.filter((o) => ["OUT_FOR_DELIVERY", "COMPLETED"].includes(track(o)) || o.status === "delivered");
 
   const decide = async (order: LaundryOrder, decision: "accepted" | "rejected") => {
@@ -229,13 +233,21 @@ export const LaundryPanel = () => {
   };
 
   const setStatus = async (order: LaundryOrder, status: "WASHING" | "PACKAGING") => {
+    const nowIso = new Date().toISOString();
     const { error } = await supabase
       .from("orders")
-      .update({ tracking_status: status as never })
+      .update({ tracking_status: status as never, updated_at: nowIso })
       .eq("id", order.id);
     if (error) {
       toast({ title: "Päivitys epäonnistui", description: error.message, variant: "destructive" });
       return;
+    }
+    if (status === "PACKAGING") {
+      await supabase
+        .from("delivery_tasks")
+        .update({ status: "unassigned", updated_at: nowIso })
+        .eq("order_id", order.id)
+        .eq("task_type", "delivery");
     }
     toast({ title: status === "WASHING" ? "Vastaanotettu" : "Merkitty valmiiksi" });
     fetchData();
@@ -435,7 +447,6 @@ export const LaundryPanel = () => {
               <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">
                 {eur(totalEarnings)}
               </div>
-              <span className="text-[10px] text-muted-foreground">Pesulan osuus</span>
             </div>
           </div>
 
@@ -608,8 +619,8 @@ export const LaundryPanel = () => {
                 <OrderCard
                   order={o}
                   extra={
-                    <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-                      Odottaa kuljettajaa – tilaus siirtyy automaattisesti käsittelyyn, kun kuljettaja kuittaa noudon.
+                    <p className="rounded-lg bg-blue-500/10 text-blue-800 dark:text-blue-200 border border-blue-500/20 p-2.5 text-xs">
+                      🚚 Kuljettaja noutamassa asiakkaalta – siirtyy automaattisesti käsittelyyn, kun nouto on suoritettu.
                     </p>
                   }
                 />
@@ -627,6 +638,16 @@ export const LaundryPanel = () => {
               title="Valmiit"
               icon={<PackageCheck className="h-5 w-5 text-primary" />}
               items={ready}
+              renderCard={(o) => (
+                <OrderCard
+                  order={o}
+                  extra={
+                    <p className="rounded-lg bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 border border-emerald-500/20 p-2.5 text-xs">
+                      ✅ Pyykit valmiina – palautusajo on aktivoitu kuljettajille.
+                    </p>
+                  }
+                />
+              )}
             />
           </div>
         </TabsContent>
