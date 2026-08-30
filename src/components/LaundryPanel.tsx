@@ -165,17 +165,37 @@ export const LaundryPanel = () => {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    const channel = supabase
+      .channel(`laundry_panel_realtime_${laundryId || "all"}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        fetchData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_tasks" }, () => {
+        fetchData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => {
+        fetchData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "settlements" }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchData, laundryId]);
 
   const track = (o: LaundryOrder) => (o.tracking_status || "PENDING").toUpperCase();
   const lStatus = (o: LaundryOrder) => (o.laundry_status || "pending").toLowerCase();
+  const isCancelledOrRejected = (o: LaundryOrder) => o.status === "cancelled" || o.status === "rejected";
 
-  const awaiting = orders.filter((o) => lStatus(o) === "pending" && o.status !== "cancelled");
+  const awaiting = orders.filter((o) => lStatus(o) === "pending" && !isCancelledOrRejected(o));
   const incoming = orders.filter(
-    (o) => lStatus(o) === "accepted" && ["PENDING", "PICKED_UP"].includes(track(o)) && o.status !== "delivered",
+    (o) => lStatus(o) === "accepted" && ["PENDING", "PICKED_UP"].includes(track(o)) && o.status !== "delivered" && !isCancelledOrRejected(o),
   );
-  const inProgress = orders.filter((o) => lStatus(o) === "accepted" && track(o) === "WASHING");
-  const ready = orders.filter((o) => lStatus(o) === "accepted" && track(o) === "PACKAGING");
+  const inProgress = orders.filter((o) => lStatus(o) === "accepted" && track(o) === "WASHING" && !isCancelledOrRejected(o));
+  const ready = orders.filter((o) => lStatus(o) === "accepted" && track(o) === "PACKAGING" && !isCancelledOrRejected(o));
   const history = orders.filter((o) => ["OUT_FOR_DELIVERY", "COMPLETED"].includes(track(o)) || o.status === "delivered");
 
   const decide = async (order: LaundryOrder, decision: "accepted" | "rejected") => {
