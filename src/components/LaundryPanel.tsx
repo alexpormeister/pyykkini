@@ -278,12 +278,51 @@ export const LaundryPanel = () => {
     }
   };
 
-  const laundryTotal = (o: LaundryOrder) =>
-    o.order_items.reduce((sum, it) => {
-      if (it.laundry_price != null) return sum + Number(it.laundry_price);
-      const own = prices.find((p) => p.product_id === (it as { service_type?: string }).service_type);
-      return sum + Number(own?.price ?? 0) * (it.quantity || 1);
-    }, 0);
+  const laundryTotal = (o: LaundryOrder) => {
+    // 1. Jos order_items löytyy, lasketaan tuotekohtaisesti
+    if (o.order_items && o.order_items.length > 0) {
+      return o.order_items.reduce((sum, it) => {
+        if (it.laundry_price != null && Number(it.laundry_price) > 0) {
+          return sum + Number(it.laundry_price);
+        }
+        // Etsitään pesulan oma hinta product_laundry_prices -listasta
+        const itName = (it.product_name || it.service_name || o.service_name || "").toLowerCase().trim();
+        const itType = ((it as any).service_type || "").toLowerCase().trim();
+
+        const own = prices.find((p) => {
+          const pid = (p.product_id || "").toLowerCase().trim();
+          const pname = (p.name || "").toLowerCase().trim();
+          return (
+            pid === itType ||
+            pid === itName ||
+            pname === itName ||
+            (itName && pname && (itName.includes(pname) || pname.includes(itName)))
+          );
+        });
+
+        if (own?.price != null && Number(own.price) > 0) {
+          return sum + Number(own.price) * (it.quantity || 1);
+        }
+        return sum + (Number(it.total_price || 0) * 0.7);
+      }, 0);
+    }
+
+    // 2. Jos order_items on tyhjä, etsitään tilauksen pääpalvelun (service_name) perusteella
+    const servName = (o.service_name || "").toLowerCase().trim();
+    const own = prices.find((p) => {
+      const pid = (p.product_id || "").toLowerCase().trim();
+      const pname = (p.name || "").toLowerCase().trim();
+      return (
+        pid === servName ||
+        pname === servName ||
+        (servName && pname && (servName.includes(pname) || pname.includes(servName)))
+      );
+    });
+    if (own?.price != null && Number(own.price) > 0) {
+      return Number(own.price);
+    }
+    return 0;
+  };
 
   const pendingPayout = useMemo(
     () => settlements.filter((s) => s.status !== "paid").reduce((a, s) => a + Number(s.net_amount || 0), 0),
@@ -381,48 +420,85 @@ export const LaundryPanel = () => {
     actionIcon?: React.ReactNode;
     actionDisabled?: boolean;
     extra?: React.ReactNode;
-  }) => (
-    <Card className="border-2">
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-start justify-between gap-2 min-w-0">
-          <div className="min-w-0">
-            <div className="truncate text-lg font-bold">#{orderRef(order)}</div>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4 shrink-0" />
-              <span className="truncate">Valmis {fmtDateTime(order.return_date, order.return_time)}</span>
+  }) => {
+    const totalEarnings = laundryTotal(order);
+
+    return (
+      <Card className="border-2 shadow-xs hover:border-primary/40 transition-all">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-start justify-between gap-2 min-w-0">
+            <div className="min-w-0">
+              <div className="truncate text-lg font-bold text-foreground">#{orderRef(order)}</div>
+              <p className="text-xs text-muted-foreground font-medium">{order.service_name}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+                {eur(totalEarnings)}
+              </div>
+              <span className="text-[10px] text-muted-foreground">Pesulan osuus</span>
             </div>
           </div>
-          <div className="shrink-0 text-right text-sm font-semibold">{eur(laundryTotal(order))}</div>
-        </div>
 
-        <div className="flex flex-wrap gap-1.5">
-          {order.order_items.map((it) => (
-            <Badge key={it.id} variant="secondary" className="max-w-full truncate py-1 text-sm">
-              {(it.product_name || it.service_name)} × {it.quantity}
-            </Badge>
-          ))}
-        </div>
+          {/* Saapumisaika ja Arvioitu paluun noutoaika */}
+          <div className="bg-muted/40 p-2.5 rounded-lg space-y-1.5 text-xs border border-border/40">
+            <div className="flex items-center justify-between text-muted-foreground gap-1">
+              <span className="flex items-center gap-1.5 font-medium text-foreground">
+                <Truck className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                Saapumisaika pesulalle:
+              </span>
+              <span className="font-semibold text-foreground">
+                {fmtDateTime(order.pickup_date, order.pickup_time)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-muted-foreground gap-1 border-t border-border/40 pt-1.5">
+              <span className="flex items-center gap-1.5 font-medium text-foreground">
+                <Clock className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                Arvioitu noutoaika (paluu):
+              </span>
+              <span className="font-semibold text-foreground">
+                {fmtDateTime(order.return_date, order.return_time)}
+              </span>
+            </div>
+          </div>
 
-        {order.special_instructions && (
-          <p className="break-words rounded-lg bg-muted p-3 text-sm">{order.special_instructions}</p>
-        )}
+          {/* Tuotteet */}
+          <div className="flex flex-wrap gap-1.5">
+            {order.order_items && order.order_items.length > 0 ? (
+              order.order_items.map((it) => (
+                <Badge key={it.id} variant="secondary" className="max-w-full truncate py-1 text-xs">
+                  {(it.product_name || it.service_name || order.service_name)} × {it.quantity}
+                </Badge>
+              ))
+            ) : (
+              <Badge variant="secondary" className="py-1 text-xs">
+                {order.service_name} × 1
+              </Badge>
+            )}
+          </div>
 
-        {extra}
+          {order.special_instructions && (
+            <p className="break-words rounded-lg bg-amber-500/10 text-amber-900 dark:text-amber-200 border border-amber-500/20 p-2.5 text-xs">
+              <strong>Ohje:</strong> {order.special_instructions}
+            </p>
+          )}
 
-        {action && (
-          <Button
-            size="lg"
-            className="h-12 w-full text-sm sm:text-base"
-            onClick={action}
-            disabled={actionDisabled}
-          >
-            {actionIcon}
-            <span className="truncate">{actionLabel}</span>
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
+          {extra}
+
+          {action && (
+            <Button
+              size="lg"
+              className="h-11 w-full text-sm font-semibold shadow-xs"
+              onClick={action}
+              disabled={actionDisabled}
+            >
+              {actionIcon}
+              <span className="truncate">{actionLabel}</span>
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   const Column = ({
     title,
