@@ -12,10 +12,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Eye,
   FileText,
   Filter,
+  KeyRound,
   MapPin,
   Package,
   Phone,
@@ -112,6 +115,8 @@ const fullName = (p?: Profile | null) =>
 
 const money = (n: number) => Number(n || 0).toFixed(2).replace(".", ",") + " €";
 
+const PAGE_SIZE = 25;
+
 export const OrderSearchPanel = () => {
   const { toast } = useToast();
 
@@ -125,17 +130,22 @@ export const OrderSearchPanel = () => {
   // Filter States
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchOrderId, setSearchOrderId] = useState("");
+  const [searchPin, setSearchPin] = useState("");
   const [searchPhone, setSearchPhone] = useState("");
   const [searchAddress, setSearchAddress] = useState("");
   const [filterDriver, setFilterDriver] = useState("all");
   const [filterLaundry, setFilterLaundry] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
-  // Date Filter States
+  // Date Filter States: Oletuksena tämän päivän tilaukset
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
   const [dateField, setDateField] = useState<"created_at" | "pickup_date" | "return_date">("created_at");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [quickDatePreset, setQuickDatePreset] = useState<string>("all");
+  const [startDate, setStartDate] = useState(todayStr);
+  const [endDate, setEndDate] = useState(todayStr);
+  const [quickDatePreset, setQuickDatePreset] = useState<string>("today");
+
+  // Sivutus (25 tilausta kerrallaan)
+  const [page, setPage] = useState(1);
 
   // Details Modal
   const [selectedOrder, setSelectedOrder] = useState<OrderRecord | null>(null);
@@ -219,15 +229,16 @@ export const OrderSearchPanel = () => {
   // Preset Date Filter Handler
   const applyDatePreset = (preset: string) => {
     setQuickDatePreset(preset);
+    setPage(1);
     const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
+    const curTodayStr = now.toISOString().split("T")[0];
 
     if (preset === "all") {
       setStartDate("");
       setEndDate("");
     } else if (preset === "today") {
-      setStartDate(todayStr);
-      setEndDate(todayStr);
+      setStartDate(curTodayStr);
+      setEndDate(curTodayStr);
     } else if (preset === "yesterday") {
       const y = new Date(now);
       y.setDate(y.getDate() - 1);
@@ -239,21 +250,21 @@ export const OrderSearchPanel = () => {
       const diff = now.getDate() - day + (day === 0 ? -6 : 1);
       const monday = new Date(now.setDate(diff));
       setStartDate(monday.toISOString().split("T")[0]);
-      setEndDate(todayStr);
+      setEndDate(curTodayStr);
     } else if (preset === "this_month") {
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
       setStartDate(firstDay.toISOString().split("T")[0]);
-      setEndDate(todayStr);
+      setEndDate(curTodayStr);
     } else if (preset === "last_30_days") {
       const past30 = new Date(now);
       past30.setDate(past30.getDate() - 30);
       setStartDate(past30.toISOString().split("T")[0]);
-      setEndDate(todayStr);
+      setEndDate(curTodayStr);
     } else if (preset === "last_90_days") {
       const past90 = new Date(now);
       past90.setDate(past90.getDate() - 90);
       setStartDate(past90.toISOString().split("T")[0]);
-      setEndDate(todayStr);
+      setEndDate(curTodayStr);
     }
   };
 
@@ -261,6 +272,7 @@ export const OrderSearchPanel = () => {
   const resetFilters = () => {
     setSearchCustomer("");
     setSearchOrderId("");
+    setSearchPin("");
     setSearchPhone("");
     setSearchAddress("");
     setFilterDriver("all");
@@ -269,11 +281,13 @@ export const OrderSearchPanel = () => {
     setStartDate("");
     setEndDate("");
     setQuickDatePreset("all");
+    setPage(1);
   };
 
   const hasActiveFilters =
     Boolean(searchCustomer) ||
     Boolean(searchOrderId) ||
+    Boolean(searchPin) ||
     Boolean(searchPhone) ||
     Boolean(searchAddress) ||
     filterDriver !== "all" ||
@@ -282,94 +296,105 @@ export const OrderSearchPanel = () => {
     Boolean(startDate) ||
     Boolean(endDate);
 
-  // Filtered Orders Calculation
+  // Filtered Orders Calculation (Aina uusimmasta vanhimpaan)
   const filteredOrders = useMemo(() => {
     const custQ = searchCustomer.toLowerCase().trim();
     const idQ = searchOrderId.toLowerCase().trim().replace("#", "");
+    const pinQ = searchPin.toLowerCase().trim();
     const phoneQ = searchPhone.toLowerCase().trim();
     const addrQ = searchAddress.toLowerCase().trim();
 
-    return orders.filter((order) => {
-      // 1. Asiakkaan nimi
-      if (custQ) {
-        const orderCustName = ((order.first_name || "") + " " + (order.last_name || "")).toLowerCase();
-        const prof = profileOf(order.user_id);
-        const profName = fullName(prof).toLowerCase();
-        if (!orderCustName.includes(custQ) && !profName.includes(custQ)) {
-          return false;
-        }
-      }
-
-      // 2. Tilausnumero tai PIN
-      if (idQ) {
-        const orderId = order.id.toLowerCase();
-        const pin = getPickupCode(order.id).toLowerCase();
-        const acc = (order.access_code || "").toLowerCase();
-        if (!orderId.includes(idQ) && !pin.includes(idQ) && !acc.includes(idQ)) {
-          return false;
-        }
-      }
-
-      // 3. Puhelinnumero
-      if (phoneQ) {
-        const p1 = (order.phone || "").toLowerCase();
-        const p2 = (profileOf(order.user_id)?.phone || "").toLowerCase();
-        if (!p1.includes(phoneQ) && !p2.includes(phoneQ)) {
-          return false;
-        }
-      }
-
-      // 4. Osoite
-      if (addrQ) {
-        const addr = (order.address || "").toLowerCase();
-        if (!addr.includes(addrQ)) {
-          return false;
-        }
-      }
-
-      // 5. Kuljettaja
-      if (filterDriver !== "all") {
-        if (filterDriver === "unassigned" && order.driver_id) return false;
-        if (filterDriver !== "unassigned" && order.driver_id !== filterDriver) return false;
-      }
-
-      // 6. Pesula
-      if (filterLaundry !== "all") {
-        if (order.laundry_id !== filterLaundry) return false;
-      }
-
-      // 7. Tila
-      if (filterStatus !== "all") {
-        if ((order.status || "").toLowerCase() !== filterStatus.toLowerCase()) {
-          return false;
-        }
-      }
-
-      // 8. Päivämääräsuodatus
-      if (startDate || endDate) {
-        let orderDateStr = "";
-        if (dateField === "created_at") {
-          orderDateStr = order.created_at ? order.created_at.split("T")[0] : "";
-        } else if (dateField === "pickup_date") {
-          orderDateStr = order.pickup_date || "";
-        } else if (dateField === "return_date") {
-          orderDateStr = order.return_date || "";
+    return orders
+      .filter((order) => {
+        // 1. Asiakkaan nimi
+        if (custQ) {
+          const orderCustName = ((order.first_name || "") + " " + (order.last_name || "")).toLowerCase();
+          const prof = profileOf(order.user_id);
+          const profName = fullName(prof).toLowerCase();
+          if (!orderCustName.includes(custQ) && !profName.includes(custQ)) {
+            return false;
+          }
         }
 
-        if (orderDateStr) {
-          if (startDate && orderDateStr < startDate) return false;
-          if (endDate && orderDateStr > endDate) return false;
-        } else if (startDate || endDate) {
-          return false;
+        // 2. Tilausnumero
+        if (idQ) {
+          const orderId = order.id.toLowerCase();
+          if (!orderId.includes(idQ)) {
+            return false;
+          }
         }
-      }
 
-      return true;
-    });
+        // 3. PIN-koodi
+        if (pinQ) {
+          const pin = getPickupCode(order.id).toLowerCase();
+          const acc = (order.access_code || "").toLowerCase();
+          if (!pin.includes(pinQ) && !acc.includes(pinQ)) {
+            return false;
+          }
+        }
+
+        // 4. Puhelinnumero
+        if (phoneQ) {
+          const p1 = (order.phone || "").toLowerCase();
+          const p2 = (profileOf(order.user_id)?.phone || "").toLowerCase();
+          if (!p1.includes(phoneQ) && !p2.includes(phoneQ)) {
+            return false;
+          }
+        }
+
+        // 5. Osoite
+        if (addrQ) {
+          const addr = (order.address || "").toLowerCase();
+          if (!addr.includes(addrQ)) {
+            return false;
+          }
+        }
+
+        // 6. Kuljettaja
+        if (filterDriver !== "all") {
+          if (filterDriver === "unassigned" && order.driver_id) return false;
+          if (filterDriver !== "unassigned" && order.driver_id !== filterDriver) return false;
+        }
+
+        // 7. Pesula
+        if (filterLaundry !== "all") {
+          if (order.laundry_id !== filterLaundry) return false;
+        }
+
+        // 8. Tila
+        if (filterStatus !== "all") {
+          if ((order.status || "").toLowerCase() !== filterStatus.toLowerCase()) {
+            return false;
+          }
+        }
+
+        // 9. Päivämääräsuodatus
+        if (startDate || endDate) {
+          let orderDateStr = "";
+          if (dateField === "created_at") {
+            orderDateStr = order.created_at ? order.created_at.split("T")[0] : "";
+          } else if (dateField === "pickup_date") {
+            orderDateStr = order.pickup_date || "";
+          } else if (dateField === "return_date") {
+            orderDateStr = order.return_date || "";
+          }
+
+          if (orderDateStr) {
+            if (startDate && orderDateStr < startDate) return false;
+            if (endDate && orderDateStr > endDate) return false;
+          } else if (startDate || endDate) {
+            return false;
+          }
+        }
+
+        return true;
+      })
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [
     orders,
     searchCustomer,
     searchOrderId,
+    searchPin,
     searchPhone,
     searchAddress,
     filterDriver,
@@ -381,9 +406,12 @@ export const OrderSearchPanel = () => {
     profiles,
   ]);
 
-  const totalAmount = useMemo(() => {
-    return filteredOrders.reduce((sum, o) => sum + Number(o.payment_amount ?? o.final_price ?? 0), 0);
-  }, [filteredOrders]);
+  // Sivutuslaskenta (25 tilausta / sivu)
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
+  const paginatedOrders = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredOrders.slice(start, start + PAGE_SIZE);
+  }, [filteredOrders, page]);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -417,7 +445,12 @@ export const OrderSearchPanel = () => {
 
           <div className="flex items-center gap-2">
             {hasActiveFilters && (
-              <Button size="sm" variant="ghost" className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground" onClick={resetFilters}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                onClick={resetFilters}
+              >
                 <X className="h-3.5 w-3.5 mr-1" /> Tyhjennä suodattimet
               </Button>
             )}
@@ -441,39 +474,86 @@ export const OrderSearchPanel = () => {
               <div className="relative">
                 <Input
                   value={searchCustomer}
-                  onChange={(e) => setSearchCustomer(e.target.value)}
+                  onChange={(e) => {
+                    setSearchCustomer(e.target.value);
+                    setPage(1);
+                  }}
                   placeholder="Esim. Alex tai Matti..."
                   className="h-8 text-xs pr-7"
                 />
                 {searchCustomer && (
-                  <button onClick={() => setSearchCustomer("")} className="absolute right-2 top-2 text-muted-foreground hover:text-foreground">
+                  <button
+                    onClick={() => {
+                      setSearchCustomer("");
+                      setPage(1);
+                    }}
+                    className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+                  >
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
             </div>
 
-            {/* 2. Tilausnumero / PIN */}
+            {/* 2. Tilaustunnus */}
             <div className="space-y-1">
               <Label className="text-[11px] font-semibold flex items-center gap-1">
-                <Package className="h-3 w-3 text-sky-500" /> Tilausnumero / PIN
+                <Package className="h-3 w-3 text-sky-500" /> Tilaustunnus
               </Label>
               <div className="relative">
                 <Input
                   value={searchOrderId}
-                  onChange={(e) => setSearchOrderId(e.target.value)}
-                  placeholder="Esim. D80F tai 48291..."
+                  onChange={(e) => {
+                    setSearchOrderId(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Esim. D80F tai täysi ID..."
                   className="h-8 text-xs pr-7"
                 />
                 {searchOrderId && (
-                  <button onClick={() => setSearchOrderId("")} className="absolute right-2 top-2 text-muted-foreground hover:text-foreground">
+                  <button
+                    onClick={() => {
+                      setSearchOrderId("");
+                      setPage(1);
+                    }}
+                    className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+                  >
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
             </div>
 
-            {/* 3. Puhelinnumero */}
+            {/* 3. PIN-koodi */}
+            <div className="space-y-1">
+              <Label className="text-[11px] font-semibold flex items-center gap-1">
+                <KeyRound className="h-3 w-3 text-amber-500" /> PIN-koodi
+              </Label>
+              <div className="relative">
+                <Input
+                  value={searchPin}
+                  onChange={(e) => {
+                    setSearchPin(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Esim. 48291..."
+                  className="h-8 text-xs pr-7"
+                />
+                {searchPin && (
+                  <button
+                    onClick={() => {
+                      setSearchPin("");
+                      setPage(1);
+                    }}
+                    className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 4. Puhelinnumero */}
             <div className="space-y-1">
               <Label className="text-[11px] font-semibold flex items-center gap-1">
                 <Phone className="h-3 w-3 text-emerald-500" /> Puhelinnumero
@@ -481,19 +561,28 @@ export const OrderSearchPanel = () => {
               <div className="relative">
                 <Input
                   value={searchPhone}
-                  onChange={(e) => setSearchPhone(e.target.value)}
+                  onChange={(e) => {
+                    setSearchPhone(e.target.value);
+                    setPage(1);
+                  }}
                   placeholder="Esim. 0401234567..."
                   className="h-8 text-xs pr-7"
                 />
                 {searchPhone && (
-                  <button onClick={() => setSearchPhone("")} className="absolute right-2 top-2 text-muted-foreground hover:text-foreground">
+                  <button
+                    onClick={() => {
+                      setSearchPhone("");
+                      setPage(1);
+                    }}
+                    className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+                  >
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
             </div>
 
-            {/* 4. Osoite / Kaupunki */}
+            {/* 5. Osoite / Kaupunki */}
             <div className="space-y-1">
               <Label className="text-[11px] font-semibold flex items-center gap-1">
                 <MapPin className="h-3 w-3 text-amber-500" /> Osoite / Kaupunki
@@ -501,24 +590,39 @@ export const OrderSearchPanel = () => {
               <div className="relative">
                 <Input
                   value={searchAddress}
-                  onChange={(e) => setSearchAddress(e.target.value)}
+                  onChange={(e) => {
+                    setSearchAddress(e.target.value);
+                    setPage(1);
+                  }}
                   placeholder="Esim. Mannerheimintie, Lohja..."
                   className="h-8 text-xs pr-7"
                 />
                 {searchAddress && (
-                  <button onClick={() => setSearchAddress("")} className="absolute right-2 top-2 text-muted-foreground hover:text-foreground">
+                  <button
+                    onClick={() => {
+                      setSearchAddress("");
+                      setPage(1);
+                    }}
+                    className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+                  >
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
             </div>
 
-            {/* 5. Kuljettaja */}
+            {/* 6. Kuljettaja */}
             <div className="space-y-1">
               <Label className="text-[11px] font-semibold flex items-center gap-1">
                 <Truck className="h-3 w-3 text-blue-500" /> Kuljettaja
               </Label>
-              <Select value={filterDriver} onValueChange={setFilterDriver}>
+              <Select
+                value={filterDriver}
+                onValueChange={(val) => {
+                  setFilterDriver(val);
+                  setPage(1);
+                }}
+              >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue placeholder="Kaikki kuljettajat" />
                 </SelectTrigger>
@@ -534,12 +638,18 @@ export const OrderSearchPanel = () => {
               </Select>
             </div>
 
-            {/* 6. Pesula */}
+            {/* 7. Pesula */}
             <div className="space-y-1">
               <Label className="text-[11px] font-semibold flex items-center gap-1">
                 <WashingMachine className="h-3 w-3 text-purple-500" /> Pesula
               </Label>
-              <Select value={filterLaundry} onValueChange={setFilterLaundry}>
+              <Select
+                value={filterLaundry}
+                onValueChange={(val) => {
+                  setFilterLaundry(val);
+                  setPage(1);
+                }}
+              >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue placeholder="Kaikki pesulat" />
                 </SelectTrigger>
@@ -552,35 +662,47 @@ export const OrderSearchPanel = () => {
               </Select>
             </div>
 
-            {/* 7. Tilauksen tila */}
+            {/* 8. Tilauksen tila (Ilman sulkutekstejä) */}
             <div className="space-y-1">
               <Label className="text-[11px] font-semibold flex items-center gap-1">
                 <Filter className="h-3 w-3 text-rose-500" /> Tilauksen tila
               </Label>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <Select
+                value={filterStatus}
+                onValueChange={(val) => {
+                  setFilterStatus(val);
+                  setPage(1);
+                }}
+              >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue placeholder="Kaikki tilat" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-xs">Kaikki tilat</SelectItem>
-                  <SelectItem value="pending" className="text-xs">🟡 Odottaa (pending)</SelectItem>
-                  <SelectItem value="accepted" className="text-xs">🔵 Hyväksytty (accepted)</SelectItem>
-                  <SelectItem value="picking_up" className="text-xs">🚚 Noudossa (picking_up)</SelectItem>
-                  <SelectItem value="washing" className="text-xs">🟣 Pesussa (washing)</SelectItem>
-                  <SelectItem value="returning" className="text-xs">🟢 Palautuksessa (returning)</SelectItem>
-                  <SelectItem value="delivered" className="text-xs">✅ Toimitettu (delivered)</SelectItem>
-                  <SelectItem value="rejected" className="text-xs">❌ Hylätty (rejected)</SelectItem>
-                  <SelectItem value="cancelled" className="text-xs">⚪ Peruutettu (cancelled)</SelectItem>
+                  <SelectItem value="pending" className="text-xs">🟡 Odottaa</SelectItem>
+                  <SelectItem value="accepted" className="text-xs">🔵 Hyväksytty</SelectItem>
+                  <SelectItem value="picking_up" className="text-xs">🚚 Noudossa</SelectItem>
+                  <SelectItem value="washing" className="text-xs">🟣 Pesussa</SelectItem>
+                  <SelectItem value="returning" className="text-xs">🟢 Palautuksessa</SelectItem>
+                  <SelectItem value="delivered" className="text-xs">✅ Toimitettu</SelectItem>
+                  <SelectItem value="rejected" className="text-xs">❌ Hylätty</SelectItem>
+                  <SelectItem value="cancelled" className="text-xs">⚪ Peruutettu</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* 8. Aikasuodatustyyppi */}
+            {/* 9. Aikasuodatustyyppi */}
             <div className="space-y-1">
               <Label className="text-[11px] font-semibold flex items-center gap-1">
                 <Clock className="h-3 w-3 text-sky-500" /> Päivämääräkohde
               </Label>
-              <Select value={dateField} onValueChange={(val: any) => setDateField(val)}>
+              <Select
+                value={dateField}
+                onValueChange={(val: any) => {
+                  setDateField(val);
+                  setPage(1);
+                }}
+              >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -631,6 +753,7 @@ export const OrderSearchPanel = () => {
                   onChange={(e) => {
                     setStartDate(e.target.value);
                     setQuickDatePreset("custom");
+                    setPage(1);
                   }}
                   className="h-7 w-32 text-xs bg-background"
                 />
@@ -644,6 +767,7 @@ export const OrderSearchPanel = () => {
                   onChange={(e) => {
                     setEndDate(e.target.value);
                     setQuickDatePreset("custom");
+                    setPage(1);
                   }}
                   className="h-7 w-32 text-xs bg-background"
                 />
@@ -653,17 +777,17 @@ export const OrderSearchPanel = () => {
         </CardContent>
       </Card>
 
-      {/* Results Summary Bar */}
+      {/* Results Summary Bar (Poistettu yhteissumma käyttäjän pyynnöstä) */}
       <div className="bg-card border rounded-xl p-3 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-bold text-foreground">
             Löydetty {filteredOrders.length} tilausta
           </span>
-          <Badge variant="secondary" className="font-semibold text-xs">
-            Yhteensä {money(totalAmount)}
-          </Badge>
+          <span className="text-xs text-muted-foreground">
+            (Näytetään sivu {page} / {totalPages} · {PAGE_SIZE} kpl/sivu)
+          </span>
 
-          {/* Status Breakdown Pills */}
+          {/* Status Breakdown Pills (Ilman sulkutekstejä) */}
           <div className="flex flex-wrap items-center gap-1 pl-2 border-l">
             {Object.entries(statusCounts).map(([st, cnt]) => {
               const meta = STATUS_MAP[st] || { label: st, badgeClass: "bg-muted text-muted-foreground" };
@@ -685,25 +809,31 @@ export const OrderSearchPanel = () => {
             {searchCustomer && (
               <Badge variant="outline" className="text-[10px] gap-1 bg-primary/5">
                 Nimi: {searchCustomer}
-                <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => setSearchCustomer("")} />
+                <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => { setSearchCustomer(""); setPage(1); }} />
               </Badge>
             )}
             {searchOrderId && (
               <Badge variant="outline" className="text-[10px] gap-1 bg-primary/5">
-                ID/PIN: {searchOrderId}
-                <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => setSearchOrderId("")} />
+                ID: {searchOrderId}
+                <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => { setSearchOrderId(""); setPage(1); }} />
+              </Badge>
+            )}
+            {searchPin && (
+              <Badge variant="outline" className="text-[10px] gap-1 bg-primary/5">
+                PIN: {searchPin}
+                <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => { setSearchPin(""); setPage(1); }} />
               </Badge>
             )}
             {searchPhone && (
               <Badge variant="outline" className="text-[10px] gap-1 bg-primary/5">
                 Puh: {searchPhone}
-                <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => setSearchPhone("")} />
+                <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => { setSearchPhone(""); setPage(1); }} />
               </Badge>
             )}
             {filterStatus !== "all" && (
               <Badge variant="outline" className="text-[10px] gap-1 bg-primary/5">
                 Tila: {STATUS_MAP[filterStatus]?.label || filterStatus}
-                <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => setFilterStatus("all")} />
+                <X className="h-2.5 w-2.5 cursor-pointer" onClick={() => { setFilterStatus("all"); setPage(1); }} />
               </Badge>
             )}
             {(startDate || endDate) && (
@@ -715,6 +845,7 @@ export const OrderSearchPanel = () => {
                     setStartDate("");
                     setEndDate("");
                     setQuickDatePreset("all");
+                    setPage(1);
                   }}
                 />
               </Badge>
@@ -723,13 +854,14 @@ export const OrderSearchPanel = () => {
         )}
       </div>
 
-      {/* Orders Table */}
+      {/* Orders Table: Tilaustunnus ja PIN-koodi erillisinä sarakkeina */}
       <Card className="shadow-sm border overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow className="text-xs">
-                <TableHead className="w-[100px] font-bold">Tunnus & PIN</TableHead>
+                <TableHead className="w-[100px] font-bold">Tilaustunnus</TableHead>
+                <TableHead className="w-[85px] font-bold">PIN-koodi</TableHead>
                 <TableHead className="font-bold">Asiakas</TableHead>
                 <TableHead className="font-bold">Osoite</TableHead>
                 <TableHead className="font-bold">Palvelu</TableHead>
@@ -742,14 +874,14 @@ export const OrderSearchPanel = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrders.length === 0 ? (
+              {paginatedOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="h-32 text-center text-muted-foreground text-sm">
+                  <TableCell colSpan={11} className="h-32 text-center text-muted-foreground text-sm">
                     Ei hakuehtoja vastaavia tilauksia. Kokeile muuttaa suodattimia tai tyhjentää ne.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredOrders.map((order) => {
+                paginatedOrders.map((order) => {
                   const custName = ((order.first_name || "") + " " + (order.last_name || "")).trim() || fullName(profileOf(order.user_id));
                   const drv = driverOf(order.driver_id);
                   const lnd = laundryOf(order.laundry_id);
@@ -761,17 +893,19 @@ export const OrderSearchPanel = () => {
 
                   return (
                     <TableRow key={order.id} className="text-xs hover:bg-muted/40 cursor-pointer" onClick={() => setSelectedOrder(order)}>
-                      {/* 1. Tunnus & PIN */}
-                      <TableCell className="font-mono font-bold whitespace-nowrap">
-                        <div className="space-y-0.5">
-                          <span className="text-foreground">{shortId(order.id)}</span>
-                          <div className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1 py-0 rounded inline-block">
-                            PIN {getPickupCode(order.id)}
-                          </div>
-                        </div>
+                      {/* 1. Tilaustunnus omana sarakkeena */}
+                      <TableCell className="font-mono font-bold whitespace-nowrap text-foreground">
+                        {shortId(order.id)}
                       </TableCell>
 
-                      {/* 2. Asiakas */}
+                      {/* 2. PIN-koodi omana sarakkeena */}
+                      <TableCell className="whitespace-nowrap">
+                        <span className="text-xs font-mono font-bold bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded">
+                          {getPickupCode(order.id)}
+                        </span>
+                      </TableCell>
+
+                      {/* 3. Asiakas */}
                       <TableCell>
                         <div className="font-semibold text-foreground">{custName}</div>
                         {order.phone && (
@@ -785,7 +919,7 @@ export const OrderSearchPanel = () => {
                         )}
                       </TableCell>
 
-                      {/* 3. Osoite */}
+                      {/* 4. Osoite */}
                       <TableCell className="max-w-[180px] truncate" title={order.address}>
                         <div className="flex items-center gap-1 truncate">
                           <MapPin className="h-3 w-3 text-amber-500 shrink-0" />
@@ -793,7 +927,7 @@ export const OrderSearchPanel = () => {
                         </div>
                       </TableCell>
 
-                      {/* 4. Palvelu */}
+                      {/* 5. Palvelu */}
                       <TableCell>
                         <span className="font-medium">{order.service_name || "Pesupalvelu"}</span>
                         {order.order_items && order.order_items.length > 0 && (
@@ -803,7 +937,7 @@ export const OrderSearchPanel = () => {
                         )}
                       </TableCell>
 
-                      {/* 5. Nouto / Palautus */}
+                      {/* 6. Nouto / Palautus */}
                       <TableCell className="whitespace-nowrap">
                         <div className="space-y-0.5 text-[11px]">
                           <div className="flex items-center gap-1 text-muted-foreground">
@@ -817,7 +951,7 @@ export const OrderSearchPanel = () => {
                         </div>
                       </TableCell>
 
-                      {/* 6. Kuljettaja */}
+                      {/* 7. Kuljettaja */}
                       <TableCell>
                         {order.driver_id ? (
                           <div className="font-medium text-emerald-700 flex items-center gap-1">
@@ -828,24 +962,24 @@ export const OrderSearchPanel = () => {
                         )}
                       </TableCell>
 
-                      {/* 7. Pesula */}
+                      {/* 8. Pesula */}
                       <TableCell>
                         <span className="font-medium">{lnd ? lnd.name : "Ei määritetty"}</span>
                       </TableCell>
 
-                      {/* 8. Summa */}
+                      {/* 9. Summa */}
                       <TableCell className="font-bold whitespace-nowrap">
                         {money(priceVal)}
                       </TableCell>
 
-                      {/* 9. Tila */}
+                      {/* 10. Tila (Puhdas suomenkielinen teksti) */}
                       <TableCell className="whitespace-nowrap">
                         <Badge variant="outline" className={"text-[10px] font-bold uppercase " + statusMeta.badgeClass}>
                           {statusMeta.label}
                         </Badge>
                       </TableCell>
 
-                      {/* 10. Toiminnot */}
+                      {/* 11. Toiminnot */}
                       <TableCell className="text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <Button
                           size="sm"
@@ -863,6 +997,40 @@ export const OrderSearchPanel = () => {
             </TableBody>
           </Table>
         </div>
+
+        {/* Sivutuskontrollit (25 tilausta / sivu) */}
+        {totalPages > 1 && (
+          <div className="p-3 bg-muted/30 border-t flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">
+              Näytetään {(page - 1) * PAGE_SIZE + 1} – {Math.min(page * PAGE_SIZE, filteredOrders.length)} / {filteredOrders.length} tilausta
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Edellinen
+              </Button>
+
+              <span className="px-2 font-semibold">
+                {page} / {totalPages}
+              </span>
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Seuraava <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Order Details Modal */}
