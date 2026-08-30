@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,19 +21,20 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
-  AlertTriangle,
   ArrowRight,
   Clock,
   Edit,
   MapPin,
   Package,
+  Phone,
+  RefreshCw,
+  Search,
   Trash2,
   Truck,
-  UserCheck,
-  Users,
-  WashingMachine,
-  Phone,
   User,
+  UserCheck,
+  WashingMachine,
+  X,
 } from "lucide-react";
 
 interface OrderEmbedded {
@@ -102,20 +102,8 @@ interface LaundryInfo {
   name: string;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: "Odottaa pesulaa/kuskia",
-  unassigned: "Ei kuskia",
-  assigned: "Kuski määritetty",
-  in_progress: "Käynnissä",
-  awaiting_laundry: "Pesulassa",
-  washing: "Pesulassa",
-  completed: "Valmis",
-  failed: "Epäonnistui",
-  cancelled: "Peruutettu",
-};
-
 const fullName = (p?: Profile | null) =>
-  p ? `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Tuntematon" : "Ei kuskia";
+  p ? `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Tuntematon" : "Ei kuljettajaa";
 
 const shortId = (id: string) => `#${id.slice(0, 8).toUpperCase()}`;
 
@@ -152,8 +140,10 @@ export const DispatchTaskBoard = () => {
   const [laundries, setLaundries] = useState<LaundryInfo[]>([]);
   const [handover, setHandover] = useState<Record<string, { pickup_weight_kg: number | null }>>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [typeFilter, setTypeFilter] = useState<"all" | "pickup" | "delivery" | "laundry">("all");
+  // Filters & Search
+  const [searchQuery, setSearchQuery] = useState("");
   const [cityFilter, setCityFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
@@ -202,7 +192,8 @@ export const DispatchTaskBoard = () => {
     };
   }, []);
 
-  const fetchAll = async () => {
+  const fetchAll = async (isManual = false) => {
+    if (isManual) setRefreshing(true);
     try {
       const [tasksRes, rolesRes, shiftsRes, laundriesRes] = await Promise.all([
         supabase
@@ -253,17 +244,17 @@ export const DispatchTaskBoard = () => {
       toast({ title: "Virhe", description: "Kuljetustehtävien lataus epäonnistui", variant: "destructive" });
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // Vain aktiiviset tehtävät (valmiit, toimitettu, hylätyt ja peruutetut poistuvat välityssivulta)
-  const openTasks = useMemo(() => {
+  // Vain aktiiviset tehtävät
+  const activeTasks = useMemo(() => {
     return tasks.filter((t) => {
       const taskSt = (t.status || "").toLowerCase();
       const orderSt = (t.orders?.status || "").toLowerCase();
       const orderTracking = (t.orders?.tracking_status || "").toUpperCase();
 
-      // Poistetaan jos tehtävä tai tilaus on valmis, toimitettu, hylätty tai peruutettu
       if (["completed", "failed", "cancelled"].includes(taskSt)) return false;
       if (["delivered", "completed", "rejected", "cancelled"].includes(orderSt)) return false;
       if (orderTracking === "COMPLETED") return false;
@@ -274,33 +265,55 @@ export const DispatchTaskBoard = () => {
 
   const scheduledAt = (t: TaskRow) =>
     new Date(`${t.scheduled_date || "1970-01-01"}T${(t.scheduled_time || t.scheduled_time_slot || "00:00").slice(0, 5)}`).getTime();
-  const isLate = (t: TaskRow) => scheduledAt(t) < Date.now() && !["completed", "failed"].includes(t.status);
-  const hasAlert = (t: TaskRow) => t.status === "unassigned" && (isLate(t) || scheduledAt(t) - Date.now() < 30 * 60 * 1000);
 
-  const cities = useMemo(() => Array.from(new Set(openTasks.map(taskCity))).sort(), [openTasks]);
+  const cities = useMemo(() => Array.from(new Set(activeTasks.map(taskCity))).sort(), [activeTasks]);
 
+  // Suodatettu lista
   const filtered = useMemo(() => {
-    return openTasks.filter((t) => {
-      const orderSt = (t.orders?.status || "").toLowerCase();
-      const isLaundry = orderSt === "washing" || t.status === "washing" || t.status === "awaiting_laundry";
+    const q = searchQuery.toLowerCase().trim();
 
-      if (typeFilter === "pickup" && (t.task_type !== "pickup" || isLaundry)) return false;
-      if (typeFilter === "delivery" && (t.task_type !== "delivery" || isLaundry)) return false;
-      if (typeFilter === "laundry" && !isLaundry) return false;
-
+    return activeTasks.filter((t) => {
       if (cityFilter !== "all" && taskCity(t) !== cityFilter) return false;
       if (dateFilter && t.scheduled_date !== dateFilter) return false;
+
+      if (q) {
+        const id = (t.order_id || t.id).toLowerCase();
+        const pin = getPickupCode(t.order_id || t.id);
+        const name = (t.pickup_name || t.origin_name || `${t.orders?.first_name || ""} ${t.orders?.last_name || ""}`).toLowerCase();
+        const phone = (t.pickup_phone || t.orders?.phone || "").toLowerCase();
+        const addr = (t.pickup_address || t.origin_address || t.orders?.address || "").toLowerCase();
+        const dest = (t.delivery_address || t.destination_address || "").toLowerCase();
+        const drv = fullName(driverOf(t.driver_id)).toLowerCase();
+
+        const match =
+          id.includes(q) ||
+          pin.includes(q) ||
+          name.includes(q) ||
+          phone.includes(q) ||
+          addr.includes(q) ||
+          dest.includes(q) ||
+          drv.includes(q);
+
+        if (!match) return false;
+      }
+
       return true;
     });
-  }, [openTasks, typeFilter, cityFilter, dateFilter]);
+  }, [activeTasks, searchQuery, cityFilter, dateFilter, drivers]);
 
-  // 4 aktiivista välityssaraketta
+  const driverOf = (id: string | null) => drivers.find((d) => d.user_id === id) || null;
+  const laundryOf = (id: string | null) => laundries.find((l) => l.id === id) || null;
+
+  // 4 aktiivista saraketta
   const columns = useMemo(() => {
     return [
       {
         key: "unassigned",
-        label: "Vapaana / Odottaa kuskia",
-        icon: AlertTriangle,
+        label: "Vapaana",
+        sublabel: "Odottaa kuljettajaa",
+        color: "amber",
+        badgeClass: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300",
+        headerClass: "border-t-2 border-amber-500",
         tasks: filtered.filter((t) => {
           const orderSt = (t.orders?.status || "").toLowerCase();
           const isLaundry = orderSt === "washing" || t.status === "washing" || t.status === "awaiting_laundry";
@@ -309,8 +322,11 @@ export const DispatchTaskBoard = () => {
       },
       {
         key: "pickup_active",
-        label: "Kuskilla (Nouto)",
-        icon: Package,
+        label: "Noudossa",
+        sublabel: "Kuljettaja noutamassa",
+        color: "blue",
+        badgeClass: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300",
+        headerClass: "border-t-2 border-blue-500",
         tasks: filtered.filter((t) => {
           const orderSt = (t.orders?.status || "").toLowerCase();
           const isLaundry = orderSt === "washing" || t.status === "washing" || t.status === "awaiting_laundry";
@@ -320,7 +336,10 @@ export const DispatchTaskBoard = () => {
       {
         key: "laundry",
         label: "Pesulassa",
-        icon: WashingMachine,
+        sublabel: "Pyykit käsittelyssä",
+        color: "purple",
+        badgeClass: "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-300",
+        headerClass: "border-t-2 border-purple-500",
         tasks: filtered.filter((t) => {
           const orderSt = (t.orders?.status || "").toLowerCase();
           const orderTracking = (t.orders?.tracking_status || "").toUpperCase();
@@ -329,8 +348,11 @@ export const DispatchTaskBoard = () => {
       },
       {
         key: "delivery_active",
-        label: "Kuskilla (Palautus)",
-        icon: Truck,
+        label: "Toimituksessa",
+        sublabel: "Kuljettaja toimittamassa",
+        color: "emerald",
+        badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300",
+        headerClass: "border-t-2 border-emerald-500",
         tasks: filtered.filter((t) => {
           const orderSt = (t.orders?.status || "").toLowerCase();
           const isLaundry = orderSt === "washing" || t.status === "washing" || t.status === "awaiting_laundry";
@@ -339,8 +361,6 @@ export const DispatchTaskBoard = () => {
       },
     ];
   }, [filtered]);
-
-  const driverOf = (id: string | null) => drivers.find((d) => d.user_id === id) || null;
 
   const toggleSelect = (id: string) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
@@ -373,8 +393,9 @@ export const DispatchTaskBoard = () => {
             .eq("id", task.order_id);
         }
       }
-      toast({ title: "Keikat liitetty", description: `${ordered.length} tehtävää kuljettajalle ${fullName(driverOf(assignTo))}` });
+      toast({ title: "Kuljettaja liitetty", description: `${ordered.length} keikkaa liitettiin kuljettajalle ${fullName(driverOf(assignTo))}` });
       setSelected([]);
+      setAssignTo("");
       fetchAll();
     } catch (error) {
       console.error(error);
@@ -384,47 +405,49 @@ export const DispatchTaskBoard = () => {
     }
   };
 
+  const quickAssignDriver = async (task: TaskRow, driverId: string) => {
+    try {
+      const driverVal = driverId === "none" ? null : driverId;
+      const newStatus = driverVal ? "assigned" : "unassigned";
+
+      const { error: taskErr } = await supabase
+        .from("delivery_tasks")
+        .update({ driver_id: driverVal, status: newStatus })
+        .eq("id", task.id);
+      if (taskErr) throw taskErr;
+
+      if (task.order_id) {
+        await supabase
+          .from("orders")
+          .update({ driver_id: driverVal, status: driverVal ? "accepted" : "pending", updated_at: new Date().toISOString() })
+          .eq("id", task.order_id);
+      }
+
+      toast({
+        title: driverVal ? "Kuljettaja asetettu" : "Keikka vapautettu",
+        description: driverVal ? `Keikka liitetty kuljettajalle ${fullName(driverOf(driverVal))}` : "Keikka on nyt vapaa.",
+      });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Virhe", description: err.message || "Kuljettajan asetus epäonnistui", variant: "destructive" });
+    }
+  };
+
   const unassign = async (task: TaskRow) => {
     const { error } = await supabase
       .from("delivery_tasks")
       .update({ driver_id: null, status: "unassigned", route_order: null, batch_id: null })
       .eq("id", task.id);
     if (error) return toast({ title: "Virhe", description: "Vapautus epäonnistui", variant: "destructive" });
-    
+
     if (task.order_id) {
       await supabase
         .from("orders")
         .update({ driver_id: null, status: "pending", updated_at: new Date().toISOString() })
         .eq("id", task.order_id);
     }
-    toast({ title: "Tehtävä vapautettu", description: "Keikka on nyt vapaasti kenen tahansa otettavissa." });
+    toast({ title: "Keikka vapautettu", description: "Keikka on nyt vapaasti kuljettajien otettavissa." });
     fetchAll();
-  };
-
-  const rejectOrder = async (task: TaskRow) => {
-    try {
-      const { error: taskError } = await supabase
-        .from("delivery_tasks")
-        .update({ status: "cancelled", driver_id: null, route_order: null, batch_id: null })
-        .eq("order_id", task.order_id);
-      if (taskError) throw taskError;
-
-      const { error: orderError } = await supabase
-        .from("orders")
-        .update({ status: "rejected", rejected_at: new Date().toISOString() })
-        .eq("id", task.order_id);
-      if (orderError) throw orderError;
-
-      toast({ title: "Tilaus hylätty", description: "Tilaus ja sen keikat on hylätty ja poistettu aktiivisista." });
-      fetchAll();
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: "Virhe",
-        description: (error as { message?: string })?.message || "Hylkäys epäonnistui",
-        variant: "destructive",
-      });
-    }
   };
 
   // Muokkausdialogin avaus
@@ -485,10 +508,10 @@ export const DispatchTaskBoard = () => {
 
       // 2. Päivitä orders
       if (editingTask.order_id) {
-        const orderStatus = editForm.status === "washing" 
-          ? "washing" 
-          : driverIdValue 
-            ? (editForm.status === "in_progress" ? "picking_up" : "accepted") 
+        const orderStatus = editForm.status === "washing"
+          ? "washing"
+          : driverIdValue
+            ? (editForm.status === "in_progress" ? "picking_up" : "accepted")
             : "pending";
 
         await supabase
@@ -507,12 +530,12 @@ export const DispatchTaskBoard = () => {
           .eq("id", editingTask.order_id);
       }
 
-      toast({ title: "Muutokset tallennettu! ✨", description: "Tilauksen ja tehtävän tiedot on päivitetty onnistuneesti." });
+      toast({ title: "Muutokset tallennettu! ✨", description: "Tilauksen tiedot on päivitetty." });
       setEditingTask(null);
       fetchAll();
     } catch (error: any) {
       console.error("Save edit error:", error);
-      toast({ title: "Tallennus epäonnistui", description: error.message || "Tarkista tiedot ja yritä uudelleen.", variant: "destructive" });
+      toast({ title: "Tallennus epäonnistui", description: error.message || "Tarkista tiedot.", variant: "destructive" });
     } finally {
       setSavingEdit(false);
     }
@@ -525,16 +548,14 @@ export const DispatchTaskBoard = () => {
     try {
       const orderId = deletingTask.order_id || deletingTask.id;
 
-      // Poistetaan ensin tehtävät
       await supabase.from("delivery_tasks").delete().eq("order_id", orderId);
       await supabase.from("delivery_tasks").delete().eq("id", deletingTask.id);
 
-      // Poistetaan tilaus
       if (deletingTask.order_id) {
         await supabase.from("orders").delete().eq("id", deletingTask.order_id);
       }
 
-      toast({ title: "Tilaus poistettu 🗑️", description: "Tilaus ja sen tehtävät poistettiin kokonaan järjestelmästä." });
+      toast({ title: "Tilaus poistettu 🗑️", description: "Tilaus poistettiin kokonaan järjestelmästä." });
       setDeletingTask(null);
       fetchAll();
     } catch (error: any) {
@@ -546,293 +567,332 @@ export const DispatchTaskBoard = () => {
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-muted-foreground">Ladataan välitysnäkymää...</div>;
+    return <div className="p-8 text-center text-muted-foreground text-sm">Ladataan välityskeskusta...</div>;
   }
-
-  const kpis = {
-    alerts: openTasks.filter(hasAlert).length,
-    pickups: openTasks.filter((t) => t.task_type === "pickup").length,
-    laundry: openTasks.filter((t) => (t.orders?.status || "").toLowerCase() === "washing" || t.status === "washing").length,
-    deliveries: openTasks.filter((t) => t.task_type === "delivery").length,
-    driversFree: drivers.filter((d) => d.is_active && !openTasks.some((t) => t.driver_id === d.user_id)).length,
-    driversBusy: drivers.filter((d) => openTasks.some((t) => t.driver_id === d.user_id)).length,
-  };
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* KPI */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
-        <div className={`rounded-xl border p-3 ${kpis.alerts > 0 ? "border-destructive bg-destructive/5" : "bg-card"}`}>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <AlertTriangle className={`h-3.5 w-3.5 ${kpis.alerts > 0 ? "text-destructive" : ""}`} /> Kriittiset
+      {/* Top Dispatch Control Bar */}
+      <div className="bg-card border rounded-xl p-3 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        {/* Left: Title & Count Badge */}
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+            🚦
           </div>
-          <p className={`text-2xl font-bold ${kpis.alerts > 0 ? "text-destructive" : ""}`}>{kpis.alerts}</p>
-          <p className="text-[11px] text-muted-foreground">Ilman kuskia &amp; kiireellinen</p>
-        </div>
-        <div className="rounded-xl border bg-card p-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Package className="h-3.5 w-3.5" /> Noutokeikat
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold tracking-tight text-foreground">Välityskeskus</h2>
+              <Badge variant="secondary" className="text-xs px-2 py-0 font-semibold">
+                {activeTasks.length} aktiivista
+              </Badge>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Hallitse ja ylläpidä aktiivisia tilauksia ja keikkoja</p>
           </div>
-          <p className="text-2xl font-bold">{kpis.pickups}</p>
-          <p className="text-[11px] text-muted-foreground">Asiakas → pesula</p>
         </div>
-        <div className="rounded-xl border bg-card p-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <WashingMachine className="h-3.5 w-3.5 text-purple-600" /> Pesulassa
-          </div>
-          <p className="text-2xl font-bold text-purple-600">{kpis.laundry}</p>
-          <p className="text-[11px] text-muted-foreground">Pyykit pesussa</p>
-        </div>
-        <div className="rounded-xl border bg-card p-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Truck className="h-3.5 w-3.5" /> Palautuskeikat
-          </div>
-          <p className="text-2xl font-bold">{kpis.deliveries}</p>
-          <p className="text-[11px] text-muted-foreground">Pesula → asiakas</p>
-        </div>
-        <div className="rounded-xl border bg-card p-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Users className="h-3.5 w-3.5" /> Kuskit
-          </div>
-          <p className="text-2xl font-bold">
-            {kpis.driversFree} <span className="text-muted-foreground">/ {kpis.driversBusy}</span>
-          </p>
-          <p className="text-[11px] text-muted-foreground">Vapaat / työssä</p>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        {([
-          { key: "all", label: "Kaikki aktiiviset" },
-          { key: "pickup", label: "Noudot" },
-          { key: "laundry", label: "Pesulassa" },
-          { key: "delivery", label: "Palautukset" },
-        ] as { key: "all" | "pickup" | "delivery" | "laundry"; label: string }[]).map((f) => (
+        {/* Right: Quick Search & Filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[200px] flex-1 md:flex-none">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Hae tilausta, asiakasta, osoitetta..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 pl-8 text-xs w-full md:w-56"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          <Select value={cityFilter} onValueChange={setCityFilter}>
+            <SelectTrigger className="h-8 w-32 text-xs">
+              <SelectValue placeholder="Alue" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">Kaikki alueet</SelectItem>
+              {cities.map((c) => (
+                <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="h-8 w-36 text-xs"
+          />
+          {dateFilter && (
+            <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setDateFilter("")}>
+              Tyhjennä pvm
+            </Button>
+          )}
+
           <Button
-            key={f.key}
             size="sm"
-            variant={typeFilter === f.key ? "default" : "outline"}
-            onClick={() => setTypeFilter(f.key)}
-            className="h-8 text-xs"
+            variant="outline"
+            className="h-8 px-2 text-xs"
+            onClick={() => fetchAll(true)}
+            disabled={refreshing}
+            title="Päivitä näkymä"
           >
-            {f.label}
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
           </Button>
-        ))}
-        <Select value={cityFilter} onValueChange={setCityFilter}>
-          <SelectTrigger className="h-8 w-40 text-xs">
-            <SelectValue placeholder="Alue" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all" className="text-xs">Kaikki alueet</SelectItem>
-            {cities.map((c) => (
-              <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="h-8 w-40 text-xs" />
-        {dateFilter && (
-          <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setDateFilter("")}>
-            Tyhjennä pvm
-          </Button>
-        )}
+        </div>
       </div>
 
-      {/* Batch bar */}
-      <div className="rounded-xl border bg-card p-3 flex flex-wrap items-center gap-2">
-        <Badge variant={selected.length ? "default" : "secondary"}>{selected.length} valittu</Badge>
-        <Select value={assignTo} onValueChange={setAssignTo}>
-          <SelectTrigger className="h-9 w-56 text-xs">
-            <SelectValue placeholder="Valitse kuljettaja" />
-          </SelectTrigger>
-          <SelectContent>
-            {drivers.map((d) => (
-              <SelectItem key={d.user_id} value={d.user_id} className="text-xs">
-                {fullName(d)} {d.is_active ? "• vuorossa" : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button size="sm" disabled={!assignTo || selected.length === 0 || assigning} onClick={assignBatch}>
-          <UserCheck className="h-4 w-4 mr-1.5" /> Liitä kuljettajalle
-        </Button>
-        {selected.length > 0 && (
-          <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
-            Tyhjennä valinta
-          </Button>
-        )}
-      </div>
+      {/* Batch Assign Bar (when 1+ tasks selected) */}
+      {selected.length > 0 && (
+        <div className="bg-primary/10 border border-primary/20 rounded-xl p-2.5 px-3 flex flex-wrap items-center justify-between gap-2 animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-center gap-2">
+            <Badge variant="default" className="text-xs font-semibold">
+              {selected.length} keikkaa valittu
+            </Badge>
+            <span className="text-xs text-muted-foreground hidden sm:inline">Valitse kuljettaja ja paina Liitä:</span>
+          </div>
 
-      {/* Board Columns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-        {columns.map((col) => {
-          const Icon = col.icon;
-          return (
-            <Card key={col.key} className="bg-muted/30">
-              <CardHeader className="p-3 pb-2">
-                <CardTitle className="text-xs flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 min-w-0">
-                    <Icon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{col.label}</span>
-                  </span>
-                  <Badge variant={col.key === "unassigned" && col.tasks.length > 0 ? "destructive" : "secondary"}>
+          <div className="flex items-center gap-2">
+            <Select value={assignTo} onValueChange={setAssignTo}>
+              <SelectTrigger className="h-8 w-48 text-xs bg-background">
+                <SelectValue placeholder="Valitse kuljettaja..." />
+              </SelectTrigger>
+              <SelectContent>
+                {drivers.map((d) => (
+                  <SelectItem key={d.user_id} value={d.user_id} className="text-xs">
+                    {fullName(d)} {d.is_active ? "• vuorossa" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              disabled={!assignTo || assigning}
+              onClick={assignBatch}
+            >
+              <UserCheck className="h-3.5 w-3.5 mr-1" />
+              {assigning ? "Liitetään..." : "Liitä"}
+            </Button>
+
+            <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setSelected([])}>
+              Peruuta
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* 4 Dispatch Columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 items-start">
+        {columns.map((col) => (
+          <div key={col.key} className={`bg-card border rounded-xl shadow-sm flex flex-col overflow-hidden ${col.headerClass}`}>
+            {/* Column Header */}
+            <div className="p-3 bg-muted/40 border-b flex items-center justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">{col.label}</h3>
+                  <Badge variant="outline" className={`text-[11px] font-bold px-1.5 py-0 ${col.badgeClass}`}>
                     {col.tasks.length}
                   </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <ScrollArea className="max-h-[34rem]">
-                  <div className="space-y-2 pr-1">
-                    {col.tasks.length === 0 && (
-                      <p className="text-[11px] text-muted-foreground py-4 text-center">Ei aktiivisia tehtäviä</p>
-                    )}
-                    {col.tasks.map((task) => {
-                      const originAddr = task.pickup_address || task.origin_address || task.orders?.address || "-";
-                      const destAddr = task.delivery_address || task.destination_address || "Pesuni Pesulakeskus";
-                      const custName = task.pickup_name || task.origin_name || (task.orders ? `${task.orders.first_name || ""} ${task.orders.last_name || ""}`.trim() : "Asiakas");
-                      const phone = task.pickup_phone || task.orders?.phone;
+                </div>
+                <p className="text-[10px] text-muted-foreground">{col.sublabel}</p>
+              </div>
+            </div>
 
-                      return (
-                        <div
-                          key={task.id}
-                          className={`rounded-lg border bg-card p-3 space-y-2.5 shadow-sm ${isLate(task) ? "border-destructive/60 bg-destructive/5" : "hover:border-primary/40"}`}
+            {/* Task Cards */}
+            <div className="p-2 space-y-2 min-h-[140px] max-h-[70vh] overflow-y-auto">
+              {col.tasks.length === 0 && (
+                <div className="py-8 text-center text-muted-foreground/60 text-xs italic">
+                  Ei tilauksia tässä tilassa
+                </div>
+              )}
+
+              {col.tasks.map((task) => {
+                const originAddr = task.pickup_address || task.origin_address || task.orders?.address || "Asiakkaan osoite";
+                const destAddr = task.delivery_address || task.destination_address || "Pesula";
+                const custName = task.pickup_name || task.origin_name || (task.orders ? `${task.orders.first_name || ""} ${task.orders.last_name || ""}`.trim() : "Asiakas");
+                const phone = task.pickup_phone || task.orders?.phone;
+                const assignedDriver = driverOf(task.driver_id);
+                const assignedLaundry = laundryOf(task.laundry_id || task.orders?.laundry_id || null);
+
+                return (
+                  <div
+                    key={task.id}
+                    className="bg-background border rounded-lg p-3 space-y-2.5 shadow-xs hover:border-primary/50 transition-all"
+                  >
+                    {/* Top Row: Select, Order ID, PIN, Type Badge */}
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Checkbox
+                          checked={selected.includes(task.id)}
+                          onCheckedChange={() => toggleSelect(task.id)}
+                          aria-label="Valitse"
+                        />
+                        <span className="text-xs font-bold text-foreground truncate">
+                          {shortId(task.order_id || task.id)}
+                        </span>
+                        <span className="text-[10px] font-mono font-bold bg-sky-50 text-sky-700 border border-sky-200 px-1 py-0 rounded">
+                          PIN {getPickupCode(task.order_id || task.id)}
+                        </span>
+                      </div>
+
+                      <Badge
+                        variant={task.task_type === "pickup" ? "default" : "secondary"}
+                        className="text-[10px] px-1.5 py-0 uppercase font-semibold shrink-0"
+                      >
+                        {task.task_type === "pickup" ? "Nouto" : "Palautus"}
+                      </Badge>
+                    </div>
+
+                    {/* Customer & Phone */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-semibold text-foreground truncate flex items-center gap-1">
+                        <User className="h-3 w-3 text-muted-foreground shrink-0" />
+                        {custName}
+                      </span>
+                      {phone && (
+                        <a
+                          href={`tel:${phone}`}
+                          className="text-[11px] text-primary font-medium hover:underline flex items-center gap-1 shrink-0"
                         >
-                          {/* Header */}
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="flex items-center gap-2 min-w-0">
-                              <Checkbox
-                                checked={selected.includes(task.id)}
-                                onCheckedChange={() => toggleSelect(task.id)}
-                                aria-label="Valitse tehtävä"
-                              />
-                              <span className="text-xs font-bold truncate">{shortId(task.order_id || task.id)}</span>
-                              <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded">
-                                PIN: {getPickupCode(task.order_id || task.id)}
-                              </span>
-                            </span>
-                            <Badge variant={task.task_type === "pickup" ? "default" : "outline"} className="text-[10px]">
-                              {task.task_type === "pickup" ? "Nouto" : "Palautus"}
-                            </Badge>
-                          </div>
+                          <Phone className="h-2.5 w-2.5" />
+                          {phone}
+                        </a>
+                      )}
+                    </div>
 
-                          {/* Customer & Address Details */}
-                          <div className="text-[11px] space-y-1 bg-muted/40 p-2 rounded-md">
-                            <div className="flex items-center justify-between font-medium">
-                              <span className="flex items-center gap-1 truncate text-foreground">
-                                <User className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                {custName}
-                              </span>
-                              {phone && (
-                                <a href={`tel:${phone}`} className="flex items-center gap-1 text-primary hover:underline text-[10px]">
-                                  <Phone className="h-2.5 w-2.5" /> {phone}
-                                </a>
-                              )}
-                            </div>
-                            <p className="flex items-start gap-1 text-muted-foreground pt-0.5">
-                              <MapPin className="h-3 w-3 mt-0.5 shrink-0 text-amber-500" />
-                              <span className="truncate">{originAddr}</span>
-                            </p>
-                            <p className="flex items-center gap-1 text-muted-foreground pl-4">
-                              <ArrowRight className="h-3 w-3 shrink-0 text-emerald-500" />
-                              <span className="truncate">{destAddr}</span>
-                            </p>
-                            <p className="flex items-center gap-1 text-muted-foreground pt-0.5">
-                              <Clock className="h-3 w-3 shrink-0 text-sky-500" />
-                              {task.scheduled_date} {task.scheduled_time || task.scheduled_time_slot || "10:00"}
-                            </p>
-                          </div>
+                    {/* Route Addresses */}
+                    <div className="text-[11px] space-y-1 bg-muted/40 p-2 rounded">
+                      <div className="flex items-start gap-1.5 text-muted-foreground">
+                        <MapPin className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
+                        <span className="line-clamp-1 text-foreground/90 font-medium">{originAddr}</span>
+                      </div>
+                      <div className="flex items-start gap-1.5 text-muted-foreground pl-4">
+                        <ArrowRight className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
+                        <span className="line-clamp-1">{destAddr}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-muted-foreground pt-1 border-t border-border/40">
+                        <Clock className="h-3 w-3 text-sky-500 shrink-0" />
+                        <span>{task.scheduled_date} klo {task.scheduled_time || task.scheduled_time_slot || "10:00"}</span>
+                      </div>
+                    </div>
 
-                          {/* Driver / Payout Info */}
-                          <div className="flex items-center justify-between gap-2 text-[11px]">
-                            <span className="text-muted-foreground truncate font-medium">
-                              {task.driver_id ? (
-                                <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                                  <UserCheck className="h-3 w-3" /> {fullName(driverOf(task.driver_id))}
-                                </span>
-                              ) : (
-                                <span className="text-amber-600 font-medium">⚠️ {STATUS_LABELS[task.status] || "Ei kuljettajaa"}</span>
-                              )}
-                            </span>
-                            <Badge variant="secondary" className="text-[10px] font-semibold">
-                              {Number(task.driver_payout || 19).toFixed(2)} €
-                            </Badge>
-                          </div>
+                    {/* Driver & Laundry Row */}
+                    <div className="space-y-1 text-xs">
+                      {/* Driver */}
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[11px] text-muted-foreground">Kuljettaja:</span>
+                        {task.driver_id ? (
+                          <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1 truncate">
+                            <UserCheck className="h-3 w-3 shrink-0" />
+                            {fullName(assignedDriver)}
+                          </span>
+                        ) : (
+                          <Select
+                            value="none"
+                            onValueChange={(val) => quickAssignDriver(task, val)}
+                          >
+                            <SelectTrigger className="h-6 text-[11px] w-32 px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50/50">
+                              <SelectValue placeholder="Liitä kuljettaja" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none" disabled className="text-xs">Valitse kuljettaja</SelectItem>
+                              {drivers.map((d) => (
+                                <SelectItem key={d.user_id} value={d.user_id} className="text-xs">
+                                  {fullName(d)} {d.is_active ? "• vuorossa" : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
 
-                          {/* Weight Handover info if any */}
-                          {handover[task.order_id]?.pickup_weight_kg != null && (
-                            <div className="flex items-center gap-1.5">
-                              <Badge variant="outline" className="text-[10px] bg-sky-50 text-sky-700">
-                                Paino: {Number(handover[task.order_id]?.pickup_weight_kg).toFixed(1)} kg
-                              </Badge>
-                            </div>
-                          )}
-
-                          {/* Action Buttons */}
-                          <div className="flex items-center gap-1 pt-1 border-t border-border/50">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2 text-[11px] flex items-center gap-1 hover:bg-primary/10 hover:text-primary"
-                              onClick={() => openEditModal(task)}
-                            >
-                              <Edit className="h-3 w-3" /> Muokkaa
-                            </Button>
-
-                            {task.driver_id && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2 text-[11px] hover:bg-amber-50 text-amber-700"
-                                onClick={() => unassign(task)}
-                              >
-                                Vapauta
-                              </Button>
-                            )}
-
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 px-2 text-[11px] text-destructive hover:bg-destructive/10 ml-auto"
-                              onClick={() => setDeletingTask(task)}
-                              title="Poista tilaus"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
+                      {/* Laundry Info if applicable */}
+                      {assignedLaundry && (
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                          <span>Pesula:</span>
+                          <span className="font-medium text-foreground truncate">{assignedLaundry.name}</span>
                         </div>
-                      );
-                    })}
+                      )}
+                    </div>
+
+                    {/* Special Instructions callout */}
+                    {(task.notes || task.orders?.special_instructions) && (
+                      <div className="text-[10px] bg-amber-500/10 text-amber-800 dark:text-amber-300 p-1.5 rounded border border-amber-500/20">
+                        <strong>Ohje:</strong> {task.notes || task.orders?.special_instructions}
+                      </div>
+                    )}
+
+                    {/* Footer Actions */}
+                    <div className="flex items-center gap-1 pt-1.5 border-t">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[11px] flex items-center gap-1"
+                        onClick={() => openEditModal(task)}
+                      >
+                        <Edit className="h-2.5 w-2.5" /> Muokkaa
+                      </Button>
+
+                      {task.driver_id && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-[11px] text-amber-700 hover:bg-amber-50"
+                          onClick={() => unassign(task)}
+                        >
+                          Vapauta
+                        </Button>
+                      )}
+
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10 ml-auto"
+                        onClick={() => setDeletingTask(task)}
+                        title="Poista tilaus"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          );
-        })}
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Edit Task / Order Dialog */}
+      {/* Edit Order & Task Dialog */}
       <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit className="h-4 w-4 text-primary" /> Muokkaa tilausta ja keikkaa {editingTask ? shortId(editingTask.order_id || editingTask.id) : ""}
+            <DialogTitle className="flex items-center gap-2 text-sm font-bold">
+              <Edit className="h-4 w-4 text-primary" />
+              Muokkaa tilausta {editingTask ? shortId(editingTask.order_id || editingTask.id) : ""}
             </DialogTitle>
-            <DialogDescription>
-              Voit muuttaa kuljettajaa, pesulaa, tilaa, osoitteita ja aikataulua. Muutokset päivittyvät järjestelmään reaaliajassa.
+            <DialogDescription className="text-xs">
+              Muokkaa kuljettajaa, tilaa, aikataulua ja osoitteita. Muutokset tallentuvat heti.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="space-y-3 py-2 text-xs">
             {/* Kuljettaja ja Pesula */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Kuljettaja</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[11px]">Kuljettaja</Label>
                 <Select value={editForm.driver_id} onValueChange={(val) => setEditForm(prev => ({ ...prev, driver_id: val }))}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Valitse kuljettaja" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none" className="text-xs font-semibold text-amber-600">Ei kuljettajaa (vapaa keikka)</SelectItem>
+                    <SelectItem value="none" className="text-xs text-amber-600 font-medium">Ei kuljettajaa (Vapaa)</SelectItem>
                     {drivers.map((d) => (
                       <SelectItem key={d.user_id} value={d.user_id} className="text-xs">
                         {fullName(d)} {d.is_active ? "• vuorossa" : ""}
@@ -842,18 +902,16 @@ export const DispatchTaskBoard = () => {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs">Pesula</Label>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Pesula</Label>
                 <Select value={editForm.laundry_id} onValueChange={(val) => setEditForm(prev => ({ ...prev, laundry_id: val }))}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Valitse pesula" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none" className="text-xs text-muted-foreground">Automaattinen / Ei määritetty</SelectItem>
+                    <SelectItem value="none" className="text-xs text-muted-foreground">Automaattinen</SelectItem>
                     {laundries.map((l) => (
-                      <SelectItem key={l.id} value={l.id} className="text-xs">
-                        {l.name}
-                      </SelectItem>
+                      <SelectItem key={l.id} value={l.id} className="text-xs">{l.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -861,24 +919,24 @@ export const DispatchTaskBoard = () => {
             </div>
 
             {/* Tila ja Tyyppi */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Tehtävän tila</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[11px]">Tehtävän tila</Label>
                 <Select value={editForm.status} onValueChange={(val) => setEditForm(prev => ({ ...prev, status: val }))}>
                   <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Valitse tila" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="unassigned" className="text-xs">🟡 Vapaana (unassigned)</SelectItem>
                     <SelectItem value="assigned" className="text-xs">🔵 Kuskille liitetty (assigned)</SelectItem>
                     <SelectItem value="in_progress" className="text-xs">🚚 Ajo käynnissä (in_progress)</SelectItem>
-                    <SelectItem value="washing" className="text-xs">🟣 Pesulassa pesussa (washing)</SelectItem>
+                    <SelectItem value="washing" className="text-xs">🟣 Pesulassa (washing)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs">Keikan tyyppi</Label>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Keikan tyyppi</Label>
                 <Select value={editForm.task_type} onValueChange={(val) => setEditForm(prev => ({ ...prev, task_type: val }))}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
@@ -892,9 +950,9 @@ export const DispatchTaskBoard = () => {
             </div>
 
             {/* Aikataulu & Palkkio */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Päivämäärä</Label>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[11px]">Päivämäärä</Label>
                 <Input
                   type="date"
                   value={editForm.scheduled_date}
@@ -902,8 +960,8 @@ export const DispatchTaskBoard = () => {
                   className="h-8 text-xs"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Kellonaika / Aika</Label>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Kellonaika</Label>
                 <Input
                   value={editForm.scheduled_time}
                   onChange={(e) => setEditForm(prev => ({ ...prev, scheduled_time: e.target.value }))}
@@ -911,8 +969,8 @@ export const DispatchTaskBoard = () => {
                   placeholder="10:00"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Kuljettajan palkkio (€)</Label>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Palkkio (€)</Label>
                 <Input
                   type="number"
                   value={editForm.driver_payout}
@@ -923,25 +981,25 @@ export const DispatchTaskBoard = () => {
             </div>
 
             {/* Asiakkaan tiedot */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Etunimi</Label>
+            <div className="grid grid-cols-3 gap-2 pt-1 border-t">
+              <div className="space-y-1">
+                <Label className="text-[11px]">Etunimi</Label>
                 <Input
                   value={editForm.first_name}
                   onChange={(e) => setEditForm(prev => ({ ...prev, first_name: e.target.value }))}
                   className="h-8 text-xs"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Sukunimi</Label>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Sukunimi</Label>
                 <Input
                   value={editForm.last_name}
                   onChange={(e) => setEditForm(prev => ({ ...prev, last_name: e.target.value }))}
                   className="h-8 text-xs"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Puhelin</Label>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Puhelin</Label>
                 <Input
                   value={editForm.phone}
                   onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
@@ -951,36 +1009,34 @@ export const DispatchTaskBoard = () => {
             </div>
 
             {/* Osoitteet */}
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Lähtöosoite (Noutopaikka)</Label>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label className="text-[11px]">Lähtöosoite</Label>
                 <Input
                   value={editForm.origin_address}
                   onChange={(e) => setEditForm(prev => ({ ...prev, origin_address: e.target.value }))}
                   className="h-8 text-xs"
-                  placeholder="Katuosoite, Postinumero Kaupunki"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Määränpääosoite (Toimituspaikka)</Label>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Määränpääosoite</Label>
                 <Input
                   value={editForm.destination_address}
                   onChange={(e) => setEditForm(prev => ({ ...prev, destination_address: e.target.value }))}
                   className="h-8 text-xs"
-                  placeholder="Pesula tai asiakkaan osoite"
                 />
               </div>
             </div>
 
             {/* Muistiinpanot */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Erityisohjeet / Lisätiedot</Label>
+            <div className="space-y-1">
+              <Label className="text-[11px]">Erityisohjeet / Muistiinpanot</Label>
               <Textarea
                 value={editForm.notes}
                 onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
                 rows={2}
                 className="text-xs"
-                placeholder="Ovikoodi, lisäohjeet kuljettajalle jne..."
+                placeholder="Ovikoodit, lisäohjeet..."
               />
             </div>
           </div>
@@ -1000,12 +1056,11 @@ export const DispatchTaskBoard = () => {
       <AlertDialog open={!!deletingTask} onOpenChange={(open) => !open && setDeletingTask(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-destructive flex items-center gap-2">
-              <Trash2 className="h-5 w-5" /> Haluatko varmasti poistaa tilauksen?
+            <AlertDialogTitle className="text-destructive flex items-center gap-2 text-sm">
+              <Trash2 className="h-4 w-4" /> Haluatko varmasti poistaa tilauksen?
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              Tämä toiminto poistaa tilauksen <strong>{deletingTask ? shortId(deletingTask.order_id || deletingTask.id) : ""}</strong> ja kaikki sen nouto- ja palautustehtävät kokonaan järjestelmästä.
-              Tilaus poistuu välittömästi sekä Välityksestä että Pesulasta.
+            <AlertDialogDescription className="text-xs">
+              Tämä toiminto poistaa tilauksen <strong>{deletingTask ? shortId(deletingTask.order_id || deletingTask.id) : ""}</strong> ja sen keikat pysyvästi.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1015,7 +1070,7 @@ export const DispatchTaskBoard = () => {
               disabled={isDeleting}
               onClick={handleDeleteOrder}
             >
-              {isDeleting ? "Poistetaan..." : "Kyllä, poista tilaus"}
+              {isDeleting ? "Poistetaan..." : "Kyllä, poista"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
