@@ -84,7 +84,7 @@ export const computeSplit = ({
 }) => {
   const hasDiscount = discountPrice != null && discountPrice > 0 && discountPrice < basePrice;
   const customerPrice = hasDiscount ? (discountPrice as number) : basePrice;
-  const margin = Math.max(round2(basePrice - laundryPrice), 0);
+  const margin = Math.max(round2(customerPrice - laundryPrice), 0);
   let laundry = laundryPrice;
   let platform = round2((margin * platformPct) / 100);
   let driver = round2(margin - platform);
@@ -102,7 +102,9 @@ export const computeSplit = ({
       driver = round2(customDriverFee ?? 0);
       platform = round2(customerPrice - laundry - driver);
     } else {
-      platform = round2(customerPrice - laundry - driver);
+      // Standard percentage split on actual margin
+      platform = round2((margin * platformPct) / 100);
+      driver = round2(margin - platform);
     }
   }
 
