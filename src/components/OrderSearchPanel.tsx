@@ -489,6 +489,116 @@ export const OrderSearchPanel = () => {
     return counts;
   }, [filteredOrders]);
 
+  // Log helpers
+  const formatLogTimestamp = (dateStr: string) => {
+    if (!dateStr) return "-";
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleString("fi-FI", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getLogActorBadge = (log: OrderLogEntry, order: OrderRecord | null) => {
+    if (!order) {
+      return {
+        label: "Järjestelmä",
+        className: "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-900 dark:text-slate-300",
+        icon: <Activity className="h-3 w-3 mr-1" />,
+      };
+    }
+
+    const cType = (log.change_type || "").toLowerCase();
+    const desc = (log.change_description || "").toLowerCase();
+
+    if (
+      desc.includes("kuljettaja") ||
+      cType.includes("driver") ||
+      cType.includes("picking") ||
+      cType.includes("picked") ||
+      cType.includes("returning") ||
+      cType.includes("weight") ||
+      cType.includes("photo")
+    ) {
+      return {
+        label: "Kuljettaja",
+        className: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300",
+        icon: <Truck className="h-3 w-3 mr-1" />,
+      };
+    }
+
+    if (
+      desc.includes("pesula") ||
+      cType.includes("laundry") ||
+      cType.includes("packaging") ||
+      cType.includes("washing")
+    ) {
+      return {
+        label: "Pesula",
+        className: "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-300",
+        icon: <WashingMachine className="h-3 w-3 mr-1" />,
+      };
+    }
+
+    if (log.changed_by === order.user_id || cType === "created" || desc.includes("asiakkaan")) {
+      return {
+        label: "Asiakas",
+        className: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300",
+        icon: <User className="h-3 w-3 mr-1" />,
+      };
+    }
+
+    if (log.changed_by) {
+      return {
+        label: "Ylläpito / Välitys",
+        className: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300",
+        icon: <Shield className="h-3 w-3 mr-1" />,
+      };
+    }
+
+    return {
+      label: "Järjestelmä",
+      className: "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-900 dark:text-slate-300",
+      icon: <Activity className="h-3 w-3 mr-1" />,
+    };
+  };
+
+  const filteredLogs = useMemo(() => {
+    if (logFilter === "all") return orderLogs;
+    return orderLogs.filter((l) => {
+      const desc = (l.change_description || "").toLowerCase();
+      const type = (l.change_type || "").toLowerCase();
+      if (logFilter === "driver") {
+        return (
+          desc.includes("kuljettaja") ||
+          type.includes("driver") ||
+          type.includes("picking") ||
+          type.includes("picked") ||
+          type.includes("weight") ||
+          type.includes("photo")
+        );
+      }
+      if (logFilter === "laundry") {
+        return desc.includes("pesula") || type.includes("laundry") || type.includes("washing") || type.includes("packaging");
+      }
+      if (logFilter === "status") {
+        return desc.includes("tila") || type.includes("status");
+      }
+      if (logFilter === "customer") {
+        return desc.includes("asiakkaan") || type === "created" || (selectedOrder && l.changed_by === selectedOrder.user_id);
+      }
+      return true;
+    });
+  }, [orderLogs, logFilter, selectedOrder]);
+
   if (loading) {
     return <div className="p-8 text-center text-muted-foreground text-sm">Ladataan tilaushakua...</div>;
   }
