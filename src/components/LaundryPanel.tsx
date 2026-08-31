@@ -273,7 +273,8 @@ export const LaundryPanel = () => {
         .from("delivery_tasks")
         .update({ status: "unassigned", updated_at: nowIso })
         .eq("order_id", order.id)
-        .eq("task_type", "delivery");
+        .eq("task_type", "delivery")
+        .eq("status", "pending");
     }
     toast({
       title: status === "PACKAGING" ? "Merkitty valmiiksi ✅" : "Vastaanotettu käsittelyyn 🧺",
