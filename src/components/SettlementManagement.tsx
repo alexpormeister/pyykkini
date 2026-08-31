@@ -31,6 +31,7 @@ interface OrderRow {
   driver_id: string | null;
   laundry_id: string | null;
   status: string;
+  tracking_status?: string | null;
   final_price: number;
   created_at: string;
   first_name: string | null;
@@ -59,16 +60,23 @@ interface DriverTaskRow {
   task_type: string;
   driver_payout: number | null;
   completed_at: string | null;
+  origin_name?: string | null;
+  destination_name?: string | null;
+  origin_address?: string | null;
+  destination_address?: string | null;
+  pickup_weight_kg?: number | string | null;
 }
 
 interface Group {
   key: string;
   name: string;
   ordersCount: number;
+  tasksCount?: number;
   gross: number;
   commission: number;
   net: number;
   orderIds: string[];
+  tasks?: DriverTaskRow[];
 }
 
 const eur = (v: number) =>
@@ -76,6 +84,22 @@ const eur = (v: number) =>
 
 const fmtDate = (v: string | null) =>
   v ? new Date(v).toLocaleDateString("fi-FI", { day: "2-digit", month: "2-digit", year: "numeric" }) : "-";
+
+const fmtDateTime = (v: string | null) => {
+  if (!v) return "-";
+  try {
+    const d = new Date(v);
+    return d.toLocaleString("fi-FI", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return v;
+  }
+};
 
 function getPeriodRange(period: PeriodKey, from: string, to: string): { start: Date | null; end: Date | null } {
   const now = new Date();
@@ -113,23 +137,23 @@ export const SettlementManagement = () => {
 
   const range = useMemo(() => getPeriodRange(period, customFrom, customTo), [period, customFrom, customTo]);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = useCallback(async () => {
     try {
       const [ordersRes, laundriesRes, profilesRes, settlementsRes, tasksRes] = await Promise.all([
         supabase
           .from("orders")
-          .select("id, driver_id, laundry_id, status, final_price, created_at, first_name, last_name")
-          .eq("status", "delivered")
+          .select("id, driver_id, laundry_id, status, tracking_status, final_price, created_at, first_name, last_name")
+          .not("status", "in", '("cancelled","rejected")')
           .order("created_at", { ascending: false }),
         supabase.from("laundries").select("id, name"),
         supabase.from("profiles").select("user_id, first_name, last_name, email"),
         supabase.from("settlements").select("*").order("paid_at", { ascending: false }),
         supabase
           .from("delivery_tasks")
-          .select("id, order_id, driver_id, task_type, driver_payout, completed_at")
+          .select("id, order_id, driver_id, task_type, driver_payout, status, completed_at, origin_name, destination_name, origin_address, destination_address, pickup_weight_kg")
           .eq("status", "completed")
-          .not("driver_id", "is", null),
+          .not("driver_id", "is", null)
+          .order("completed_at", { ascending: false }),
       ]);
 
       if (ordersRes.error) throw ordersRes.error;
@@ -141,8 +165,9 @@ export const SettlementManagement = () => {
           .from("order_items")
           .select("id, order_id, product_name, service_name, quantity, total_price, laundry_id, laundry_price, platform_fee, driver_payout")
           .in("order_id", orderRows.map((o) => o.id));
-        if (itemError) throw itemError;
-        setItems((itemData || []) as OrderItemRow[]);
+        if (!itemError) {
+          setItems((itemData || []) as OrderItemRow[]);
+        }
       } else {
         setItems([]);
       }
@@ -159,16 +184,28 @@ export const SettlementManagement = () => {
       setSettlements((settlementsRes.data || []) as SettlementRow[]);
       setDriverTasks((tasksRes.data || []) as DriverTaskRow[]);
     } catch (error: any) {
+      console.error("Error loading settlement data:", error);
       toast({ title: "Virhe", description: error.message || "Tietojen lataus epäonnistui", variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+    const channel = supabase
+      .channel("settlement_management_realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => fetchData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_tasks" }, () => fetchData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => fetchData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "settlements" }, () => fetchData())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchData]);
 
   const settledOrderIds = useMemo(() => {
     const laundrySet = new Set<string>();
@@ -203,18 +240,27 @@ export const SettlementManagement = () => {
     periodOrders.forEach((order) => {
       if (settledOrderIds.laundry.has(order.id)) return;
       const orderItems = itemsByOrder[order.id] || [];
-      orderItems.forEach((it) => {
-        const key = it.laundry_id || order.laundry_id || "unassigned";
-        const name = laundries[key] || "Ei pesulaa määritetty";
-        const g = (map[key] ||= { key, name, ordersCount: 0, gross: 0, commission: 0, net: 0, orderIds: [] });
-        g.gross += Number(it.total_price || 0);
-        g.commission += Number(it.platform_fee || 0);
-        g.net += Number(it.laundry_price || 0);
-        if (!g.orderIds.includes(order.id)) {
-          g.orderIds.push(order.id);
-          g.ordersCount += 1;
-        }
-      });
+      const key = order.laundry_id || "unassigned";
+      const name = laundries[key] || (key === "unassigned" ? "Ei pesulaa määritetty" : "Pesula");
+      const g = (map[key] ||= { key, name, ordersCount: 0, gross: 0, commission: 0, net: 0, orderIds: [] });
+
+      if (orderItems.length > 0) {
+        orderItems.forEach((it) => {
+          g.gross += Number(it.total_price || 0);
+          g.commission += Number(it.platform_fee || 0);
+          g.net += Number(it.laundry_price || 0);
+        });
+      } else {
+        const fPrice = Number(order.final_price || 0);
+        g.gross += fPrice;
+        g.commission += fPrice * 0.3;
+        g.net += fPrice * 0.7;
+      }
+
+      if (!g.orderIds.includes(order.id)) {
+        g.orderIds.push(order.id);
+        g.ordersCount += 1;
+      }
     });
     return Object.values(map).sort((a, b) => b.net - a.net);
   }, [periodOrders, itemsByOrder, laundries, settledOrderIds]);
@@ -231,37 +277,44 @@ export const SettlementManagement = () => {
     });
   }, [driverTasks, range, settledOrderIds]);
 
-  // driver -> order -> palkkio
-  const driverOrderPayouts = useMemo(() => {
-    const map: Record<string, Record<string, number>> = {};
-    periodDriverTasks.forEach((t) => {
-      const byOrder = (map[t.driver_id] ||= {});
-      byOrder[t.order_id] = (byOrder[t.order_id] || 0) + Number(t.driver_payout || 0);
-    });
-    return map;
-  }, [periodDriverTasks]);
-
   const driverGroups = useMemo<Group[]>(() => {
-    return Object.entries(driverOrderPayouts)
-      .map(([key, byOrder]) => {
-        const orderIds = Object.keys(byOrder);
-        const net = orderIds.reduce((s, id) => s + byOrder[id], 0);
-        const gross = orderIds.reduce((s, id) => {
-          const order = orders.find((o) => o.id === id);
-          return s + Number(order?.final_price || 0);
-        }, 0);
-        return {
-          key,
-          name: drivers[key] || "Kuljettaja",
-          ordersCount: orderIds.length,
-          gross,
-          commission: 0,
-          net,
-          orderIds,
-        } as Group;
-      })
+    const map: Record<string, { name: string; tasks: DriverTaskRow[]; orderIds: Set<string>; net: number; gross: number }> = {};
+
+    periodDriverTasks.forEach((t) => {
+      if (!t.driver_id) return;
+      const dName = drivers[t.driver_id] || "Kuljettaja";
+      const entry = (map[t.driver_id] ||= {
+        name: dName,
+        tasks: [],
+        orderIds: new Set<string>(),
+        net: 0,
+        gross: 0,
+      });
+
+      entry.tasks.push(t);
+      entry.orderIds.add(t.order_id);
+      entry.net += Number(t.driver_payout || 0);
+
+      const ord = orders.find((o) => o.id === t.order_id);
+      if (ord) {
+        entry.gross += Number(ord.final_price || 0) / 2;
+      }
+    });
+
+    return Object.entries(map)
+      .map(([key, data]) => ({
+        key,
+        name: data.name,
+        ordersCount: data.tasks.length, // Suoritettujen keikkojen lukumäärä
+        tasksCount: data.tasks.length,
+        gross: data.gross,
+        commission: 0,
+        net: Number(data.net.toFixed(2)),
+        orderIds: Array.from(data.orderIds),
+        tasks: data.tasks,
+      }))
       .sort((a, b) => b.net - a.net);
-  }, [driverOrderPayouts, drivers, orders]);
+  }, [periodDriverTasks, drivers, orders]);
 
   const platformRevenue = useMemo(() => {
     return periodOrders.reduce((sum, order) => {
@@ -309,26 +362,40 @@ export const SettlementManagement = () => {
 
   const detailRows = useMemo(() => {
     if (!detail) return [];
+    if (detail.type === "driver") {
+      const tasks = detail.group.tasks || [];
+      return tasks.map((t) => {
+        const order = orders.find((o) => o.id === t.order_id);
+        return {
+          orderId: t.order_id,
+          task: t,
+          order,
+          orderItems: [],
+          tasks: [t],
+        };
+      });
+    }
+
     return detail.group.orderIds.map((orderId) => {
       const order = orders.find((o) => o.id === orderId);
       const orderItems = (itemsByOrder[orderId] || []).filter(
-        (it) => detail.type === "driver" || (it.laundry_id || order?.laundry_id || "unassigned") === detail.group.key
+        (it) => (it.laundry_id || order?.laundry_id || "unassigned") === detail.group.key
       );
-      const tasks = periodDriverTasks.filter((t) => t.order_id === orderId && t.driver_id === detail.group.key);
-      return { orderId, order, orderItems, tasks };
+      return { orderId, order, orderItems, tasks: [], task: null as any };
     });
-  }, [detail, orders, itemsByOrder, periodDriverTasks]);
+  }, [detail, orders, itemsByOrder]);
 
   const downloadCsv = (type: "laundry" | "driver", group: Group) => {
     const header =
       type === "laundry"
         ? ["Tilaus", "Päivämäärä", "Tuote", "Määrä", "Asiakasmyynti", "Alustan komissio", "Pesulan osuus"]
-        : ["Tilaus", "Päivämäärä", "Asiakas", "Tilauksen summa", "Kuljettajan palkkio"];
+        : ["Tilaus", "Tehtävätyyppi", "Lähtöpaikka", "Määränpää", "Suoritettu", "Kuljettajan palkkio"];
     const lines: string[][] = [header];
-    group.orderIds.forEach((orderId) => {
-      const order = orders.find((o) => o.id === orderId);
-      const orderItems = itemsByOrder[orderId] || [];
-      if (type === "laundry") {
+
+    if (type === "laundry") {
+      group.orderIds.forEach((orderId) => {
+        const order = orders.find((o) => o.id === orderId);
+        const orderItems = itemsByOrder[orderId] || [];
         orderItems
           .filter((it) => (it.laundry_id || order?.laundry_id || "unassigned") === group.key)
           .forEach((it) => {
@@ -342,17 +409,20 @@ export const SettlementManagement = () => {
               String(Number(it.laundry_price || 0).toFixed(2)),
             ]);
           });
-      } else {
-        const payout = driverOrderPayouts[group.key]?.[orderId] || 0;
+      });
+    } else {
+      (group.tasks || []).forEach((t) => {
         lines.push([
-          orderId.slice(0, 8),
-          fmtDate(order?.created_at ?? null),
-          [order?.first_name, order?.last_name].filter(Boolean).join(" "),
-          String(Number(order?.final_price || 0).toFixed(2)),
-          String(payout.toFixed(2)),
+          t.order_id ? t.order_id.slice(0, 8) : "-",
+          t.task_type === "pickup" ? "Noutokeikka (Meno)" : "Palautuskeikka (Paluu)",
+          t.origin_name || t.origin_address || "Lähtöpaikka",
+          t.destination_name || t.destination_address || "Määränpää",
+          fmtDateTime(t.completed_at),
+          String(Number(t.driver_payout || 0).toFixed(2)),
         ]);
-      }
-    });
+      });
+    }
+
     const csv = lines.map((r) => r.map((c) => `"${(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
     const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -370,25 +440,33 @@ export const SettlementManagement = () => {
       toast({ title: "Ponnahdusikkuna estetty", description: "Salli ponnahdusikkunat ladataksesi PDF:n", variant: "destructive" });
       return;
     }
-    const rows = group.orderIds
-      .map((orderId) => {
-        const order = orders.find((o) => o.id === orderId);
-        const orderItems = itemsByOrder[orderId] || [];
-        const payout = driverOrderPayouts[group.key]?.[orderId] || 0;
-        const value =
-          type === "laundry"
-            ? orderItems
-                .filter((it) => (it.laundry_id || order?.laundry_id || "unassigned") === group.key)
-                .reduce((s, it) => s + Number(it.laundry_price || 0), 0)
-            : payout;
-        return `<tr><td>#${orderId.slice(0, 8)}</td><td>${fmtDate(order?.created_at ?? null)}</td><td style="text-align:right">${eur(value)}</td></tr>`;
-      })
-      .join("");
+
+    let rows = "";
+    if (type === "laundry") {
+      rows = group.orderIds
+        .map((orderId) => {
+          const order = orders.find((o) => o.id === orderId);
+          const orderItems = itemsByOrder[orderId] || [];
+          const value = orderItems
+            .filter((it) => (it.laundry_id || order?.laundry_id || "unassigned") === group.key)
+            .reduce((s, it) => s + Number(it.laundry_price || 0), 0);
+          return `<tr><td>#${orderId.slice(0, 8)}</td><td>${fmtDate(order?.created_at ?? null)}</td><td style="text-align:right">${eur(value)}</td></tr>`;
+        })
+        .join("");
+    } else {
+      rows = (group.tasks || [])
+        .map((t) => {
+          const typeLabel = t.task_type === "pickup" ? "Noutokeikka" : "Palautuskeikka";
+          return `<tr><td>#${t.order_id ? t.order_id.slice(0, 8) : "-"} (${typeLabel})</td><td>${fmtDateTime(t.completed_at)}</td><td style="text-align:right">${eur(Number(t.driver_payout || 0))}</td></tr>`;
+        })
+        .join("");
+    }
+
     win.document.write(`<!doctype html><html lang="fi"><head><meta charset="utf-8"><title>Tilityserittely – ${group.name}</title>
       <style>body{font-family:system-ui,sans-serif;padding:32px;color:#111}h1{font-size:20px}table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left}tfoot td{font-weight:700}</style>
       </head><body><h1>Tilityserittely – ${group.name}</h1>
-      <p>${type === "laundry" ? "Pesulan tilitys" : "Kuljettajan palkkio"} · Tilauksia: ${group.ordersCount}</p>
-      <table><thead><tr><th>Tilaus</th><th>Päivämäärä</th><th style="text-align:right">Summa</th></tr></thead>
+      <p>${type === "laundry" ? "Pesulan tilitys" : "Kuljettajan palkkio"} · ${type === "driver" ? `Suoritetut keikat: ${group.ordersCount}` : `Tilauksia: ${group.ordersCount}`}</p>
+      <table><thead><tr><th>${type === "driver" ? "Keikka" : "Tilaus"}</th><th>Päivämäärä</th><th style="text-align:right">Summa</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td colspan="2">Tilitettävä yhteensä</td><td style="text-align:right">${eur(group.net)}</td></tr></tfoot></table>
       <script>window.onload=()=>window.print()<\/script></body></html>`);
@@ -668,46 +746,73 @@ export const SettlementManagement = () => {
             </SheetDescription>
           </SheetHeader>
           <div className="mt-4 space-y-3">
-            {detailRows.map(({ orderId, order, orderItems, tasks }) => (
-              <div key={orderId} className="rounded-lg border p-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">#{orderId.slice(0, 8)}</span>
-                  <span className="text-muted-foreground">
-                    {fmtDate(order?.created_at ?? tasks[0]?.completed_at ?? null)}
-                  </span>
-                </div>
-                {detail?.type === "driver" ? (
-                  <div className="mt-2 space-y-1 text-sm">
-                    {tasks.map((t) => (
-                      <div key={t.id} className="flex items-center justify-between gap-2">
-                        <span className="truncate">{t.task_type === "pickup" ? "Noutokeikka" : "Palautuskeikka"}</span>
-                        <span className="font-medium flex items-center gap-1">
-                          <Euro className="h-3 w-3 text-muted-foreground" />
-                          {Number(t.driver_payout || 0).toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
-                    {tasks.length === 0 && <p className="text-xs text-muted-foreground">Ei keikkoja</p>}
+            {detail?.type === "driver" ? (
+              detailRows.map(({ task }) => (
+                <div key={task.id} className="rounded-xl border bg-card p-3.5 shadow-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={task.task_type === "pickup" ? "default" : "secondary"} className="text-xs font-semibold">
+                        {task.task_type === "pickup" ? "🚚 Noutokeikka" : "🔄 Palautuskeikka"}
+                      </Badge>
+                      <span className="font-semibold text-sm">#{task.order_id ? task.order_id.slice(0, 8).toUpperCase() : "-"}</span>
+                    </div>
+                    <span className="font-bold text-primary text-base">+{Number(task.driver_payout || 0).toFixed(2)} €</span>
                   </div>
-                ) : (
-                  <div className="mt-2 space-y-1 text-sm">
-                    {orderItems.map((it) => (
-                    <div key={it.id} className="flex items-center justify-between gap-2">
-                      <span className="truncate">
-                        {it.product_name || it.service_name} × {it.quantity}
-                      </span>
-                      <span className="font-medium flex items-center gap-1">
-                        <Euro className="h-3 w-3 text-muted-foreground" />
-                        {Number(it.laundry_price || 0).toFixed(2)}
+
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span>Reitti:</span>
+                      <span className="font-medium text-foreground">
+                        {task.origin_name || "Lähtö"} ➔ {task.destination_name || "Määränpää"}
                       </span>
                     </div>
-                    ))}
-                    {orderItems.length === 0 && <p className="text-xs text-muted-foreground">Ei tuoterivejä</p>}
+                    {task.completed_at && (
+                      <div className="flex items-center justify-between">
+                        <span>Suoritettu:</span>
+                        <span className="text-foreground font-medium">{fmtDateTime(task.completed_at)}</span>
+                      </div>
+                    )}
+                    {task.pickup_weight_kg && (
+                      <div className="flex items-center justify-between">
+                        <span>Pyykin paino:</span>
+                        <span className="text-foreground">{task.pickup_weight_kg} kg</span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
-            {detailRows.length === 0 && <p className="text-sm text-muted-foreground">Ei tilauksia</p>}
+                </div>
+              ))
+            ) : (
+              detailRows.map(({ orderId, order, orderItems }) => (
+                <div key={orderId} className="rounded-xl border bg-card p-3.5 shadow-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm">#{orderId.slice(0, 8).toUpperCase()}</span>
+                    <span className="text-xs text-muted-foreground">{fmtDate(order?.created_at ?? null)}</span>
+                  </div>
+                  {order && (
+                    <div className="text-xs text-muted-foreground">
+                      Asiakas: <strong className="text-foreground">{[order.first_name, order.last_name].filter(Boolean).join(" ") || "Asiakas"}</strong>
+                    </div>
+                  )}
+                  <div className="space-y-1 pt-1 border-t">
+                    {orderItems.map((it) => (
+                      <div key={it.id} className="flex items-center justify-between text-xs">
+                        <span className="text-foreground">
+                          {it.product_name || it.service_name} × {it.quantity}
+                        </span>
+                        <span className="font-semibold text-primary">+{Number(it.laundry_price || 0).toFixed(2)} €</span>
+                      </div>
+                    ))}
+                    {orderItems.length === 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Tilauksen pesuosuus (70%)</span>
+                        <span className="font-semibold text-primary">+{((Number(order?.final_price || 0)) * 0.7).toFixed(2)} €</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+            {detailRows.length === 0 && <p className="text-sm text-muted-foreground py-4 text-center">Ei suoritettuja tapahtumia</p>}
           </div>
         </SheetContent>
       </Sheet>
