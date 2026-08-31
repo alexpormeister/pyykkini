@@ -191,23 +191,38 @@ export const LaundryPanel = () => {
   const track = (o: LaundryOrder) => (o.tracking_status || "PENDING").toUpperCase();
   const lStatus = (o: LaundryOrder) => (o.laundry_status || "pending").toLowerCase();
   const isCancelledOrRejected = (o: LaundryOrder) => o.status === "cancelled" || o.status === "rejected";
+  const isAcceptedByLaundry = (o: LaundryOrder) => ["accepted", "washing"].includes(lStatus(o));
 
   // 1. Hyväksyttävänä (Odottaa pesulan hyväksyntää)
   const awaiting = orders.filter((o) => lStatus(o) === "pending" && !isCancelledOrRejected(o));
 
-  // 2. Saapuvat (Pesula hyväksynyt, kuljettaja ei ole vielä noutanut asiakkaalta)
+  // 2. Saapuvat (Pesula hyväksynyt, pyykit noudettavana asiakkaalta)
   const incoming = orders.filter(
-    (o) => lStatus(o) === "accepted" && track(o) === "PENDING" && !isCancelledOrRejected(o),
+    (o) =>
+      isAcceptedByLaundry(o) &&
+      (track(o) === "PENDING" || track(o) === "pending") &&
+      o.status !== "washing" &&
+      !isCancelledOrRejected(o),
   );
 
-  // 3. Käsittelyssä (Noudettu asiakkaalta ja pesulassa pestävänä)
+  // 3. Käsittelyssä (Pyykit noudettu / pesulassa käsittelyssä)
   const inProgress = orders.filter(
-    (o) => lStatus(o) === "accepted" && ["PICKED_UP", "WASHING"].includes(track(o)) && !isCancelledOrRejected(o),
+    (o) =>
+      isAcceptedByLaundry(o) &&
+      (["PICKED_UP", "WASHING"].includes(track(o)) || o.status === "washing" || lStatus(o) === "washing") &&
+      !["PACKAGING", "READY_FOR_DELIVERY", "OUT_FOR_DELIVERY", "COMPLETED"].includes(track(o)) &&
+      o.status !== "delivered" &&
+      !isCancelledOrRejected(o),
   );
 
   // 4. Valmiit (Pesty & pakattu, odottaa kuljettajan palautuskuljetusta)
   const ready = orders.filter(
-    (o) => lStatus(o) === "accepted" && ["PACKAGING", "READY_FOR_DELIVERY"].includes(track(o)) && !isCancelledOrRejected(o),
+    (o) =>
+      isAcceptedByLaundry(o) &&
+      ["PACKAGING", "READY_FOR_DELIVERY"].includes(track(o)) &&
+      !["OUT_FOR_DELIVERY", "COMPLETED"].includes(track(o)) &&
+      o.status !== "delivered" &&
+      !isCancelledOrRejected(o),
   );
 
   // 5. Historia / Toimituksessa & Valmiit
@@ -629,12 +644,18 @@ export const LaundryPanel = () => {
               title="Saapuvat"
               icon={<Truck className="h-5 w-5 text-primary" />}
               items={incoming}
+              action={(o) => setStatus(o, "WASHING")}
+              actionLabel="Vastaanota pesulaan"
+              actionIcon={<WashingMachine className="mr-2 h-5 w-5" />}
               renderCard={(o) => (
                 <OrderCard
                   order={o}
+                  action={() => setStatus(o, "WASHING")}
+                  actionLabel="Vastaanota pesulaan"
+                  actionIcon={<WashingMachine className="mr-2 h-5 w-5" />}
                   extra={
                     <p className="rounded-lg bg-blue-500/10 text-blue-800 dark:text-blue-200 border border-blue-500/20 p-2.5 text-xs">
-                      🚚 Kuljettaja noutamassa asiakkaalta – siirtyy automaattisesti käsittelyyn, kun nouto on suoritettu.
+                      🚚 Kuljettaja noutamassa asiakkaalta – siirtyy automaattisesti käsittelyyn, kun nouto on toimitettu pesulalle.
                     </p>
                   }
                 />
