@@ -148,7 +148,9 @@ export const LaundryPanel = () => {
         .eq("laundry_id", laundryId)
         .eq("is_active", true),
     ]);
-    setOrders([...(unclaimed.data || []), ...(o.data || [])] as unknown as LaundryOrder[]);
+    const rawOrders = [...(unclaimed.data || []), ...(o.data || [])];
+    const uniqueOrders = Array.from(new Map(rawOrders.map((item) => [item.id, item])).values());
+    setOrders(uniqueOrders as unknown as LaundryOrder[]);
     setSettlements((s.data || []) as Settlement[]);
     setContracts((c.data || []) as Contract[]);
     setPrices(
@@ -190,16 +192,25 @@ export const LaundryPanel = () => {
   const lStatus = (o: LaundryOrder) => (o.laundry_status || "pending").toLowerCase();
   const isCancelledOrRejected = (o: LaundryOrder) => o.status === "cancelled" || o.status === "rejected";
 
+  // 1. Hyväksyttävänä (Odottaa pesulan hyväksyntää)
   const awaiting = orders.filter((o) => lStatus(o) === "pending" && !isCancelledOrRejected(o));
+
+  // 2. Saapuvat (Pesula hyväksynyt, kuljettaja ei ole vielä noutanut asiakkaalta)
   const incoming = orders.filter(
-    (o) => lStatus(o) === "accepted" && track(o) === "PENDING" && o.status !== "delivered" && !isCancelledOrRejected(o),
+    (o) => lStatus(o) === "accepted" && track(o) === "PENDING" && !isCancelledOrRejected(o),
   );
+
+  // 3. Käsittelyssä (Noudettu asiakkaalta ja pesulassa pestävänä)
   const inProgress = orders.filter(
-    (o) => lStatus(o) === "accepted" && (["WASHING", "PICKED_UP"].includes(track(o)) || o.status === "washing") && !isCancelledOrRejected(o),
+    (o) => lStatus(o) === "accepted" && ["PICKED_UP", "WASHING"].includes(track(o)) && !isCancelledOrRejected(o),
   );
+
+  // 4. Valmiit (Pesty & pakattu, odottaa kuljettajan palautuskuljetusta)
   const ready = orders.filter(
-    (o) => lStatus(o) === "accepted" && (["PACKAGING", "READY_FOR_DELIVERY"].includes(track(o)) || o.status === "ready_for_delivery") && !isCancelledOrRejected(o),
+    (o) => lStatus(o) === "accepted" && ["PACKAGING", "READY_FOR_DELIVERY"].includes(track(o)) && !isCancelledOrRejected(o),
   );
+
+  // 5. Historia / Toimituksessa & Valmiit
   const history = orders.filter((o) => ["OUT_FOR_DELIVERY", "COMPLETED"].includes(track(o)) || o.status === "delivered");
 
   const decide = async (order: LaundryOrder, decision: "accepted" | "rejected") => {
@@ -249,7 +260,10 @@ export const LaundryPanel = () => {
         .eq("order_id", order.id)
         .eq("task_type", "delivery");
     }
-    toast({ title: status === "WASHING" ? "Vastaanotettu" : "Merkitty valmiiksi" });
+    toast({
+      title: status === "PACKAGING" ? "Merkitty valmiiksi ✅" : "Vastaanotettu käsittelyyn 🧺",
+      description: status === "PACKAGING" ? "Tilaus siirretty Valmiit-sarakkeeseen ja palautusajo aktivoitu kuljettajille." : "Tilaus on nyt käsittelyssä.",
+    });
     fetchData();
   };
 
