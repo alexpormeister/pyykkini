@@ -10,20 +10,28 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Activity,
+  AlertTriangle,
   Calendar,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
   Eye,
   FileText,
   Filter,
+  History,
+  Image as ImageIcon,
   KeyRound,
   MapPin,
   Package,
   Phone,
   RefreshCw,
+  Scale,
   Search,
+  Shield,
   Truck,
   User,
   WashingMachine,
@@ -37,6 +45,22 @@ interface OrderItem {
   quantity: number;
   total_price: number;
   laundry_price?: number | null;
+}
+
+interface OrderLogEntry {
+  id: string;
+  order_id: string;
+  changed_by: string | null;
+  change_type: string;
+  change_description: string;
+  old_value: any;
+  new_value: any;
+  created_at: string;
+  profiles?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    phone?: string | null;
+  } | null;
 }
 
 interface OrderRecord {
@@ -147,8 +171,51 @@ export const OrderSearchPanel = () => {
   // Sivutus (25 tilausta kerrallaan)
   const [page, setPage] = useState(1);
 
-  // Details Modal
+  // Details Modal & Event Logs
   const [selectedOrder, setSelectedOrder] = useState<OrderRecord | null>(null);
+  const [activeModalTab, setActiveModalTab] = useState<"details" | "logs">("details");
+  const [orderLogs, setOrderLogs] = useState<OrderLogEntry[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logFilter, setLogFilter] = useState<string>("all");
+
+  const fetchOrderLogs = useCallback(async (orderId: string) => {
+    if (!orderId) return;
+    setLogsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("order_history")
+        .select("*, profiles:changed_by(first_name, last_name, phone)")
+        .eq("order_id", orderId)
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        setOrderLogs(data as unknown as OrderLogEntry[]);
+      }
+    } catch (err) {
+      console.error("Error fetching order logs:", err);
+    } finally {
+      setLogsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedOrder?.id) {
+      fetchOrderLogs(selectedOrder.id);
+      const channel = supabase
+        .channel(`order_logs_live_${selectedOrder.id}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "order_history" }, () => {
+          fetchOrderLogs(selectedOrder.id);
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } else {
+      setOrderLogs([]);
+      setActiveModalTab("details");
+    }
+  }, [selectedOrder?.id, fetchOrderLogs]);
 
   const fetchAll = useCallback(async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -1033,9 +1100,9 @@ export const OrderSearchPanel = () => {
         )}
       </Card>
 
-      {/* Order Details Modal */}
+      {/* Order Details & Event Logs Modal */}
       <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between gap-2 text-base font-bold">
               <span className="flex items-center gap-2">
@@ -1049,135 +1116,256 @@ export const OrderSearchPanel = () => {
               )}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Kattavat tiedot asiakkaasta, tuotteista, reitistä ja aikaleimoista
+              Kattavat tiedot asiakkaasta, kuljetuksesta, pesulasta ja täydellinen tapahtumaloki
             </DialogDescription>
           </DialogHeader>
 
           {selectedOrder && (
-            <div className="space-y-4 py-2 text-xs">
-              {/* Asiakastiedot & Reitti */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="bg-muted/40 p-3 rounded-lg space-y-1.5">
-                  <h4 className="font-bold text-foreground flex items-center gap-1">
-                    <User className="h-3.5 w-3.5 text-primary" /> Asiakkaan tiedot
-                  </h4>
-                  <p className="font-semibold text-sm">
-                    {((selectedOrder.first_name || "") + " " + (selectedOrder.last_name || "")).trim() || fullName(profileOf(selectedOrder.user_id))}
-                  </p>
-                  <p className="text-muted-foreground flex items-center gap-1">
-                    <Phone className="h-3 w-3" /> {selectedOrder.phone || profileOf(selectedOrder.user_id)?.phone || "-"}
-                  </p>
-                  <p className="text-muted-foreground flex items-start gap-1">
-                    <MapPin className="h-3 w-3 mt-0.5 text-amber-500 shrink-0" /> {selectedOrder.address || "-"}
-                  </p>
-                </div>
+            <Tabs value={activeModalTab} onValueChange={(val: any) => setActiveModalTab(val)} className="w-full mt-2">
+              <TabsList className="grid w-full grid-cols-2 h-9 mb-3 bg-muted/60">
+                <TabsTrigger value="details" className="text-xs font-semibold flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Yleistiedot
+                </TabsTrigger>
+                <TabsTrigger value="logs" className="text-xs font-semibold flex items-center gap-1.5">
+                  <History className="h-3.5 w-3.5" /> Tapahtumaloki ({orderLogs.length})
+                </TabsTrigger>
+              </TabsList>
 
-                <div className="bg-muted/40 p-3 rounded-lg space-y-1.5">
-                  <h4 className="font-bold text-foreground flex items-center gap-1">
-                    <Truck className="h-3.5 w-3.5 text-blue-500" /> Käsittely & Kuljetus
-                  </h4>
-                  <p className="text-muted-foreground">
-                    <strong className="text-foreground">Kuljettaja:</strong> {selectedOrder.driver_id ? fullName(driverOf(selectedOrder.driver_id)) : "Ei määritetty"}
-                  </p>
-                  <p className="text-muted-foreground">
-                    <strong className="text-foreground">Pesula:</strong> {laundryOf(selectedOrder.laundry_id)?.name || "Ei määritetty"}
-                  </p>
-                  <p className="text-muted-foreground">
-                    <strong className="text-foreground">PIN-koodi:</strong>{" "}
-                    <span className="font-mono font-bold bg-sky-50 text-sky-700 border border-sky-200 px-1 rounded">
-                      {getPickupCode(selectedOrder.id)}
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Aikataulu */}
-              <div className="bg-muted/20 border p-3 rounded-lg space-y-1">
-                <h4 className="font-bold text-foreground flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5 text-sky-500" /> Aikataulu
-                </h4>
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <div>
-                    <span className="text-muted-foreground">Noutoaika:</span>
-                    <p className="font-semibold">{selectedOrder.pickup_date} klo {selectedOrder.pickup_time || "10:00"}</p>
+              {/* VÄLILEHTI 1: YLEISTIEDOT */}
+              <TabsContent value="details" className="space-y-4 py-1 text-xs">
+                {/* Asiakastiedot & Reitti */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="bg-muted/40 p-3 rounded-lg space-y-1.5">
+                    <h4 className="font-bold text-foreground flex items-center gap-1">
+                      <User className="h-3.5 w-3.5 text-primary" /> Asiakkaan tiedot
+                    </h4>
+                    <p className="font-semibold text-sm">
+                      {((selectedOrder.first_name || "") + " " + (selectedOrder.last_name || "")).trim() || fullName(profileOf(selectedOrder.user_id))}
+                    </p>
+                    <p className="text-muted-foreground flex items-center gap-1">
+                      <Phone className="h-3 w-3" /> {selectedOrder.phone || profileOf(selectedOrder.user_id)?.phone || "-"}
+                    </p>
+                    <p className="text-muted-foreground flex items-start gap-1">
+                      <MapPin className="h-3 w-3 mt-0.5 text-amber-500 shrink-0" /> {selectedOrder.address || "-"}
+                    </p>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Palautusaika:</span>
-                    <p className="font-semibold">{selectedOrder.return_date || "-"} klo {selectedOrder.return_time || "10:00"}</p>
+
+                  <div className="bg-muted/40 p-3 rounded-lg space-y-1.5">
+                    <h4 className="font-bold text-foreground flex items-center gap-1">
+                      <Truck className="h-3.5 w-3.5 text-blue-500" /> Käsittely & Kuljetus
+                    </h4>
+                    <p className="text-muted-foreground">
+                      <strong className="text-foreground">Kuljettaja:</strong> {selectedOrder.driver_id ? fullName(driverOf(selectedOrder.driver_id)) : "Ei määritetty"}
+                    </p>
+                    <p className="text-muted-foreground">
+                      <strong className="text-foreground">Pesula:</strong> {laundryOf(selectedOrder.laundry_id)?.name || "Ei määritetty"}
+                    </p>
+                    <p className="text-muted-foreground">
+                      <strong className="text-foreground">PIN-koodi:</strong>{" "}
+                      <span className="font-mono font-bold bg-sky-50 text-sky-700 border border-sky-200 px-1 rounded">
+                        {getPickupCode(selectedOrder.id)}
+                      </span>
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Tuotteet */}
-              {selectedOrder.order_items && selectedOrder.order_items.length > 0 && (
-                <div className="space-y-1.5">
+                {/* Aikataulu */}
+                <div className="bg-muted/20 border p-3 rounded-lg space-y-1">
                   <h4 className="font-bold text-foreground flex items-center gap-1">
-                    <Package className="h-3.5 w-3.5 text-purple-500" /> Tilauksen tuotteet ({selectedOrder.order_items.length} kpl)
+                    <Clock className="h-3.5 w-3.5 text-sky-500" /> Aikataulu
                   </h4>
-                  <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader className="bg-muted/40 text-[11px]">
-                        <TableRow>
-                          <TableHead>Tuote / Palvelu</TableHead>
-                          <TableHead className="text-center w-[60px]">Kpl</TableHead>
-                          <TableHead className="text-right w-[80px]">Yhteensä</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody className="text-xs">
-                        {selectedOrder.order_items.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>{item.product_name || item.service_name}</TableCell>
-                            <TableCell className="text-center font-bold">{item.quantity}</TableCell>
-                            <TableCell className="text-right font-semibold">{money(item.total_price)}</TableCell>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div>
+                      <span className="text-muted-foreground">Noutoaika:</span>
+                      <p className="font-semibold">{selectedOrder.pickup_date} klo {selectedOrder.pickup_time || "10:00"}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Palautusaika:</span>
+                      <p className="font-semibold">{selectedOrder.return_date || "-"} klo {selectedOrder.return_time || "10:00"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tuotteet */}
+                {selectedOrder.order_items && selectedOrder.order_items.length > 0 && (
+                  <div className="space-y-1.5">
+                    <h4 className="font-bold text-foreground flex items-center gap-1">
+                      <Package className="h-3.5 w-3.5 text-purple-500" /> Tilauksen tuotteet ({selectedOrder.order_items.length} kpl)
+                    </h4>
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader className="bg-muted/40 text-[11px]">
+                          <TableRow>
+                            <TableHead>Tuote / Palvelu</TableHead>
+                            <TableHead className="text-center w-[60px]">Kpl</TableHead>
+                            <TableHead className="text-right w-[80px]">Yhteensä</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody className="text-xs">
+                          {selectedOrder.order_items.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell>{item.product_name || item.service_name}</TableCell>
+                              <TableCell className="text-center font-bold">{item.quantity}</TableCell>
+                              <TableCell className="text-right font-semibold">{money(item.total_price)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Hintaerittely */}
+                <div className="bg-muted/40 p-3 rounded-lg space-y-1">
+                  <h4 className="font-bold text-foreground">Hinnan erittely</h4>
+                  <div className="space-y-1 text-[11px]">
+                    {selectedOrder.price != null && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Tuotteiden välisumma:</span>
+                        <span>{money(selectedOrder.price)}</span>
+                      </div>
+                    )}
+                    {selectedOrder.delivery_fee != null && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Toimitusmaksu:</span>
+                        <span>{money(selectedOrder.delivery_fee)}</span>
+                      </div>
+                    )}
+                    {selectedOrder.service_fee != null && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Palvelumaksu:</span>
+                        <span>{money(selectedOrder.service_fee)}</span>
+                      </div>
+                    )}
+                    <Separator className="my-1" />
+                    <div className="flex justify-between font-bold text-sm text-foreground">
+                      <span>Kokonaissumma:</span>
+                      <span>{money(Number(selectedOrder.payment_amount ?? selectedOrder.final_price ?? 0))}</span>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Hintaerittely */}
-              <div className="bg-muted/40 p-3 rounded-lg space-y-1">
-                <h4 className="font-bold text-foreground">Hinnan erittely</h4>
-                <div className="space-y-1 text-[11px]">
-                  {selectedOrder.price != null && (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Tuotteiden välisumma:</span>
-                      <span>{money(selectedOrder.price)}</span>
-                    </div>
-                  )}
-                  {selectedOrder.delivery_fee != null && (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Toimitusmaksu:</span>
-                      <span>{money(selectedOrder.delivery_fee)}</span>
-                    </div>
-                  )}
-                  {selectedOrder.service_fee != null && (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Palvelumaksu:</span>
-                      <span>{money(selectedOrder.service_fee)}</span>
-                    </div>
-                  )}
-                  <Separator className="my-1" />
-                  <div className="flex justify-between font-bold text-sm text-foreground">
-                    <span>Kokonaissumma:</span>
-                    <span>{money(Number(selectedOrder.payment_amount ?? selectedOrder.final_price ?? 0))}</span>
+                {/* Lisätiedot / Erityisohjeet */}
+                {selectedOrder.special_instructions && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg text-xs space-y-1">
+                    <h4 className="font-bold text-amber-800 dark:text-amber-300">Erityisohjeet / Lisätiedot:</h4>
+                    <p className="text-amber-900 dark:text-amber-200">{selectedOrder.special_instructions}</p>
                   </div>
-                </div>
-              </div>
+                )}
+              </TabsContent>
 
-              {/* Lisätiedot / Erityisohjeet */}
-              {selectedOrder.special_instructions && (
-                <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg text-xs space-y-1">
-                  <h4 className="font-bold text-amber-800 dark:text-amber-300">Erityisohjeet / Lisätiedot:</h4>
-                  <p className="text-amber-900 dark:text-amber-200">{selectedOrder.special_instructions}</p>
+              {/* VÄLILEHTI 2: TAPAHTUMALOKI (KAIKKI TAPAHTUMAT JA AIKALEIMAT) */}
+              <TabsContent value="logs" className="space-y-3 py-1 text-xs">
+                {/* Yläpalkki: Pika-suodattimet ja Päivitä-nappi */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-muted/40 p-2.5 rounded-lg text-xs border">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-muted-foreground mr-1 flex items-center gap-1">
+                      <Filter className="h-3 w-3" /> Suodata:
+                    </span>
+                    {[
+                      { key: "all", label: "Kaikki" },
+                      { key: "driver", label: "🚚 Kuljettaja" },
+                      { key: "laundry", label: "🧺 Pesula" },
+                      { key: "status", label: "🔄 Tilamuutokset" },
+                      { key: "customer", label: "👤 Asiakas" },
+                    ].map((f) => (
+                      <Button
+                        key={f.key}
+                        size="sm"
+                        variant={logFilter === f.key ? "default" : "outline"}
+                        onClick={() => setLogFilter(f.key)}
+                        className="h-6 px-2 text-[10px]"
+                      >
+                        {f.label}
+                      </Button>
+                    ))}
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => selectedOrder && fetchOrderLogs(selectedOrder.id)}
+                    disabled={logsLoading}
+                    className="h-6 px-2 text-[11px] flex items-center gap-1 self-end sm:self-auto"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${logsLoading ? "animate-spin" : ""}`} />
+                    Päivitä lokit
+                  </Button>
                 </div>
-              )}
-            </div>
+
+                {/* Lokilistaus / Aikajana */}
+                {logsLoading ? (
+                  <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
+                    <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+                    <span>Ladataan tapahtumalokia...</span>
+                  </div>
+                ) : filteredLogs.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-muted-foreground border rounded-lg bg-muted/20">
+                    <History className="h-6 w-6 mx-auto mb-2 text-muted-foreground/60" />
+                    <p className="font-semibold text-foreground">Ei tapahtumia tällä suodatuksella</p>
+                    <p className="text-[11px] mt-1 text-muted-foreground">Kaikki tilaukseen liittyvät toimenpiteet tallentuvat tänne automaattisesti kellonaikoineen.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+                    {filteredLogs.map((log, idx) => {
+                      const actor = getLogActorBadge(log, selectedOrder);
+                      return (
+                        <div
+                          key={log.id || idx}
+                          className="p-3 rounded-lg border bg-card text-xs shadow-sm hover:border-primary/40 transition-colors space-y-1.5"
+                        >
+                          {/* Ylärivi: Tekijäbadge + Aikaleima */}
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="outline" className={`text-[10px] font-semibold flex items-center px-1.5 py-0.5 ${actor.className}`}>
+                                {actor.icon}
+                                {actor.label}
+                              </Badge>
+                              {log.profiles && (
+                                <span className="text-[11px] font-medium text-foreground">
+                                  {log.profiles.first_name} {log.profiles.last_name}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-[11px] text-muted-foreground font-mono flex items-center gap-1 bg-muted/50 px-1.5 py-0.5 rounded">
+                              <Clock className="h-3 w-3" />
+                              {formatLogTimestamp(log.created_at)}
+                            </div>
+                          </div>
+
+                          {/* Tapahtuman selite */}
+                          <p className="text-xs font-semibold text-foreground pl-0.5">
+                            {log.change_description || "Tapahtuma kirjattu"}
+                          </p>
+
+                          {/* Valokuvat jos saatavilla */}
+                          {log.new_value?.photos && Array.isArray(log.new_value.photos) && log.new_value.photos.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                              {log.new_value.photos.map((imgUrl: string, imgIdx: number) => (
+                                <a
+                                  key={imgIdx}
+                                  href={imgUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="relative block w-14 h-14 rounded border overflow-hidden bg-muted group hover:ring-2 hover:ring-primary"
+                                  title="Avaa täysikokoinen kuva"
+                                >
+                                  <img src={imgUrl} alt={`Tuotekuva ${imgIdx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="mt-2 pt-2 border-t">
             <Button size="sm" onClick={() => setSelectedOrder(null)}>
               Sulje
             </Button>
