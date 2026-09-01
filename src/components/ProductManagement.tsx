@@ -12,6 +12,7 @@ import { Package, Plus, Trash2, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { logger } from "@/lib/logger";
 
@@ -43,7 +44,25 @@ interface Product {
   discount_custom_partner_fee?: number | null;
   discount_custom_driver_fee?: number | null;
   verification_type?: "weight" | "photo" | "both" | null;
+  allow_customer_save?: boolean | null;
+  saved_textile_config?: {
+    requires_dimensions?: boolean;
+    allows_material?: boolean;
+    allows_color?: boolean;
+    allows_photo?: boolean;
+    allows_care_instructions?: boolean;
+    allows_notes?: boolean;
+  } | null;
 }
+
+const defaultSavedTextileConfig = {
+  requires_dimensions: false,
+  allows_material: true,
+  allows_color: true,
+  allows_photo: true,
+  allows_care_instructions: true,
+  allows_notes: true,
+};
 
 const emptyFees = {
   platform_fee_type: "percent",
@@ -315,6 +334,108 @@ const FeeFields = ({
   );
 };
 
+const SavedTextileFields = ({
+  enabled,
+  onEnabledChange,
+  config,
+  onConfigChange,
+  idPrefix,
+}: {
+  enabled: boolean;
+  onEnabledChange: (v: boolean) => void;
+  config: typeof defaultSavedTextileConfig;
+  onConfigChange: (patch: Partial<typeof defaultSavedTextileConfig>) => void;
+  idPrefix: string;
+}) => {
+  return (
+    <div className="space-y-4 rounded-xl border border-sky-200 bg-sky-50/50 p-4">
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label htmlFor={`${idPrefix}-allow-save`} className="text-sm font-semibold text-slate-900 cursor-pointer">
+            🧺 Omiin tekstiileihin tallennus (Asiakkaan profiili)
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Salli asiakkaan tallentaa tämä tuote ja sen mitat omaan profiiliinsa nopeaa uudelleentilausta varten.
+          </p>
+        </div>
+        <Switch
+          id={`${idPrefix}-allow-save`}
+          checked={enabled}
+          onCheckedChange={onEnabledChange}
+        />
+      </div>
+
+      {enabled && (
+        <div className="space-y-3 pt-2 border-t border-sky-100">
+          <p className="text-xs font-semibold text-slate-700">Valitse asiakkaalta kysyttävät kentät:</p>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id={`${idPrefix}-dim`}
+                checked={config.requires_dimensions}
+                onCheckedChange={(c) => onConfigChange({ requires_dimensions: !!c })}
+              />
+              <Label htmlFor={`${idPrefix}-dim`} className="text-xs cursor-pointer">
+                📐 Mitat (Pituus × Leveys cm, m²-laskuri)
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id={`${idPrefix}-mat`}
+                checked={config.allows_material}
+                onCheckedChange={(c) => onConfigChange({ allows_material: !!c })}
+              />
+              <Label htmlFor={`${idPrefix}-mat`} className="text-xs cursor-pointer">
+                🧵 Materiaali ja pikatagit
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id={`${idPrefix}-col`}
+                checked={config.allows_color}
+                onCheckedChange={(c) => onConfigChange({ allows_color: !!c })}
+              />
+              <Label htmlFor={`${idPrefix}-col`} className="text-xs cursor-pointer">
+                🎨 Väri ja väritagit
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id={`${idPrefix}-pho`}
+                checked={config.allows_photo}
+                onCheckedChange={(c) => onConfigChange({ allows_photo: !!c })}
+              />
+              <Label htmlFor={`${idPrefix}-pho`} className="text-xs cursor-pointer">
+                📷 Valokuvan lisäys
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id={`${idPrefix}-care`}
+                checked={config.allows_care_instructions}
+                onCheckedChange={(c) => onConfigChange({ allows_care_instructions: !!c })}
+              />
+              <Label htmlFor={`${idPrefix}-care`} className="text-xs cursor-pointer">
+                🧼 Pesumerkinnät / Huomiot
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id={`${idPrefix}-notes`}
+                checked={config.allows_notes}
+                onCheckedChange={(c) => onConfigChange({ allows_notes: !!c })}
+              />
+              <Label htmlFor={`${idPrefix}-notes`} className="text-xs cursor-pointer">
+                📝 Tahrat ja erityistoiveet
+              </Label>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const ProductManagement = () => {
   const { toast } = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -347,6 +468,10 @@ export const ProductManagement = () => {
   const [editPromo, setEditPromo] = useState({ badge_text: "", is_featured: false, sort_order: "1" });
   const [newDiscount, setNewDiscount] = useState<DiscountValues>({ ...emptyDiscount });
   const [editDiscount, setEditDiscount] = useState<DiscountValues>({ ...emptyDiscount });
+  const [newAllowSave, setNewAllowSave] = useState(false);
+  const [newTextileConfig, setNewTextileConfig] = useState({ ...defaultSavedTextileConfig });
+  const [editAllowSave, setEditAllowSave] = useState(false);
+  const [editTextileConfig, setEditTextileConfig] = useState({ ...defaultSavedTextileConfig });
   const [onlyDiscounted, setOnlyDiscounted] = useState(false);
 
   const hasDiscount = (p: Product) =>
@@ -424,7 +549,9 @@ export const ProductManagement = () => {
           driver_fee_value: parseFloat(formData.driver_fee_value || "0"),
           badge_text: newPromo.badge_text || undefined,
           is_featured: newPromo.is_featured,
-          sort_order: parseInt(newPromo.sort_order || "1", 10) || 1
+          sort_order: parseInt(newPromo.sort_order || "1", 10) || 1,
+          allow_customer_save: newAllowSave,
+          saved_textile_config: newTextileConfig
         }
       });
 
@@ -447,6 +574,8 @@ export const ProductManagement = () => {
       });
       setNewPromo({ badge_text: "", is_featured: false, sort_order: "1" });
       setNewDiscount({ ...emptyDiscount });
+      setNewAllowSave(false);
+      setNewTextileConfig({ ...defaultSavedTextileConfig });
       
       fetchProducts();
     } catch (error: any) {
@@ -487,6 +616,11 @@ export const ProductManagement = () => {
       discount_custom_partner_fee: product.discount_custom_partner_fee != null ? String(product.discount_custom_partner_fee) : "",
       discount_custom_driver_fee: product.discount_custom_driver_fee != null ? String(product.discount_custom_driver_fee) : "",
       preview_laundry_price: ""
+    });
+    setEditAllowSave(!!product.allow_customer_save);
+    setEditTextileConfig({
+      ...defaultSavedTextileConfig,
+      ...(product.saved_textile_config || {})
     });
     setShowEditDialog(true);
   };
@@ -531,6 +665,8 @@ export const ProductManagement = () => {
           badge_text: editPromo.badge_text || null,
           is_featured: editPromo.is_featured,
           sort_order: parseInt(editPromo.sort_order || "1", 10) || 1,
+          allow_customer_save: editAllowSave,
+          saved_textile_config: editTextileConfig,
           is_active: editFormData.is_active
         } as any)
         .eq("id", editingProduct.id);
@@ -743,6 +879,14 @@ export const ProductManagement = () => {
               platformPct={parseFloat(formData.platform_fee_value || "0") || 0}
               values={newDiscount}
               onChange={(patch) => setNewDiscount({ ...newDiscount, ...patch })}
+            />
+
+            <SavedTextileFields
+              idPrefix="new"
+              enabled={newAllowSave}
+              onEnabledChange={setNewAllowSave}
+              config={newTextileConfig}
+              onConfigChange={(patch) => setNewTextileConfig({ ...newTextileConfig, ...patch })}
             />
 
             <div className="grid gap-4 rounded-lg border p-3">
@@ -1007,6 +1151,14 @@ export const ProductManagement = () => {
               platformPct={parseFloat(editFormData.platform_fee_value || "0") || 0}
               values={editDiscount}
               onChange={(patch) => setEditDiscount({ ...editDiscount, ...patch })}
+            />
+
+            <SavedTextileFields
+              idPrefix="edit"
+              enabled={editAllowSave}
+              onEnabledChange={setEditAllowSave}
+              config={editTextileConfig}
+              onConfigChange={(patch) => setEditTextileConfig({ ...editTextileConfig, ...patch })}
             />
 
             <div className="grid gap-4 rounded-lg border p-3">
