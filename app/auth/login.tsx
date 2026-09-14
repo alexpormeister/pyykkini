@@ -164,21 +164,20 @@ export default function LoginScreen() {
                 <View style={styles.diagonalLine2} />
             </View>
 
-            <SafeAreaView style={styles.safeArea}>
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={styles.container}
-                >
-                    <View style={styles.blueContent}>
-                        <View style={styles.topContent}>
-                            <Image
-                                source={require('../../assets/images/3dglossy-logo.png')}
-                                style={styles.logo}
-                                resizeMode="contain"
-                            />
-                            <Text style={styles.title}>PESUNI</Text>
-                            <Text style={styles.subtitle}>PUHDASTA ARKEA</Text>
-                        </View>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={styles.container}
+            >
+                <SafeAreaView edges={['top']} style={styles.topArea}>
+                    <View style={styles.topContent}>
+                        <Image
+                            source={require('../../assets/images/3dglossy-logo.png')}
+                            style={styles.logo}
+                            resizeMode="contain"
+                        />
+                        <Text style={styles.title}>PESUNI</Text>
+                        <Text style={styles.subtitle}>PUHDASTA ARKEA</Text>
+
                         <View style={styles.inputArea}>
                             <View style={styles.inputContainer}>
                                 <Feather name="user" size={20} color="#6b7280" style={styles.icon} />
@@ -206,8 +205,11 @@ export default function LoginScreen() {
                             </View>
                         </View>
                     </View>
+                </SafeAreaView>
 
-                    <View style={styles.whiteCard}>
+                {/* VALKOINEN KORTTI - TÄYTTÄÄ KOKO POHJAN ILMAN SINISTÄ VUOTOA */}
+                <View style={styles.whiteCard}>
+                    <SafeAreaView edges={['bottom']} style={styles.cardInner}>
                         <TouchableOpacity onPress={() => router.push('/auth/forgotPassword')}>
                             <Text style={styles.forgotPassword}>Forgot Password?</Text>
                         </TouchableOpacity>
@@ -246,19 +248,18 @@ export default function LoginScreen() {
                             </TouchableOpacity>
                         </View>
 
-
                         <TouchableOpacity
                             style={styles.createButton}
-                            onPress={() => router.push("../auth/signup")}
+                            onPress={() => router.push("/auth/signup")}
                             disabled={loading}
                         >
                             <Text style={styles.createButtonText}>Create an account</Text>
                         </TouchableOpacity>
-                    </View>
-                </KeyboardAvoidingView>
-            </SafeAreaView>
+                    </SafeAreaView>
+                </View>
+            </KeyboardAvoidingView>
         </View>
-    )
+    );
 }
 
 const styles = StyleSheet.create({
@@ -266,9 +267,139 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#00C2FF',
     },
-    safeArea: {
+    topArea: {
         flex: 1,
-        backgroundColor: 'transparent',
+        justifyContent: 'center',
+    },
+    lineContainer: {
+        ...StyleSheet.absoluteFillObject,
+        overflow: 'hidden',
+    },
+    arcOuter: {
+        position: 'absolute',
+        top: -80,
+        right: -60,
+        width: 320,
+        height: 320,
+        borderRadius: 160,
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.22)',
+    },
+    arcMiddle: {
+        position: 'absolute',
+        top: -40,
+        right: -20,
+        width: 240,
+        height: 240,
+        borderRadius: 120,
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.18)',
+    },
+    arcInner: {
+        position: 'absolute',
+        top: 0,
+        right: 20,
+        width: 160,
+        height: 160,
+        borderRadius: 80,
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
+        borderStyle: 'dashed',
+    },
+    diagonalLine1: {
+        position: 'absolute',
+        top: 140,
+        left: -50,
+        width: 280,
+        height: 1.5,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        transform: [{ rotate: '-22deg' }],
+    },
+    diagonalLine2: {
+        position: 'absolute',
+        top: 180,
+        left: -30,
+        width: 220,
+        height: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        transform: [{ rotate: '-22deg' }],
+    },
+    container: {
+        flex: 1,
+        justifyContent: 'space-between',
+    },
+    topContent: {
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === 'ios' ? 8 : 16,
+    },
+    logo: {
+        width: 130,
+        height: 130,
+        marginBottom: 6,
+    },
+    title: {
+        fontSize: 42,
+        fontWeight: 'bold',
+        color: 'white',
+        fontFamily: 'Montserrat',
+        textShadowColor: 'rgba(0, 0, 0, 0.3)',
+        textShadowRadius: 1,
+        textShadowOffset: { width: 0, height: 3 },
+    },
+    subtitle: {
+        fontSize: 15,
+        color: 'white',
+        letterSpacing: 1.5,
+        marginBottom: 16,
+        textShadowColor: 'rgba(0, 40, 95, 0.35)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+    },
+    inputArea: {
+        width: '100%',
+        maxWidth: 360,
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        borderRadius: 30,
+        paddingHorizontal: 20,
+        paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.7)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    icon: {
+        marginRight: 10,
+    },
+    input: {
+        flex: 1,
+        color: '#333',
+        fontSize: 16,
+    },
+    whiteCard: {
+        backgroundColor: '#FFFFFF',
+        borderTopLeftRadius: 36,
+        borderTopRightRadius: 36,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    cardInner: {
+        paddingHorizontal: 30,
+        paddingTop: 24,
+        paddingBottom: Platform.OS === 'ios' ? 16 : 24,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     lineContainer: {
         ...StyleSheet.absoluteFillObject,

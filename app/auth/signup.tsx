@@ -81,17 +81,20 @@ export default function SignUpScreen() {
                 <View style={styles.diagonalLine2} />
             </View>
 
-            <SafeAreaView style={styles.safeArea}>
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={styles.container}
-                >
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={styles.container}
+            >
+                <SafeAreaView edges={['top']} style={styles.topArea}>
                     <View style={styles.topContainer}>
                         <Text style={styles.title}>Rekisteröidy Käyttäjäksi</Text>
                         <Text style={styles.subtitle}>Kohti puhtaampaa arkea</Text>
                     </View>
+                </SafeAreaView>
 
-                    <View style={styles.bottomContainer}>
+                {/* VALKOINEN KORTTI - TÄYTTÄÄ KOKO POHJAN ILMAN SINISTÄ VUOTOA */}
+                <View style={styles.whiteCard}>
+                    <SafeAreaView edges={['bottom']} style={styles.cardInner}>
                         <View style={styles.inputContainer}>
                             <Feather name="user" size={20} color="#6b7280" style={styles.icon} />
                             <TextInput
@@ -118,7 +121,7 @@ export default function SignUpScreen() {
                             <MaterialCommunityIcons name="email-fast-outline" size={20} color="#6b7280" style={styles.icon} />
                             <TextInput
                                 style={styles.input}
-                                placeholder="Email Adress"
+                                placeholder="Email Address"
                                 placeholderTextColor="#6b7280"
                                 value={email}
                                 onChangeText={setEmail}
@@ -156,7 +159,7 @@ export default function SignUpScreen() {
                                 style={styles.checkbox}
                                 value={agreeToTerms}
                                 onValueChange={setAgreeToTerms}
-                                color={agreeToTerms ? '#60A5FA' : undefined}
+                                color={agreeToTerms ? '#00C2FF' : undefined}
                             />
                             <View style={styles.checkboxTextContainer}>
                                 <Text style={styles.checkboxText}>I agree to the </Text>
@@ -179,9 +182,9 @@ export default function SignUpScreen() {
                                 Have an account? <Text style={styles.linkText}>Sign In</Text>
                             </Text>
                         </TouchableOpacity>
-                    </View>
-                </KeyboardAvoidingView>
-            </SafeAreaView>
+                    </SafeAreaView>
+                </View>
+            </KeyboardAvoidingView>
         </View>
     );
 }
@@ -189,10 +192,12 @@ export default function SignUpScreen() {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
+        backgroundColor: '#00C2FF',
     },
-    safeArea: {
-        flex: 1,
-        backgroundColor: 'transparent',
+    topArea: {
+        justifyContent: 'center',
+        paddingTop: Platform.OS === 'ios' ? 10 : 20,
+        paddingBottom: 20,
     },
     lineContainer: {
         ...StyleSheet.absoluteFillObject,
@@ -249,11 +254,10 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
+        justifyContent: 'space-between',
     },
     topContainer: {
         paddingHorizontal: 30,
-        paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? 10 : 20) : 20,
-        paddingBottom: 35,
         alignItems: 'center',
     },
     title: {
@@ -268,22 +272,27 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 16,
         color: 'white',
-        marginTop: 8,
+        marginTop: 6,
         letterSpacing: 0.5,
         textShadowColor: 'rgba(0, 40, 95, 0.35)',
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 3,
     },
-    bottomContainer: {
-        flex: 1,
-        backgroundColor: 'white',
-        borderTopLeftRadius: 40,
-        borderTopRightRadius: 40,
+    whiteCard: {
+        backgroundColor: '#FFFFFF',
+        borderTopLeftRadius: 36,
+        borderTopRightRadius: 36,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    cardInner: {
         paddingHorizontal: 30,
-        paddingTop: 35,
-        paddingBottom: 50,
+        paddingTop: 28,
+        paddingBottom: Platform.OS === 'ios' ? 20 : 28,
         alignItems: 'center',
-        marginBottom: -50,
     },
     inputContainer: {
         flexDirection: 'row',
@@ -291,8 +300,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#F3F4F6',
         borderRadius: 25,
         paddingHorizontal: 20,
-        paddingVertical: Platform.OS === 'ios' ? 15 : 12,
-        marginBottom: 15,
+        paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+        marginBottom: 12,
         width: '100%',
     },
     icon: {
@@ -307,8 +316,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         width: '100%',
-        marginTop: 10,
-        marginBottom: 25,
+        marginTop: 6,
+        marginBottom: 20,
     },
     checkbox: {
         marginRight: 10,
@@ -347,7 +356,7 @@ const styles = StyleSheet.create({
         textShadowRadius: 2,
     },
     signInLink: {
-        marginTop: 25,
+        marginTop: 20,
         color: '#6b7280',
     },
 });
