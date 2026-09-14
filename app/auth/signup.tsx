@@ -1,4 +1,4 @@
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { Checkbox } from 'expo-checkbox';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -29,7 +29,6 @@ export default function SignUpScreen() {
     const [showRetypePassword, setShowRetypePassword] = useState(false);
     const [agreeToTerms, setAgreeToTerms] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [focusedInput, setFocusedInput] = useState<string | null>(null);
     const router = useRouter();
 
     const handleNextStep1 = () => {
@@ -41,6 +40,7 @@ export default function SignUpScreen() {
             Alert.alert('Syötä sukunimesi', 'Ole hyvä ja kirjoita sukunimesi jatkaaksesi.');
             return;
         }
+        Keyboard.dismiss();
         setStep(2);
     };
 
@@ -50,10 +50,12 @@ export default function SignUpScreen() {
             Alert.alert('Tarkista sähköposti', 'Syötä kelvollinen sähköpostiosoite.');
             return;
         }
+        Keyboard.dismiss();
         setStep(3);
     };
 
     const handlePreviousStep = () => {
+        Keyboard.dismiss();
         if (step === 3) setStep(2);
         else if (step === 2) setStep(1);
         else router.back();
@@ -113,7 +115,7 @@ export default function SignUpScreen() {
                         style={styles.backButton}
                         hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                     >
-                        <Feather name="arrow-left" size={24} color="#1E293B" />
+                        <Feather name="arrow-left" size={22} color="#0F172A" />
                     </TouchableOpacity>
 
                     {/* 3-OSAINEN PROGRESS BAR */}
@@ -127,13 +129,15 @@ export default function SignUpScreen() {
                 </View>
 
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                     style={styles.keyboardContainer}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
                 >
                     <ScrollView
                         contentContainerStyle={styles.scrollContent}
                         keyboardShouldPersistTaps="handled"
                         showsVerticalScrollIndicator={false}
+                        automaticallyAdjustKeyboardInsets={true}
                     >
                         {/* VAIHE 1: NIMET */}
                         {step === 1 && (
@@ -146,10 +150,7 @@ export default function SignUpScreen() {
 
                                 <View style={styles.inputGroup}>
                                     <Text style={styles.inputLabel}>Etunimi</Text>
-                                    <View style={[
-                                        styles.inputBox,
-                                        focusedInput === 'firstName' && styles.inputBoxFocused
-                                    ]}>
+                                    <View style={styles.inputBox}>
                                         <TextInput
                                             style={styles.input}
                                             placeholder="Esim. Matti"
@@ -157,8 +158,6 @@ export default function SignUpScreen() {
                                             value={firstName}
                                             onChangeText={setFirstName}
                                             autoCapitalize="words"
-                                            onFocus={() => setFocusedInput('firstName')}
-                                            onBlur={() => setFocusedInput(null)}
                                             returnKeyType="next"
                                         />
                                     </View>
@@ -166,10 +165,7 @@ export default function SignUpScreen() {
 
                                 <View style={styles.inputGroup}>
                                     <Text style={styles.inputLabel}>Sukunimi</Text>
-                                    <View style={[
-                                        styles.inputBox,
-                                        focusedInput === 'lastName' && styles.inputBoxFocused
-                                    ]}>
+                                    <View style={styles.inputBox}>
                                         <TextInput
                                             style={styles.input}
                                             placeholder="Esim. Meikäläinen"
@@ -177,8 +173,6 @@ export default function SignUpScreen() {
                                             value={lastName}
                                             onChangeText={setLastName}
                                             autoCapitalize="words"
-                                            onFocus={() => setFocusedInput('lastName')}
-                                            onBlur={() => setFocusedInput(null)}
                                             returnKeyType="done"
                                             onSubmitEditing={handleNextStep1}
                                         />
@@ -207,10 +201,7 @@ export default function SignUpScreen() {
 
                                 <View style={styles.inputGroup}>
                                     <Text style={styles.inputLabel}>Sähköposti</Text>
-                                    <View style={[
-                                        styles.inputBox,
-                                        focusedInput === 'email' && styles.inputBoxFocused
-                                    ]}>
+                                    <View style={styles.inputBox}>
                                         <TextInput
                                             style={styles.input}
                                             placeholder="matti.meikalainen@email.com"
@@ -219,8 +210,6 @@ export default function SignUpScreen() {
                                             onChangeText={setEmail}
                                             autoCapitalize="none"
                                             keyboardType="email-address"
-                                            onFocus={() => setFocusedInput('email')}
-                                            onBlur={() => setFocusedInput(null)}
                                             returnKeyType="done"
                                             onSubmitEditing={handleNextStep2}
                                         />
@@ -256,10 +245,7 @@ export default function SignUpScreen() {
 
                                 <View style={styles.inputGroup}>
                                     <Text style={styles.inputLabel}>Salasana</Text>
-                                    <View style={[
-                                        styles.inputBox,
-                                        focusedInput === 'password' && styles.inputBoxFocused
-                                    ]}>
+                                    <View style={styles.inputBox}>
                                         <TextInput
                                             style={styles.input}
                                             placeholder="Vähintään 6 merkkiä"
@@ -268,8 +254,6 @@ export default function SignUpScreen() {
                                             onChangeText={setPassword}
                                             autoCapitalize="none"
                                             secureTextEntry={!showPassword}
-                                            onFocus={() => setFocusedInput('password')}
-                                            onBlur={() => setFocusedInput(null)}
                                         />
                                         <TouchableOpacity onPress={() => setShowPassword(!showPassword)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                                             <Feather name={showPassword ? "eye" : "eye-off"} size={18} color="#94A3B8" />
@@ -279,10 +263,7 @@ export default function SignUpScreen() {
 
                                 <View style={styles.inputGroup}>
                                     <Text style={styles.inputLabel}>Vahvista salasana</Text>
-                                    <View style={[
-                                        styles.inputBox,
-                                        focusedInput === 'retypePassword' && styles.inputBoxFocused
-                                    ]}>
+                                    <View style={styles.inputBox}>
                                         <TextInput
                                             style={styles.input}
                                             placeholder="Kirjoita salasana uudelleen"
@@ -291,8 +272,6 @@ export default function SignUpScreen() {
                                             onChangeText={setRetypePassword}
                                             autoCapitalize="none"
                                             secureTextEntry={!showRetypePassword}
-                                            onFocus={() => setFocusedInput('retypePassword')}
-                                            onBlur={() => setFocusedInput(null)}
                                         />
                                         <TouchableOpacity onPress={() => setShowRetypePassword(!showRetypePassword)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                                             <Feather name={showRetypePassword ? "eye" : "eye-off"} size={18} color="#94A3B8" />
@@ -449,15 +428,6 @@ const styles = StyleSheet.create({
         paddingVertical: Platform.OS === 'ios' ? 16 : 13,
         borderWidth: 1.5,
         borderColor: '#E2E8F0',
-    },
-    inputBoxFocused: {
-        borderColor: '#00C2FF',
-        backgroundColor: '#FFFFFF',
-        shadowColor: '#00C2FF',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 6,
-        elevation: 2,
     },
     input: {
         flex: 1,
