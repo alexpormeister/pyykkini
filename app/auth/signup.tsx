@@ -15,15 +15,24 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import CountryPicker, { CountryCode } from 'react-native-country-picker-modal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
-import { normalizePhoneNumberData } from '../../lib/phoneUtils';
+import { formatLocalPhoneInput, normalizePhoneNumberData } from '../../lib/phoneUtils';
+
+const CALLING_CODES: { [key: string]: string } = {
+    'FI': '358', 'SE': '46', 'NO': '47', 'DK': '45', 'EE': '372', 'DE': '49', 'GB': '44', 'US': '1', 'CA': '1',
+    'FR': '33', 'ES': '34', 'IT': '39', 'NL': '31', 'PL': '48', 'LV': '371', 'LT': '370',
+};
 
 export default function SignUpScreen() {
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');
+    const [countryCode, setCountryCode] = useState<CountryCode>('FI');
+    const [callingCode, setCallingCode] = useState<string>('358');
+    const [countryPickerVisible, setCountryPickerVisible] = useState(false);
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [retypePassword, setRetypePassword] = useState('');
@@ -52,11 +61,11 @@ export default function SignUpScreen() {
             Alert.alert('Tarkista sähköposti', 'Syötä kelvollinen sähköpostiosoite.');
             return;
         }
-        const cleanPhone = phone.trim().replace(/\D/g, '');
-        if (!phone.trim() || cleanPhone.length < 6) {
+        const cleanDigits = phone.replace(/\D/g, '').replace(/^0+/, '');
+        if (!cleanDigits || cleanDigits.length < 5) {
             Alert.alert(
                 'Syötä puhelinnumero',
-                'Ole hyvä ja syötä puhelinnumerosi (esim. 040 123 4567). Tarvitsemme sen noutojen ja toimitusten yhteydenpitoon.'
+                'Ole hyvä ja syötä puhelinnumerosi (esim. 40 123 4567). Tarvitsemme sen noutojen ja toimitusten yhteydenpitoon.'
             );
             return;
         }
@@ -86,7 +95,9 @@ export default function SignUpScreen() {
         }
 
         setLoading(true);
-        const normalizedPhone = normalizePhoneNumberData(phone);
+        const cleanDigits = phone.replace(/\D/g, '').replace(/^0+/, '');
+        const fullPhone = `+${callingCode}${cleanDigits}`;
+        const normalizedPhone = normalizePhoneNumberData(fullPhone, callingCode);
 
         const { data, error } = await supabase.auth.signUp({
             email: email.trim(),
@@ -238,17 +249,43 @@ export default function SignUpScreen() {
 
                                 <View style={styles.inputGroup}>
                                     <Text style={styles.inputLabel}>Puhelinnumero</Text>
-                                    <View style={styles.inputBox}>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="040 123 4567"
-                                            placeholderTextColor="#94A3B8"
-                                            value={phone}
-                                            onChangeText={setPhone}
-                                            keyboardType="phone-pad"
-                                            returnKeyType="done"
-                                            onSubmitEditing={handleNextStep2}
-                                        />
+                                    <View style={styles.phoneRow}>
+                                        <TouchableOpacity
+                                            onPress={() => setCountryPickerVisible(true)}
+                                            style={styles.countryCodeButton}
+                                            activeOpacity={0.7}
+                                        >
+                                            <CountryPicker
+                                                withFilter
+                                                withFlag
+                                                onSelect={({ cca2, callingCode: cCode }) => {
+                                                    setCountryCode(cca2);
+                                                    if (cCode && cCode[0]) {
+                                                        setCallingCode(cCode[0]);
+                                                    } else {
+                                                        setCallingCode(CALLING_CODES[cca2] || '358');
+                                                    }
+                                                    setCountryPickerVisible(false);
+                                                }}
+                                                visible={countryPickerVisible}
+                                                onClose={() => setCountryPickerVisible(false)}
+                                                countryCode={countryCode}
+                                            />
+                                            <Text style={styles.countryCodeText}>+{callingCode}</Text>
+                                            <Feather name="chevron-down" size={14} color="#64748B" style={styles.chevronIcon} />
+                                        </TouchableOpacity>
+                                        <View style={[styles.inputBox, styles.phoneInputBox]}>
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="40 123 4567"
+                                                placeholderTextColor="#94A3B8"
+                                                value={phone}
+                                                onChangeText={(text) => setPhone(formatLocalPhoneInput(text))}
+                                                keyboardType="phone-pad"
+                                                returnKeyType="done"
+                                                onSubmitEditing={handleNextStep2}
+                                            />
+                                        </View>
                                     </View>
                                 </View>
 
@@ -462,6 +499,34 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         color: '#0F172A',
+    },
+    phoneRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    countryCodeButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F8FAFC',
+        borderRadius: 16,
+        paddingHorizontal: 12,
+        paddingVertical: Platform.OS === 'ios' ? 16 : 13,
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
+    },
+    countryCodeText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#0F172A',
+        marginLeft: 4,
+    },
+    chevronIcon: {
+        marginLeft: 4,
+    },
+    phoneInputBox: {
+        flex: 1,
+        marginBottom: 0,
     },
     checkboxContainer: {
         flexDirection: 'row',
