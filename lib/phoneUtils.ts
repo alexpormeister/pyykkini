@@ -11,9 +11,9 @@
  * Esim. "0401234567" -> "+358 40 1234567"
  * Esim. "+358123456789" -> "+358 12 3456789"
  */
-export function formatPhoneNumberDisplay(phone: string | null | undefined): string {
-    if (!phone) return '';
-    const trimmed = phone.trim();
+export function formatPhoneNumberDisplay(phone: any): string {
+    if (phone === null || phone === undefined) return '';
+    const trimmed = String(phone).trim();
     if (!trimmed) return '';
 
     let normalized = trimmed;

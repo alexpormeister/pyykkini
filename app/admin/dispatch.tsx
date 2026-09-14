@@ -1,4 +1,4 @@
-import { Feather, FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
@@ -9,7 +9,6 @@ import {
     Alert,
     Dimensions,
     Modal,
-    Platform,
     RefreshControl,
     ScrollView,
     StatusBar,
@@ -20,7 +19,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { formatTimeWindow, parseStructuredAddress } from '../../lib/addressUtils';
+import { formatTimeWindow } from '../../lib/addressUtils';
 import { formatPhoneNumberDisplay } from '../../lib/phoneUtils';
 import { supabase } from '../../lib/supabase';
 
@@ -82,25 +81,81 @@ interface FullOrder {
 }
 
 // 🌐 PURE HELPER FUNCTIONS
-function formatShortDate(isoStr?: string): string {
+function formatShortDate(isoStr?: any): string {
     if (!isoStr) return '-';
     try {
         const d = new Date(isoStr);
-        if (isNaN(d.getTime())) return isoStr;
+        if (isNaN(d.getTime())) return String(isoStr);
         const day = d.getDate();
         const month = d.getMonth() + 1;
         return `${day}.${month}.`;
     } catch {
-        return isoStr;
+        return String(isoStr || '-');
     }
 }
 
-function getDriverDisplayName(driverId: string | null, driverList: DriverUser[]): string | null {
+function getDriverDisplayName(driverId: string | null | undefined, driverList?: DriverUser[]): string | null {
     if (!driverId) return null;
-    const found = driverList.find(d => d.id === driverId);
+    if (!driverList || !Array.isArray(driverList)) return 'Kuljettaja määritetty';
+    const found = driverList.find(d => d && d.id === driverId);
     if (!found) return 'Kuljettaja määritetty';
     const name = `${found.first_name || ''} ${found.last_name || ''}`.trim();
     return name || found.email || 'Kuljettaja';
+}
+
+// 📌 APUKOMPONENTIT (MÄÄRITELTY ENNEN PÄÄKOMPONENTTIA TDZ-VIRHEIDEN ESTÄMISEKSI)
+function StatCard({ label, value, icon, color, bg, highlight }: any) {
+    return (
+        <View style={[styles.statCard, highlight && { borderColor: color, borderWidth: 1.5 }]}>
+            <View style={[styles.statIconCircle, { backgroundColor: bg }]}>
+                <Feather name={icon} size={18} color={color} />
+            </View>
+            <Text style={styles.statValue}>{value}</Text>
+            <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
+        </View>
+    );
+}
+
+function FilterTab({ label, active, badgeColor, onPress }: any) {
+    return (
+        <TouchableOpacity
+            style={[styles.filterTab, active && styles.filterTabActive]}
+            onPress={onPress}
+            activeOpacity={0.7}
+        >
+            {badgeColor && <View style={[styles.tabBadgeDot, { backgroundColor: badgeColor }]} />}
+            <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>{label}</Text>
+        </TouchableOpacity>
+    );
+}
+
+function StatusPill({ status }: { status: string }) {
+    const s = String(status || '').toLowerCase();
+    let bg = '#F1F5F9';
+    let text = '#64748B';
+    let label = status || 'Odottaa';
+
+    if (s === 'unassigned') {
+        bg = '#FEF3C7'; text = '#D97706'; label = 'Jaossa';
+    } else if (s === 'assigned' || s === 'in_progress') {
+        bg = '#E0F2FE'; text = '#0284C7'; label = 'Määrätty';
+    } else if (s === 'picking_up' || s === 'accepted') {
+        bg = '#EFF6FF'; text = '#2563EB'; label = 'Noudossa';
+    } else if (s === 'washing') {
+        bg = '#F3E8FF'; text = '#9333EA'; label = 'Pesussa';
+    } else if (s === 'returning') {
+        bg = '#FEF9C3'; text = '#CA8A04'; label = 'Palautuksessa';
+    } else if (s === 'delivered' || s === 'completed') {
+        bg = '#DCFCE7'; text = '#16A34A'; label = 'Toimitettu';
+    } else if (s === 'cancelled' || s === 'rejected') {
+        bg = '#FEE2E2'; text = '#DC2626'; label = 'Peruutettu';
+    }
+
+    return (
+        <View style={[styles.statusPillBox, { backgroundColor: bg }]}>
+            <Text style={[styles.statusPillText, { color: text }]}>{label}</Text>
+        </View>
+    );
 }
 
 export default function AdminDispatchScreen() {
@@ -220,16 +275,22 @@ export default function AdminDispatchScreen() {
 
     // Kopioi ID
     const copyToClipboard = async (text: string) => {
-        await Clipboard.setStringAsync(text);
-        setCopiedId(text);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        setTimeout(() => setCopiedId(null), 2000);
+        try {
+            await Clipboard.setStringAsync(text);
+            setCopiedId(text);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            setTimeout(() => setCopiedId(null), 2000);
+        } catch {
+            setCopiedId(text);
+            setTimeout(() => setCopiedId(null), 2000);
+        }
     };
 
     // Avaa puhelu
     const callCustomer = (phone?: string) => {
         if (!phone) return;
-        Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`).catch(() => {});
+        const cleanDigits = String(phone).replace(/\s+/g, '');
+        Linking.openURL(`tel:${cleanDigits}`).catch(() => {});
     };
 
     // Avaa kartta
@@ -248,7 +309,7 @@ export default function AdminDispatchScreen() {
             const nowIso = new Date().toISOString();
 
             // 1. Päivitetään delivery_tasks
-            const relevantTasks = order.tasks.filter(t => taskType === 'both' || t.task_type === taskType);
+            const relevantTasks = (order.tasks || []).filter(t => taskType === 'both' || t.task_type === taskType);
             for (const task of relevantTasks) {
                 const newStatus = driverId ? (task.status === 'pending' ? 'unassigned' : 'assigned') : 'unassigned';
                 await supabase
@@ -319,9 +380,9 @@ export default function AdminDispatchScreen() {
 
         (orders || []).forEach(o => {
             if (!o) return;
-            const st = (o.status || '').toLowerCase();
-            const lst = (o.laundry_status || '').toLowerCase();
-            const trk = (o.tracking_status || '').toUpperCase();
+            const st = String(o.status || '').toLowerCase();
+            const lst = String(o.laundry_status || '').toLowerCase();
+            const trk = String(o.tracking_status || '').toUpperCase();
             const hasUnassignedTask = (o.tasks || []).some(t => t && (t.status === 'unassigned' || !t.driver_id));
 
             if (hasUnassignedTask && st !== 'delivered' && st !== 'cancelled' && st !== 'rejected') {
@@ -348,9 +409,9 @@ export default function AdminDispatchScreen() {
                 if (!o) return false;
 
                 // Tila-suodatus
-                const st = (o.status || '').toLowerCase();
-                const lst = (o.laundry_status || '').toLowerCase();
-                const trk = (o.tracking_status || '').toUpperCase();
+                const st = String(o.status || '').toLowerCase();
+                const lst = String(o.laundry_status || '').toLowerCase();
+                const trk = String(o.tracking_status || '').toUpperCase();
                 const isUnassigned = (o.tasks || []).some(t => t && (t.status === 'unassigned' || !t.driver_id));
 
                 if (statusFilter === 'unassigned' && (!isUnassigned || st === 'delivered' || st === 'cancelled' || st === 'rejected')) return false;
@@ -361,22 +422,26 @@ export default function AdminDispatchScreen() {
                 if (statusFilter === 'cancelled' && st !== 'cancelled' && st !== 'rejected') return false;
 
                 // Tekstihaku
-                if (searchQuery && searchQuery.trim()) {
-                    const q = searchQuery.trim().toLowerCase().replace(/^#/, '');
+                const q = String(searchQuery || '').trim().toLowerCase().replace(/^#/, '');
+                if (q.length > 0) {
                     const rawId = String(o.id || '').toLowerCase().replace(/[^a-zA-Z0-9]/g, '');
                     const shortId = `#${rawId.slice(0, 8)}`;
                     const fullId = String(o.id || '').toLowerCase();
                     const matchId = rawId.includes(q) || shortId.toLowerCase().includes(q) || fullId.includes(q);
                     
-                    const fullName = `${o.first_name || ''} ${o.last_name || ''}`.toLowerCase();
-                    const matchName = fullName.includes(q);
+                    const firstName = String(o.first_name || '').toLowerCase();
+                    const lastName = String(o.last_name || '').toLowerCase();
+                    const fullName = `${firstName} ${lastName}`.trim();
+                    const matchName = firstName.includes(q) || lastName.includes(q) || fullName.includes(q);
                     
-                    const cleanPhone = String(o.phone || '').toLowerCase().replace(/\s+/g, '');
-                    const matchPhone = cleanPhone.includes(q.replace(/\s+/g, ''));
+                    const rawPhone = String(o.phone || '');
+                    const cleanPhone = rawPhone.toLowerCase().replace(/\s+/g, '');
+                    const cleanQ = q.replace(/\s+/g, '');
+                    const matchPhone = cleanPhone.includes(cleanQ) || rawPhone.toLowerCase().includes(q);
                     
                     const matchAddress = String(o.address || '').toLowerCase().includes(q);
                     const matchService = String(o.service_name || '').toLowerCase().includes(q);
-                    const driverName = (getDriverDisplayName(o.driver_id, drivers) || '').toLowerCase();
+                    const driverName = String(getDriverDisplayName(o.driver_id, drivers) || '').toLowerCase();
                     const matchDriver = driverName.includes(q);
 
                     if (!matchId && !matchName && !matchPhone && !matchAddress && !matchService && !matchDriver) {
@@ -825,57 +890,6 @@ export default function AdminDispatchScreen() {
         </SafeAreaView>
     );
 }
-
-// 📌 APUKOMPONENTIT
-const StatCard = ({ label, value, icon, color, bg, highlight }: any) => (
-    <View style={[styles.statCard, highlight && { borderColor: color, borderWidth: 1.5 }]}>
-        <View style={[styles.statIconCircle, { backgroundColor: bg }]}>
-            <Feather name={icon} size={18} color={color} />
-        </View>
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
-    </View>
-);
-
-const FilterTab = ({ label, active, badgeColor, onPress }: any) => (
-    <TouchableOpacity
-        style={[styles.filterTab, active && styles.filterTabActive]}
-        onPress={onPress}
-        activeOpacity={0.7}
-    >
-        {badgeColor && <View style={[styles.tabBadgeDot, { backgroundColor: badgeColor }]} />}
-        <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>{label}</Text>
-    </TouchableOpacity>
-);
-
-const StatusPill = ({ status }: { status: string }) => {
-    const s = (status || '').toLowerCase();
-    let bg = '#F1F5F9';
-    let text = '#64748B';
-    let label = status;
-
-    if (s === 'unassigned') {
-        bg = '#FEF3C7'; text = '#D97706'; label = 'Jaossa';
-    } else if (s === 'assigned' || s === 'in_progress') {
-        bg = '#E0F2FE'; text = '#0284C7'; label = 'Määrätty';
-    } else if (s === 'picking_up' || s === 'accepted') {
-        bg = '#EFF6FF'; text = '#2563EB'; label = 'Noudossa';
-    } else if (s === 'washing') {
-        bg = '#F3E8FF'; text = '#9333EA'; label = 'Pesussa';
-    } else if (s === 'returning') {
-        bg = '#FEF9C3'; text = '#CA8A04'; label = 'Palautuksessa';
-    } else if (s === 'delivered' || s === 'completed') {
-        bg = '#DCFCE7'; text = '#16A34A'; label = 'Toimitettu';
-    } else if (s === 'cancelled' || s === 'rejected') {
-        bg = '#FEE2E2'; text = '#DC2626'; label = 'Peruutettu';
-    }
-
-    return (
-        <View style={[styles.statusPillBox, { backgroundColor: bg }]}>
-            <Text style={[styles.statusPillText, { color: text }]}>{label}</Text>
-        </View>
-    );
-};
 
 const styles = StyleSheet.create({
     root: {
