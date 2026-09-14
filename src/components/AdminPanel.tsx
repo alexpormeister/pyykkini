@@ -2,13 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserManagement } from "@/components/UserManagement";
@@ -29,56 +23,21 @@ import {
   Euro, 
   Clock, 
   CheckCircle, 
-  Search,
-  Eye,
-  BarChart3,
+  BarChart3, 
+  Truck, 
+  ChevronRight, 
+  ArrowLeft,
+  Headphones,
+  Sliders,
+  Sparkles,
+  Megaphone,
+  MapPin,
   Calendar,
-  Truck,
-  ChevronDown,
-  ChevronRight,
-  UserCheck,
-  Filter,
-  RotateCcw
+  CreditCard,
+  Settings,
+  ShieldCheck,
+  MessageSquare
 } from "lucide-react";
-
-interface Order {
-  id: string;
-  user_id: string;
-  driver_id?: string;
-  service_type: string;
-  service_name: string;
-  status: string;
-  created_at: string;
-  accepted_at?: string;
-  actual_pickup_time?: string;
-  actual_return_time?: string;
-  price: number;
-  final_price: number;
-  service_fee?: number;
-  delivery_fee?: number;
-  vat_rate?: number;
-  vat_amount?: number;
-  payment_amount?: number;
-  first_name: string;
-  last_name: string;
-  phone: string;
-  address: string;
-  pickup_option?: string;
-  return_option?: string;
-  pickup_date?: string;
-  pickup_time?: string;
-  return_date?: string;
-  return_time?: string;
-  special_instructions?: string;
-  // Join data
-  customer_email?: string;
-  driver_name?: string;
-  profiles?: {
-    first_name?: string;
-    last_name?: string;
-    phone?: string;
-  };
-}
 
 interface Stats {
   totalOrders: number;
@@ -95,56 +54,51 @@ interface ActiveDriver {
   started_at: string;
 }
 
+type AdminSection = 'hub' | 'management' | 'support' | 'appmanager';
+
 export const AdminPanel = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilters, setStatusFilters] = useState<string[]>([]);
-  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'this_week' | 'this_month' | 'custom'>('all');
-  const [customDateStart, setCustomDateStart] = useState('');
-  const [customDateEnd, setCustomDateEnd] = useState('');
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [orders, setOrders] = useState<Order[]>([]);
+  
+  // Pääosio: 'hub' (Etusivu), 'management' (Hallinta), 'support' (Asiakaspalvelu), 'appmanager' (App Manager)
+  const [activeSection, setActiveSection] = useState<AdminSection>('hub');
+  
+  // Hallinta-osion alavälilehti
+  const [managementTab, setManagementTab] = useState<string>('customers');
+  
+  // Tilastot
   const [stats, setStats] = useState<Stats>({
     totalOrders: 0,
     activeOrders: 0,
     completedToday: 0,
     revenue: 0
   });
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [showOrderDetails, setShowOrderDetails] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("customers");
   const [activeDrivers, setActiveDrivers] = useState<ActiveDriver[]>([]);
-  const [expandedMenus, setExpandedMenus] = useState<{[key: string]: boolean}>({
-    management: true,
-    orders: false,
-    support: true,
-    analytics: false
-  });
-  const [allDrivers, setAllDrivers] = useState<any[]>([]);
-  const [driverSearch, setDriverSearch] = useState("");
-  const [selectedDriverId, setSelectedDriverId] = useState<string>("");
-  const [orderToAssign, setOrderToAssign] = useState<string>("");
   const [unreadChatsCount, setUnreadChatsCount] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchOrders();
     fetchStats();
     fetchActiveDrivers();
-    fetchAllDrivers();
     fetchUnreadChatsCount();
     
-    // Check for tab preference from Profile navigation
+    // Check for tab preference from profile or session
     const preferredTab = sessionStorage.getItem('adminTab');
-    if (preferredTab === 'users') {
-      setActiveTab('customers');
+    if (preferredTab) {
+      if (['dispatch', 'chat', 'crm'].includes(preferredTab)) {
+        setActiveSection('support');
+      } else if (preferredTab === 'app-campaigns') {
+        setActiveSection('appmanager');
+      } else {
+        setActiveSection('management');
+        setManagementTab(preferredTab);
+      }
       sessionStorage.removeItem('adminTab');
     }
 
     // Set up real-time subscription for support_chats updates
     const chatsSubscription = supabase
-      .channel('support_chats_changes')
+      .channel('support_chats_changes_admin')
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'support_chats' },
         () => {
@@ -158,104 +112,6 @@ export const AdminPanel = () => {
     };
   }, []);
 
-  const fetchOrders = async () => {
-    try {
-      // First fetch orders
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_history (
-            id,
-            change_type,
-            change_description,
-            created_at,
-            changed_by
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (ordersError) throw ordersError;
-
-      // Fetch customer profiles
-      const customerIds = ordersData?.map(o => o.user_id) || [];
-      let customerProfiles: any[] = [];
-      
-      if (customerIds.length > 0) {
-        const { data: customerProfilesData } = await supabase
-          .from('profiles')
-          .select('user_id, first_name, last_name, phone')
-          .in('user_id', customerIds);
-        
-        customerProfiles = customerProfilesData || [];
-      }
-
-      // Then fetch driver profiles for orders that have drivers
-      const driverIds = ordersData?.filter(o => o.driver_id).map(o => o.driver_id) || [];
-      let driverProfiles: any[] = [];
-      
-      if (driverIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('user_id, first_name, last_name, phone')
-          .in('user_id', driverIds);
-        
-        driverProfiles = profilesData || [];
-      }
-
-      // Combine orders with customer and driver profiles and fix customer names
-      const ordersWithProfiles = ordersData?.map(order => {
-        const customerProfile = customerProfiles.find(p => p.user_id === order.user_id);
-        
-        // Get history with user names
-        const historyWithProfiles = order.order_history?.map((history: any) => {
-          const changedByProfile = [...customerProfiles, ...driverProfiles].find(p => p.user_id === history.changed_by);
-          const fullName = changedByProfile 
-            ? `${changedByProfile.first_name || ''} ${changedByProfile.last_name || ''}`.trim() 
-            : 'Tuntematon';
-          return {
-            ...history,
-            profiles: {
-              first_name: changedByProfile?.first_name,
-              last_name: changedByProfile?.last_name,
-              full_name: fullName
-            }
-          };
-        }) || [];
-        
-        const driverProfile = driverProfiles.find(d => d.user_id === order.driver_id);
-        const driverFullName = driverProfile 
-          ? `${driverProfile.first_name || ''} ${driverProfile.last_name || ''}`.trim() 
-          : null;
-        
-        const customerFullName = customerProfile 
-          ? `${customerProfile.first_name || ''} ${customerProfile.last_name || ''}`.trim() 
-          : `${order.first_name} ${order.last_name}`;
-        
-        return {
-          ...order,
-          // Use customer profile name if first_name is empty or "Asiakas"
-          first_name: order.first_name === 'Asiakas' || !order.first_name 
-            ? customerProfile?.first_name || order.first_name 
-            : order.first_name,
-          last_name: order.last_name === 'Asiakas' || !order.last_name 
-            ? customerProfile?.last_name || order.last_name 
-            : order.last_name,
-          customer_name: customerFullName,
-          customer_phone: customerProfile?.phone || order.phone,
-          driver_name: driverFullName,
-          order_history: historyWithProfiles
-        };
-      }) || [];
-
-      setOrders(ordersWithProfiles);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchStats = async () => {
     try {
       // Total orders
@@ -263,7 +119,7 @@ export const AdminPanel = () => {
         .from('orders')
         .select('*', { count: 'exact', head: true });
 
-      // Active orders (not delivered, rejected or cancelled)
+      // Active orders
       const { count: activeOrders } = await supabase
         .from('orders')
         .select('*', { count: 'exact', head: true })
@@ -292,6 +148,8 @@ export const AdminPanel = () => {
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -299,719 +157,494 @@ export const AdminPanel = () => {
     try {
       const { data: activeShifts, error } = await supabase
         .from('driver_shifts')
-        .select('*')
-        .eq('is_active', true)
-        .order('started_at', { ascending: false });
+        .select(`
+          id,
+          driver_id,
+          started_at,
+          profiles:driver_id (
+            first_name,
+            last_name,
+            phone
+          )
+        `)
+        .eq('is_active', true);
 
       if (error) throw error;
 
-      // Fetch driver profiles
-      const driverIds = activeShifts?.map(shift => shift.driver_id) || [];
-      let driverProfiles: any[] = [];
-      
-      if (driverIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('user_id, first_name, last_name, phone')
-          .in('user_id', driverIds);
-        
-        driverProfiles = profilesData || [];
-      }
+      const formattedDrivers = (activeShifts || []).map((shift: any) => ({
+        id: shift.driver_id,
+        first_name: shift.profiles?.first_name || 'Tuntematon',
+        last_name: shift.profiles?.last_name || 'Kuljettaja',
+        phone: shift.profiles?.phone,
+        started_at: shift.started_at
+      }));
 
-      const drivers = activeShifts?.map(shift => {
-        const driverProfile = driverProfiles.find(p => p.user_id === shift.driver_id);
-        return {
-          id: shift.driver_id,
-          first_name: driverProfile?.first_name || 'Tuntematon',
-          last_name: driverProfile?.last_name || 'kuljettaja',
-          phone: driverProfile?.phone,
-          started_at: shift.started_at
-        };
-      }) || [];
-
-      setActiveDrivers(drivers);
+      setActiveDrivers(formattedDrivers);
     } catch (error) {
       console.error('Error fetching active drivers:', error);
     }
   };
 
-  const fetchAllDrivers = async () => {
-    try {
-      // First, get all users with driver role
-      const { data: driverRoles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'driver');
-
-      if (rolesError) throw rolesError;
-
-      const driverIds = driverRoles?.map(role => role.user_id) || [];
-      if (driverIds.length === 0) {
-        setAllDrivers([]);
-        return;
-      }
-
-      // Then get their profiles
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name, phone')
-        .in('user_id', driverIds);
-
-      if (profilesError) throw profilesError;
-
-      // Check which drivers are currently on shift
-      const { data: activeShifts } = await supabase
-        .from('driver_shifts')
-        .select('driver_id')
-        .eq('is_active', true);
-
-      const activeDriverIds = activeShifts?.map(shift => shift.driver_id) || [];
-
-      const driversWithShiftStatus = profiles?.map(profile => ({
-        ...profile,
-        is_active: activeDriverIds.includes(profile.user_id)
-      })) || [];
-
-      setAllDrivers(driversWithShiftStatus);
-    } catch (error) {
-      console.error('Error fetching all drivers:', error);
-    }
-  };
-
   const fetchUnreadChatsCount = async () => {
     try {
-      const { count, error } = await supabase
+      const { count } = await supabase
         .from('support_chats')
         .select('*', { count: 'exact', head: true })
+        .eq('status', 'open')
         .eq('is_read', false);
 
-      if (error) throw error;
       setUnreadChatsCount(count || 0);
     } catch (error) {
       console.error('Error fetching unread chats count:', error);
     }
   };
 
-  const assignOrderToDriver = async (orderId: string, driverId: string) => {
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          driver_id: driverId,
-          status: 'accepted',
-          accepted_at: new Date().toISOString()
-        })
-        .eq('id', orderId);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Tilaus asetettu kuljettajalle',
-        description: 'Tilaus on nyt asetettu valitulle kuljettajalle'
-      });
-
-      fetchOrders();
-      setSelectedDriverId('');
-      setOrderToAssign('');
-    } catch (error) {
-      console.error('Error assigning order:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Virhe',
-        description: 'Tilauksen asettaminen epäonnistui'
-      });
-    }
-  };
-
-  const logoutDriver = async (driverId: string) => {
-    try {
-      // Check if current user is admin - only allow admins to logout other drivers
-      if (!user || !driverId) {
-        throw new Error('Unauthorized or missing driver ID');
-      }
-
-      const { error } = await supabase
-        .from('driver_shifts')
-        .update({
-          is_active: false,
-          ended_at: new Date().toISOString()
-        })
-        .eq('driver_id', driverId)
-        .eq('is_active', true);
-
-      if (error) throw error;
-
-      // Refresh the active drivers list
-      fetchActiveDrivers();
-      
-      // Show success message
-      toast({
-        title: 'Kuljettaja kirjattu ulos',
-        description: 'Kuljettajan vuoro on päättynyt'
-      });
-    } catch (error) {
-      console.error('Error logging out driver:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Virhe',
-        description: 'Kuljettajan uloskirjaaminen epäonnistui'
-      });
-    }
-  };
-
-  const allStatusOptions = [
-    { value: 'pending', label: 'Odottaa' },
-    { value: 'accepted', label: 'Hyväksytty' },
-    { value: 'picking_up', label: 'Haetaan' },
-    { value: 'washing', label: 'Pesussa' },
-    { value: 'returning', label: 'Palautuvat' },
-    { value: 'delivered', label: 'Toimitettu' },
-    { value: 'rejected', label: 'Hylätty' }
-  ];
-
-  const handleStatusFilterChange = (status: string, checked: boolean) => {
-    if (checked) {
-      setStatusFilters(prev => [...prev, status]);
-    } else {
-      setStatusFilters(prev => prev.filter(s => s !== status));
-    }
-  };
-
-  const resetFilters = () => {
-    setStatusFilters([]);
-    setDateFilter('all');
-    setCustomDateStart('');
-    setCustomDateEnd('');
-    setSearchTerm('');
-  };
-
-  const getDateRange = () => {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(startOfToday);
-    startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    switch (dateFilter) {
-      case 'today':
-        return { start: startOfToday, end: new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000) };
-      case 'this_week':
-        return { start: startOfWeek, end: new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000) };
-      case 'this_month':
-        return { start: startOfMonth, end: new Date(now.getFullYear(), now.getMonth() + 1, 1) };
-      case 'custom':
-        return customDateStart && customDateEnd 
-          ? { start: new Date(customDateStart), end: new Date(customDateEnd + 'T23:59:59') }
-          : null;
-      default:
-        return null;
-    }
-  };
-
-  const filteredOrders = orders.filter(order => {
-    // Search filter
-    const matchesSearch = 
-      `${order.first_name} ${order.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.service_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.address.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Status filter
-    const matchesStatus = statusFilters.length === 0 || statusFilters.includes(order.status);
-    
-    // Date filter
-    let matchesDate = true;
-    const dateRange = getDateRange();
-    if (dateRange) {
-      const orderDate = new Date(order.created_at);
-      matchesDate = orderDate >= dateRange.start && orderDate <= dateRange.end;
-    }
-    
-    return matchesSearch && matchesStatus && matchesDate;
-  });
-
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    try {
-      const updateData: any = { status: newStatus };
-      
-      // Add timestamp for specific status changes
-      if (newStatus === 'accepted') {
-        updateData.accepted_at = new Date().toISOString();
-      } else if (newStatus === 'picking_up') {
-        updateData.actual_pickup_time = new Date().toISOString();
-      } else if (newStatus === 'delivered') {
-        updateData.actual_return_time = new Date().toISOString();
-      }
-
-      const { error } = await supabase
-        .from('orders')
-        .update(updateData)
-        .eq('id', orderId);
-
-      if (error) throw error;
-
-      // Refresh data
-      fetchOrders();
-      fetchStats();
-    } catch (error) {
-      console.error('Error updating order status:', error);
-    }
-  };
-
-  const getStatusColor = (status: string): string => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'accepted':
-        return 'bg-blue-100 text-blue-800';
-      case 'picking_up':
-        return 'bg-purple-100 text-purple-800';
-      case 'washing':
-        return 'bg-orange-100 text-orange-800';
-      case 'returning':
-        return 'bg-indigo-100 text-indigo-800';
-      case 'delivered':
-        return 'bg-green-100 text-green-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusText = (status: string): string => {
-    switch (status) {
-      case 'pending':
-        return 'Odottaa';
-      case 'accepted':
-        return 'Hyväksytty';
-      case 'picking_up':
-        return 'Haetaan';
-      case 'washing':
-        return 'Pesussa';
-      case 'returning':
-        return 'Palautetaan';
-      case 'delivered':
-        return 'Toimitettu';
-      case 'rejected':
-        return 'Hylätty';
-      default:
-        return status;
-    }
-  };
-
-  const openOrderDetails = (order: Order) => {
-    setSelectedOrder(order);
-    setShowOrderDetails(true);
-  };
-
-  const toggleMenu = (menuKey: string) => {
-    setExpandedMenus(prev => ({
-      ...prev,
-      [menuKey]: !prev[menuKey]
-    }));
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Ladataan tilauksia...</p>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center space-y-3">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto"></div>
+          <p className="text-sm font-medium text-muted-foreground">Ladataan ylläpitoa...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
-      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
-        {/* Mobile Navigation - Dropdown */}
-        <div className="lg:hidden mb-4">
-          <Select value={activeTab} onValueChange={setActiveTab}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Valitse näkymä" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="customers">👥 Käyttäjien hallinta</SelectItem>
-              <SelectItem value="products">📦 Tuotteiden hallinta</SelectItem>
-              <SelectItem value="categories">🗂️ Kategoriat</SelectItem>
-              <SelectItem value="coupons">🎫 Kuponkien hallinta</SelectItem>
-              <SelectItem value="service-areas">🗺️ Palvelualueet</SelectItem>
-              <SelectItem value="time-slots">🕒 Toimitus- ja noutoajat</SelectItem>
-              <SelectItem value="settlements">💰 Maksuliikenne</SelectItem>
-              <SelectItem value="app-settings">⚙️ Järjestelmäasetukset</SelectItem>
-              <SelectItem value="dispatch">🚦 Välitys</SelectItem>
-              <SelectItem value="chat">
-                💬 Viestit {unreadChatsCount > 0 ? `(${unreadChatsCount})` : ''}
-              </SelectItem>
-              <SelectItem value="crm">🔍 Tilaushaku</SelectItem>
-              <SelectItem value="app-campaigns">📣 Kampanjat</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex flex-col lg:flex-row gap-4 lg:gap-8">
-          {/* Sidebar Navigation - Hidden on mobile */}
-          <div className="hidden lg:block lg:w-64 space-y-4">
-            <Card>
-              <CardContent className="p-4">
-                <nav className="space-y-2">
-                  {/* Management Section */}
-                  <div>
-                    <button
-                      onClick={() => toggleMenu('management')}
-                      className="flex items-center justify-between w-full p-2 text-left hover:bg-muted rounded-lg"
-                    >
-                      <span className="font-medium text-primary">Hallinta</span>
-                      {expandedMenus.management ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </button>
-                    {expandedMenus.management && (
-                      <div className="ml-4 mt-2 space-y-1">
-                        <button
-                          onClick={() => setActiveTab('customers')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'customers' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Käyttäjien hallinta
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('products')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'products' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Tuotteiden hallinta
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('coupons')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'coupons' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Kuponkien hallinta
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('categories')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'categories' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Kategoriat
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('service-areas')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'service-areas' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Palvelualueet
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('time-slots')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'time-slots' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Toimitus- ja noutoajat
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('app-settings')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'app-settings' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Järjestelmäasetukset
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('settlements')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'settlements' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Maksuliikenne
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Customer Support Section */}
-                  <div>
-                    <button
-                      onClick={() => toggleMenu('support')}
-                      className="flex items-center justify-between w-full p-2 text-left hover:bg-muted rounded-lg"
-                    >
-                      <span className="font-medium text-primary">Asiakaspalvelu</span>
-                      {expandedMenus.support ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </button>
-                    {expandedMenus.support && (
-                      <div className="ml-4 mt-2 space-y-1">
-                        <button
-                          onClick={() => setActiveTab('dispatch')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'dispatch' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Välitys
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('chat')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'chat' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              Viestit
-                            </div>
-                            {unreadChatsCount > 0 && (
-                              <Badge variant="destructive" className="h-5 px-1.5 text-xs">
-                                {unreadChatsCount}
-                              </Badge>
-                            )}
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('crm')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'crm' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Tilaushaku
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* App Manager Section */}
-                  <div>
-                    <button
-                      onClick={() => toggleMenu('appmanager')}
-                      className="flex items-center justify-between w-full p-2 text-left hover:bg-muted rounded-lg"
-                    >
-                      <span className="font-medium text-primary">App Manager</span>
-                      {expandedMenus.appmanager ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </button>
-                    {expandedMenus.appmanager && (
-                      <div className="ml-4 mt-2 space-y-1">
-                        <button
-                          onClick={() => setActiveTab('app-campaigns')}
-                          className={`block w-full text-left p-2 rounded text-sm hover:bg-muted ${activeTab === 'app-campaigns' ? 'bg-primary/10 text-primary font-medium' : ''}`}
-                        >
-                          Kampanjat
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </nav>
-              </CardContent>
-            </Card>
+    <div className="min-h-screen bg-slate-50/50 dark:bg-background pb-16">
+      <div className="container mx-auto px-3 sm:px-6 py-6 max-w-7xl space-y-6">
+        
+        {/* YLÄPALKKI & GLOBAALI NAVIGAATIO DASHBOARD-VALITSIN */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card p-4 sm:p-5 rounded-2xl border shadow-sm">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+                {activeSection === 'hub' && 'Pesuni Ylläpidon Ohjauskeskus'}
+                {activeSection === 'management' && '🏢 Hallinta Dashboard'}
+                {activeSection === 'support' && '🎧 Asiakaspalvelu & Välitys Dashboard'}
+                {activeSection === 'appmanager' && '⚙️ App Manager Dashboard'}
+              </span>
+              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs font-bold uppercase tracking-wider">
+                Ylläpito
+              </Badge>
+            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              {activeSection === 'hub' && 'Keskitetty pääsy liiketoiminnan hallintaan, asiakaspalveluun ja sovellukseen'}
+              {activeSection === 'management' && 'Käyttäjätunnukset, hinnastot, palvelualueet, maksut ja järjestelmäasetukset'}
+              {activeSection === 'support' && 'Reaaliaikainen keikkavälitys, tuki-inbox ja tilaushaku'}
+              {activeSection === 'appmanager' && 'Mobiilisovelluksen kampanjat, bannerit ja luottamusmerkit'}
+            </p>
           </div>
 
-          {/* Main Content */}
-          <div className="flex-1 min-w-0">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-8"
-                  style={{ display: 'contents' }}>
-
-
-          {/* Users Tab */}
-          <TabsContent value="customers" className="animate-fade-in">
-            <UserManagement />
-          </TabsContent>
-
-          {/* Products Tab */}
-          <TabsContent value="products" className="animate-fade-in">
-            <ProductManagement />
-          </TabsContent>
-
-          {/* Coupons Tab */}
-          <TabsContent value="coupons" className="animate-fade-in">
-            <CouponManagement />
-          </TabsContent>
-
-          {/* Categories Tab */}
-          <TabsContent value="categories" className="animate-fade-in">
-            <CategoryManagement />
-          </TabsContent>
-
-          {/* Customer service sections */}
-          <TabsContent value="dispatch" className="animate-fade-in">
-            <CustomerServicePanel section="dispatch" />
-          </TabsContent>
-
-          <TabsContent value="chat" className="animate-fade-in">
-            <CustomerServicePanel section="inbox" />
-          </TabsContent>
-
-          <TabsContent value="crm" className="animate-fade-in">
-            <CustomerServicePanel section="crm" />
-          </TabsContent>
-
-          {/* App Manager */}
-          <TabsContent value="app-campaigns" className="animate-fade-in">
-            <AppManager />
-          </TabsContent>
-
-          {/* Service Areas Tab */}
-          <TabsContent value="service-areas" className="animate-fade-in">
-            <ServiceAreaManagement />
-          </TabsContent>
-
-          <TabsContent value="time-slots" className="animate-fade-in">
-            <TimeSlotManagement />
-          </TabsContent>
-
-          <TabsContent value="app-settings" className="animate-fade-in">
-            <AppSettingsManagement />
-          </TabsContent>
-
-          <TabsContent value="settlements" className="animate-fade-in">
-            <SettlementManagement />
-          </TabsContent>
-
-
-            </Tabs>
+          {/* DASHBOARD SWITCHER BUTTONS */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant={activeSection === 'hub' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveSection('hub')}
+              className="font-semibold text-xs sm:text-sm h-9"
+            >
+              <BarChart3 className="h-4 w-4 mr-1.5" />
+              Etusivu
+            </Button>
+            <Button
+              variant={activeSection === 'management' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveSection('management')}
+              className="font-semibold text-xs sm:text-sm h-9"
+            >
+              <Settings className="h-4 w-4 mr-1.5" />
+              Hallinta
+            </Button>
+            <Button
+              variant={activeSection === 'support' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveSection('support')}
+              className="font-semibold text-xs sm:text-sm h-9 relative"
+            >
+              <Headphones className="h-4 w-4 mr-1.5" />
+              Asiakaspalvelu
+              {unreadChatsCount > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.2 bg-destructive text-destructive-foreground rounded-full text-[10px] font-bold">
+                  {unreadChatsCount}
+                </span>
+              )}
+            </Button>
+            <Button
+              variant={activeSection === 'appmanager' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveSection('appmanager')}
+              className="font-semibold text-xs sm:text-sm h-9"
+            >
+              <Sliders className="h-4 w-4 mr-1.5" />
+              App Manager
+            </Button>
           </div>
         </div>
 
-        {/* Order Details Dialog */}
-        <Dialog open={showOrderDetails} onOpenChange={setShowOrderDetails}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Tilauksen tiedot</DialogTitle>
-              <DialogDescription>
-                Tilauksen #{selectedOrder?.id.slice(0, 8)} yksityiskohtaiset tiedot
-              </DialogDescription>
-            </DialogHeader>
-            
-            {selectedOrder && (
-              <div className="space-y-6">
-                {/* Customer Info */}
-                <div>
-                  <h3 className="font-semibold mb-2">Asiakastiedot</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Nimi:</span>
-                      <p className="font-medium">{selectedOrder.first_name} {selectedOrder.last_name}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Sähköposti:</span>
-                      <p className="font-medium">{selectedOrder.customer_email || 'Ei saatavilla'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Puhelin:</span>
-                      <p className="font-medium">{selectedOrder.phone}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Osoite:</span>
-                      <p className="font-medium">{selectedOrder.address}</p>
-                    </div>
+        {/* ---------------------------------------------------- */}
+        {/* 1. YLLÄPIDON ETUSIVU (HUB / 3 PÄÄDASHBOARD-KORTTIA) */}
+        {/* ---------------------------------------------------- */}
+        {activeSection === 'hub' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* KPI STATS ROW */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <Card className="border shadow-sm bg-card hover:border-primary/40 transition-colors">
+                <CardContent className="p-4 sm:p-5 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Kokonaismyynti</p>
+                    <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1">{stats.revenue.toFixed(2)} €</h3>
+                    <p className="text-[11px] text-emerald-600 font-medium mt-0.5">{stats.totalOrders} tilausta yhteensä</p>
                   </div>
-                </div>
+                  <div className="h-11 w-11 rounded-2xl bg-blue-50 text-primary flex items-center justify-center dark:bg-blue-950">
+                    <Euro className="h-5 w-5" />
+                  </div>
+                </CardContent>
+              </Card>
 
-                {/* Order Info */}
+              <Card className="border shadow-sm bg-card hover:border-primary/40 transition-colors">
+                <CardContent className="p-4 sm:p-5 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Aktiiviset tilaukset</p>
+                    <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1">{stats.activeOrders} kpl</h3>
+                    <p className="text-[11px] text-amber-600 font-medium mt-0.5">Käsittelyssä tai jaossa</p>
+                  </div>
+                  <div className="h-11 w-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center dark:bg-amber-950">
+                    <Package className="h-5 w-5" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border shadow-sm bg-card hover:border-primary/40 transition-colors">
+                <CardContent className="p-4 sm:p-5 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tänään valmiit</p>
+                    <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1">{stats.completedToday} kpl</h3>
+                    <p className="text-[11px] text-emerald-600 font-medium mt-0.5">Toimitettu asiakkaalle</p>
+                  </div>
+                  <div className="h-11 w-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center dark:bg-emerald-950">
+                    <CheckCircle className="h-5 w-5" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border shadow-sm bg-card hover:border-primary/40 transition-colors">
+                <CardContent className="p-4 sm:p-5 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Aktiiviset kuljettajat</p>
+                    <h3 className="text-xl sm:text-2xl font-black text-foreground mt-1">{activeDrivers.length} kuskia</h3>
+                    <p className="text-[11px] text-primary font-medium mt-0.5">Vuorossa tällä hetkellä</p>
+                  </div>
+                  <div className="h-11 w-11 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center dark:bg-sky-950">
+                    <Truck className="h-5 w-5" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 3 HERO DASHBOARD CARDS */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* 1. HALLINTA DASHBOARD CARD */}
+              <Card className="border-2 hover:border-primary/50 shadow-md hover:shadow-xl transition-all duration-300 rounded-3xl overflow-hidden flex flex-col justify-between group bg-gradient-to-b from-card to-blue-50/20 dark:to-card">
                 <div>
-                  <h3 className="font-semibold mb-2">Tilauksen tiedot</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Palvelu:</span>
-                      <p className="font-medium">{selectedOrder.service_name}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Kokonaissumma:</span>
-                      <p className="font-medium">{Number(selectedOrder.payment_amount ?? selectedOrder.final_price ?? 0).toFixed(2)} €</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Tila:</span>
-                      <Badge className={getStatusColor(selectedOrder.status)}>
-                        {getStatusText(selectedOrder.status)}
+                  <CardHeader className="p-6 pb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform">
+                        <Settings className="h-6 w-6" />
+                      </div>
+                      <Badge className="bg-primary/15 text-primary border-primary/30 font-bold px-3 py-1">
+                        Liiketoiminta & Asetukset
                       </Badge>
                     </div>
-                     <div>
-                       <span className="text-muted-foreground">Kuljettaja:</span>
-                       <p className="font-medium">
-                         {selectedOrder.profiles?.first_name || selectedOrder.profiles?.last_name 
-                           ? `${selectedOrder.profiles.first_name || ''} ${selectedOrder.profiles.last_name || ''}`.trim()
-                           : 'Ei määritetty'}
-                       </p>
-                       {selectedOrder.profiles?.phone && (
-                         <p className="text-xs text-muted-foreground">
-                           Puh: {selectedOrder.profiles.phone}
-                         </p>
-                       )}
-                     </div>
-                  </div>
+                    <CardTitle className="text-xl font-bold text-foreground">
+                      Hallinta Dashboard
+                    </CardTitle>
+                    <CardDescription className="text-sm text-muted-foreground leading-relaxed mt-1.5">
+                      Liiketoiminnan ohjaus, käyttäjätunnukset, tuotteiden hinnastot, kuponkikampanjat, palvelualueet, noutoajat ja maksuliikenne.
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="px-6 py-2 space-y-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">👥 Käyttäjät</span>
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">📦 Tuotteet & Hinnat</span>
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">🎫 Kupongit</span>
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">🗺️ Palvelualueet</span>
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">🕒 Ajoaikataulut</span>
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">💰 Maksut</span>
+                    </div>
+                  </CardContent>
                 </div>
 
-                {/* Price breakdown */}
+                <div className="p-6 pt-4">
+                  <Button 
+                    className="w-full h-12 text-sm font-bold rounded-xl shadow-sm group-hover:shadow transition-all"
+                    onClick={() => setActiveSection('management')}
+                  >
+                    Avaa Hallinta Dashboard
+                    <ChevronRight className="h-4 w-4 ml-1.5 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </div>
+              </Card>
+
+              {/* 2. ASIAKASPALVELU DASHBOARD CARD */}
+              <Card className="border-2 hover:border-emerald-500/50 shadow-md hover:shadow-xl transition-all duration-300 rounded-3xl overflow-hidden flex flex-col justify-between group bg-gradient-to-b from-card to-emerald-50/20 dark:to-card">
                 <div>
-                  <h3 className="font-semibold mb-2">Hinnan erittely</h3>
-                  <div className="rounded-lg border p-3 space-y-1.5 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tuotteiden välisumma</span>
-                      <span>{Number(selectedOrder.price ?? 0).toFixed(2)} €</span>
+                  <CardHeader className="p-6 pb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform dark:bg-emerald-950">
+                        <Headphones className="h-6 w-6" />
+                      </div>
+                      <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 font-bold px-3 py-1 dark:text-emerald-400">
+                        Live Välitys & Tuki
+                      </Badge>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Toimitusmaksu (kaupunkikohtainen)</span>
-                      <span>{Number(selectedOrder.delivery_fee ?? 0).toFixed(2)} €</span>
+                    <CardTitle className="text-xl font-bold text-foreground">
+                      Asiakaspalvelu Dashboard
+                    </CardTitle>
+                    <CardDescription className="text-sm text-muted-foreground leading-relaxed mt-1.5">
+                      Reaaliaikainen keikkataulu ja tilausten välitys kuljettajille, asiakaspalvelun tuki-chat ja monipuolinen tilaus- & puhelinhaku.
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="px-6 py-2 space-y-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">🚦 Välityskeskus</span>
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">
+                        💬 Tuki-Chat {unreadChatsCount > 0 ? `(${unreadChatsCount} uutta)` : ''}
+                      </span>
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">🔍 Tilaushaku & PIN</span>
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">⚠️ Reklamaatiot</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Palvelumaksu</span>
-                      <span>{Number(selectedOrder.service_fee ?? 0).toFixed(2)} €</span>
-                    </div>
-                    <div className="flex justify-between font-semibold border-t pt-1.5">
-                      <span>Kokonaissumma</span>
-                      <span>{Number(selectedOrder.payment_amount ?? selectedOrder.final_price ?? 0).toFixed(2)} €</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Sisältää ALV {Number(selectedOrder.vat_rate ?? 0).toFixed(1)} %</span>
-                      <span>{Number(selectedOrder.vat_amount ?? 0).toFixed(2)} €</span>
-                    </div>
-                  </div>
+                  </CardContent>
                 </div>
 
-                {/* Pickup/Return Options */}
+                <div className="p-6 pt-4">
+                  <Button 
+                    className="w-full h-12 text-sm font-bold rounded-xl shadow-sm bg-emerald-600 hover:bg-emerald-700 text-white transition-all"
+                    onClick={() => setActiveSection('support')}
+                  >
+                    Avaa Asiakaspalvelu Dashboard
+                    <ChevronRight className="h-4 w-4 ml-1.5 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </div>
+              </Card>
+
+              {/* 3. APP MANAGER DASHBOARD CARD */}
+              <Card className="border-2 hover:border-purple-500/50 shadow-md hover:shadow-xl transition-all duration-300 rounded-3xl overflow-hidden flex flex-col justify-between group bg-gradient-to-b from-card to-purple-50/20 dark:to-card">
                 <div>
-                  <h3 className="font-semibold mb-2">Nouto ja palautus</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Noutovaihtoehto:</span>
-                      <p className="font-medium">
-                        {selectedOrder.pickup_option === 'immediate' ? 'Heti' : 
-                         selectedOrder.pickup_option === 'choose_time' ? 'Valittu aika' : 
-                         selectedOrder.pickup_option === 'no_preference' ? 'Ei väliä' : 'Ei määritetty'}
-                      </p>
+                  <CardHeader className="p-6 pb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="h-12 w-12 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform dark:bg-purple-950">
+                        <Sliders className="h-6 w-6" />
+                      </div>
+                      <Badge className="bg-purple-500/15 text-purple-700 border-purple-500/30 font-bold px-3 py-1 dark:text-purple-400">
+                        Mobiilisovellus
+                      </Badge>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Palautusvaihtoehto:</span>
-                      <p className="font-medium">
-                        {selectedOrder.return_option === 'immediate' ? 'Heti' : 
-                         selectedOrder.return_option === 'choose_time' ? 'Valittu aika' : 
-                         selectedOrder.return_option === 'no_preference' ? 'Ei väliä' : 'Ei määritetty'}
-                      </p>
+                    <CardTitle className="text-xl font-bold text-foreground">
+                      App Manager Dashboard
+                    </CardTitle>
+                    <CardDescription className="text-sm text-muted-foreground leading-relaxed mt-1.5">
+                      Mobiilisovelluksen etusivun kampanjabannerit, erikoistarjoukset, luottamusmerkit ja esittelytekstit.
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="px-6 py-2 space-y-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">📣 Kampanjat & Tarjoukset</span>
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">🖼️ Mainosbannerit</span>
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">⭐ Luottamusmerkit</span>
+                      <span className="text-xs bg-muted px-2.5 py-1 rounded-lg font-medium text-foreground">📱 Sovellussisällöt</span>
                     </div>
-                  </div>
+                  </CardContent>
                 </div>
 
-                {/* Timestamps */}
-                <div>
-                  <h3 className="font-semibold mb-2">Aikaleimoja</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tilaus luotu:</span>
-                      <span>{new Date(selectedOrder.created_at).toLocaleString('fi-FI')}</span>
-                    </div>
-                    {selectedOrder.accepted_at && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Hyväksytty:</span>
-                        <span>{new Date(selectedOrder.accepted_at).toLocaleString('fi-FI')}</span>
-                      </div>
-                    )}
-                    {selectedOrder.actual_pickup_time && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Noudettu:</span>
-                        <span>{new Date(selectedOrder.actual_pickup_time).toLocaleString('fi-FI')}</span>
-                      </div>
-                    )}
-                    {selectedOrder.actual_return_time && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Palautettu:</span>
-                        <span>{new Date(selectedOrder.actual_return_time).toLocaleString('fi-FI')}</span>
-                      </div>
-                    )}
-                  </div>
+                <div className="p-6 pt-4">
+                  <Button 
+                    className="w-full h-12 text-sm font-bold rounded-xl shadow-sm bg-purple-600 hover:bg-purple-700 text-white transition-all"
+                    onClick={() => setActiveSection('appmanager')}
+                  >
+                    Avaa App Manager Dashboard
+                    <ChevronRight className="h-4 w-4 ml-1.5 group-hover:translate-x-1 transition-transform" />
+                  </Button>
                 </div>
+              </Card>
 
-                {/* Special Instructions */}
-                {selectedOrder.special_instructions && (
-                  <div>
-                    <h3 className="font-semibold mb-2">Erityisohjeet</h3>
-                    <p className="text-sm bg-muted p-3 rounded">{selectedOrder.special_instructions}</p>
-                  </div>
-                )}
+            </div>
+          </div>
+        )}
+
+        {/* ---------------------------------------------------- */}
+        {/* 2. HALLINTA DASHBOARD (MANAGEMENT ALANÄKYMÄ)        */}
+        {/* ---------------------------------------------------- */}
+        {activeSection === 'management' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* SUB-HEADER & SUB-TABS */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setActiveSection('hub')}
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground h-8 px-2"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+                Takaisin Ohjauskeskukseen
+              </Button>
+
+              {/* Subtabs selector */}
+              <div className="w-full sm:w-auto">
+                <Select value={managementTab} onValueChange={setManagementTab}>
+                  <SelectTrigger className="w-full sm:w-[240px] h-9 text-xs font-semibold">
+                    <SelectValue placeholder="Valitse hallintaosio" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="customers">👥 Käyttäjien hallinta</SelectItem>
+                    <SelectItem value="products">📦 Tuotteiden hallinta</SelectItem>
+                    <SelectItem value="categories">🗂️ Kategoriat</SelectItem>
+                    <SelectItem value="coupons">🎫 Kuponkien hallinta</SelectItem>
+                    <SelectItem value="service-areas">🗺️ Palvelualueet</SelectItem>
+                    <SelectItem value="time-slots">🕒 Toimitus- ja noutoajat</SelectItem>
+                    <SelectItem value="settlements">💰 Maksuliikenne</SelectItem>
+                    <SelectItem value="app-settings">⚙️ Järjestelmäasetukset</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
+            </div>
+
+            {/* Quick Pills for Desktop */}
+            <div className="hidden md:flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border overflow-x-auto">
+              <Button
+                variant={managementTab === 'customers' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setManagementTab('customers')}
+                className="h-8 text-xs font-semibold"
+              >
+                <Users className="h-3.5 w-3.5 mr-1.5" />
+                Käyttäjät
+              </Button>
+              <Button
+                variant={managementTab === 'products' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setManagementTab('products')}
+                className="h-8 text-xs font-semibold"
+              >
+                <Package className="h-3.5 w-3.5 mr-1.5" />
+                Tuotteet
+              </Button>
+              <Button
+                variant={managementTab === 'categories' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setManagementTab('categories')}
+                className="h-8 text-xs font-semibold"
+              >
+                <Sliders className="h-3.5 w-3.5 mr-1.5" />
+                Kategoriat
+              </Button>
+              <Button
+                variant={managementTab === 'coupons' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setManagementTab('coupons')}
+                className="h-8 text-xs font-semibold"
+              >
+                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                Kupongit
+              </Button>
+              <Button
+                variant={managementTab === 'service-areas' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setManagementTab('service-areas')}
+                className="h-8 text-xs font-semibold"
+              >
+                <MapPin className="h-3.5 w-3.5 mr-1.5" />
+                Palvelualueet
+              </Button>
+              <Button
+                variant={managementTab === 'time-slots' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setManagementTab('time-slots')}
+                className="h-8 text-xs font-semibold"
+              >
+                <Clock className="h-3.5 w-3.5 mr-1.5" />
+                Ajoajat
+              </Button>
+              <Button
+                variant={managementTab === 'settlements' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setManagementTab('settlements')}
+                className="h-8 text-xs font-semibold"
+              >
+                <CreditCard className="h-3.5 w-3.5 mr-1.5" />
+                Maksuliikenne
+              </Button>
+              <Button
+                variant={managementTab === 'app-settings' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setManagementTab('app-settings')}
+                className="h-8 text-xs font-semibold"
+              >
+                <Settings className="h-3.5 w-3.5 mr-1.5" />
+                Asetukset
+              </Button>
+            </div>
+
+            {/* TAB CONTENT */}
+            <div className="pt-2">
+              {managementTab === 'customers' && <UserManagement />}
+              {managementTab === 'products' && <ProductManagement />}
+              {managementTab === 'categories' && <CategoryManagement />}
+              {managementTab === 'coupons' && <CouponManagement />}
+              {managementTab === 'service-areas' && <ServiceAreaManagement />}
+              {managementTab === 'time-slots' && <TimeSlotManagement />}
+              {managementTab === 'settlements' && <SettlementManagement />}
+              {managementTab === 'app-settings' && <AppSettingsManagement />}
+            </div>
+          </div>
+        )}
+
+        {/* ---------------------------------------------------- */}
+        {/* 3. ASIAKASPALVELU DASHBOARD                          */}
+        {/* ---------------------------------------------------- */}
+        {activeSection === 'support' && (
+          <div className="space-y-4 animate-fade-in">
+            <div className="flex items-center justify-between pb-2 border-b">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setActiveSection('hub')}
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground h-8 px-2"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+                Takaisin Ohjauskeskukseen
+              </Button>
+            </div>
+
+            <CustomerServicePanel />
+          </div>
+        )}
+
+        {/* ---------------------------------------------------- */}
+        {/* 4. APP MANAGER DASHBOARD                             */}
+        {/* ---------------------------------------------------- */}
+        {activeSection === 'appmanager' && (
+          <div className="space-y-4 animate-fade-in">
+            <div className="flex items-center justify-between pb-2 border-b">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setActiveSection('hub')}
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground h-8 px-2"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+                Takaisin Ohjauskeskukseen
+              </Button>
+            </div>
+
+            <AppManager />
+          </div>
+        )}
+
       </div>
     </div>
   );
