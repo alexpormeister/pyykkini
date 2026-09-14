@@ -2,9 +2,10 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Checkbox } from 'expo-checkbox';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Alert,
+    Keyboard,
     KeyboardAvoidingView,
     Platform,
     StatusBar,
@@ -12,6 +13,7 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,7 +30,23 @@ export default function SignUpScreen() {
     const [showRetypePassword, setShowRetypePassword] = useState(false);
     const [agreeToTerms, setAgreeToTerms] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [isKeyboardVisible, setKeyboardVisible] = useState(false);
     const router = useRouter();
+
+    useEffect(() => {
+        const showSub = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            () => setKeyboardVisible(true)
+        );
+        const hideSub = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            () => setKeyboardVisible(false)
+        );
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, []);
 
     const handleNextStep1 = () => {
         if (!firstName.trim()) {
@@ -39,6 +57,7 @@ export default function SignUpScreen() {
             Alert.alert('Syötä sukunimesi', 'Ole hyvä ja kirjoita sukunimesi jatkaaksesi.');
             return;
         }
+        Keyboard.dismiss();
         setStep(2);
     };
 
@@ -48,10 +67,12 @@ export default function SignUpScreen() {
             Alert.alert('Tarkista sähköposti', 'Syötä kelvollinen sähköpostiosoite.');
             return;
         }
+        Keyboard.dismiss();
         setStep(3);
     };
 
     const handlePreviousStep = () => {
+        Keyboard.dismiss();
         if (step === 3) setStep(2);
         else if (step === 2) setStep(1);
         else router.back();
@@ -101,254 +122,269 @@ export default function SignUpScreen() {
     }
 
     return (
-        <View style={styles.root}>
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
-            <LinearGradient
-                colors={['#5CD1FF', '#00C2FF', '#0099FF']}
-                style={StyleSheet.absoluteFillObject}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-            />
-            {/* 🌊 KORISTEELLISET AALTO- JA VIRTAUSVIIVAT 🌊 */}
-            <View style={styles.lineContainer} pointerEvents="none">
-                <View style={styles.arcOuter} />
-                <View style={styles.arcMiddle} />
-                <View style={styles.arcInner} />
-                <View style={styles.diagonalLine1} />
-                <View style={styles.diagonalLine2} />
-            </View>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={styles.root}>
+                <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+                <LinearGradient
+                    colors={['#5CD1FF', '#00C2FF', '#0099FF']}
+                    style={StyleSheet.absoluteFillObject}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                />
+                {/* 🌊 KORISTEELLISET AALTO- JA VIRTAUSVIIVAT 🌊 */}
+                <View style={styles.lineContainer} pointerEvents="none">
+                    <View style={styles.arcOuter} />
+                    <View style={styles.arcMiddle} />
+                    <View style={styles.arcInner} />
+                    <View style={styles.diagonalLine1} />
+                    <View style={styles.diagonalLine2} />
+                </View>
 
-            <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                style={styles.container}
-            >
-                {/* YLÄOSA: ASKELMITTARI JA OTSIIKKO */}
-                <SafeAreaView edges={['top']} style={styles.topArea}>
-                    <View style={styles.headerNav}>
-                        <TouchableOpacity
-                            onPress={handlePreviousStep}
-                            style={styles.backButton}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                        >
-                            <Feather name="arrow-left" size={24} color="white" />
-                        </TouchableOpacity>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.container}
+                >
+                    {/* YLÄOSA: ASKELMITTARI JA OTSIKKO */}
+                    <SafeAreaView edges={['top']} style={[styles.topArea, isKeyboardVisible && styles.topAreaKeyboard]}>
+                        <View style={styles.headerNav}>
+                            <TouchableOpacity
+                                onPress={handlePreviousStep}
+                                style={styles.backButton}
+                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            >
+                                <Feather name="arrow-left" size={24} color="white" />
+                            </TouchableOpacity>
 
-                        {/* STEP PROGRESS INDICATOR */}
-                        <View style={styles.stepperContainer}>
-                            <View style={[styles.stepDot, step >= 1 && styles.stepDotActive]}>
-                                <Text style={styles.stepDotText}>1</Text>
+                            {/* STEP PROGRESS INDICATOR */}
+                            <View style={styles.stepperContainer}>
+                                <View style={[styles.stepDot, step >= 1 && styles.stepDotActive]}>
+                                    <Text style={[styles.stepDotText, step >= 1 && styles.stepDotTextActive]}>1</Text>
+                                </View>
+                                <View style={[styles.stepLine, step >= 2 && styles.stepLineActive]} />
+                                <View style={[styles.stepDot, step >= 2 && styles.stepDotActive]}>
+                                    <Text style={[styles.stepDotText, step >= 2 && styles.stepDotTextActive]}>2</Text>
+                                </View>
+                                <View style={[styles.stepLine, step >= 3 && styles.stepLineActive]} />
+                                <View style={[styles.stepDot, step >= 3 && styles.stepDotActive]}>
+                                    <Text style={[styles.stepDotText, step >= 3 && styles.stepDotTextActive]}>3</Text>
+                                </View>
                             </View>
-                            <View style={[styles.stepLine, step >= 2 && styles.stepLineActive]} />
-                            <View style={[styles.stepDot, step >= 2 && styles.stepDotActive]}>
-                                <Text style={styles.stepDotText}>2</Text>
-                            </View>
-                            <View style={[styles.stepLine, step >= 3 && styles.stepLineActive]} />
-                            <View style={[styles.stepDot, step >= 3 && styles.stepDotActive]}>
-                                <Text style={styles.stepDotText}>3</Text>
-                            </View>
+
+                            <View style={{ width: 40 }} />
                         </View>
 
-                        <View style={{ width: 40 }} />
-                    </View>
-
-                    <View style={styles.topContainer}>
-                        {step === 1 && (
-                            <>
-                                <Text style={styles.stepBadge}>VAIHE 1 / 3</Text>
-                                <Text style={styles.title}>Mikä on nimesi?</Text>
-                                <Text style={styles.subtitle}>Aloitetaan luomalla henkilökohtainen profiilisi</Text>
-                            </>
-                        )}
-                        {step === 2 && (
-                            <>
-                                <Text style={styles.stepBadge}>VAIHE 2 / 3</Text>
-                                <Text style={styles.title}>Sähköpostiosoite</Text>
-                                <Text style={styles.subtitle}>Mihin lähetämme tilausvahvistukset ja kuitit?</Text>
-                            </>
-                        )}
-                        {step === 3 && (
-                            <>
-                                <Text style={styles.stepBadge}>VAIHE 3 / 3</Text>
-                                <Text style={styles.title}>Luo salasana</Text>
-                                <Text style={styles.subtitle}>Valitse vähintään 6-merkkinen turvallinen salasana</Text>
-                            </>
-                        )}
-                    </View>
-                </SafeAreaView>
-
-                {/* VALKOINEN KORTTI - TÄYTTÄÄ KOKO POHJAN ILMAN SINISTÄ VUOTOA */}
-                <View style={styles.whiteCard}>
-                    <SafeAreaView edges={['bottom']} style={styles.cardInner}>
-                        {/* VAIHE 1: NIMET */}
-                        {step === 1 && (
-                            <>
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Etunimi</Text>
-                                    <View style={styles.inputContainer}>
-                                        <Feather name="user" size={20} color="#6b7280" style={styles.icon} />
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Esim. Matti"
-                                            placeholderTextColor="#9ca3af"
-                                            value={firstName}
-                                            onChangeText={setFirstName}
-                                            autoCapitalize="words"
-                                            autoFocus={true}
-                                            returnKeyType="next"
-                                        />
-                                    </View>
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Sukunimi</Text>
-                                    <View style={styles.inputContainer}>
-                                        <Feather name="user" size={20} color="#6b7280" style={styles.icon} />
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Esim. Meikäläinen"
-                                            placeholderTextColor="#9ca3af"
-                                            value={lastName}
-                                            onChangeText={setLastName}
-                                            autoCapitalize="words"
-                                            returnKeyType="done"
-                                            onSubmitEditing={handleNextStep1}
-                                        />
-                                    </View>
-                                </View>
-
-                                <TouchableOpacity
-                                    style={styles.nextButton}
-                                    onPress={handleNextStep1}
-                                    activeOpacity={0.8}
-                                >
-                                    <Text style={styles.nextButtonText}>Jatka</Text>
-                                    <Feather name="arrow-right" size={20} color="white" style={styles.btnArrow} />
-                                </TouchableOpacity>
-                            </>
-                        )}
-
-                        {/* VAIHE 2: SÄHKÖPOSTI */}
-                        {step === 2 && (
-                            <>
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Sähköpostiosoite</Text>
-                                    <View style={styles.inputContainer}>
-                                        <MaterialCommunityIcons name="email-fast-outline" size={20} color="#6b7280" style={styles.icon} />
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="matti.meikalainen@email.com"
-                                            placeholderTextColor="#9ca3af"
-                                            value={email}
-                                            onChangeText={setEmail}
-                                            autoCapitalize="none"
-                                            keyboardType="email-address"
-                                            autoFocus={true}
-                                            returnKeyType="done"
-                                            onSubmitEditing={handleNextStep2}
-                                        />
-                                    </View>
-                                </View>
-
-                                <View style={styles.infoBox}>
-                                    <Feather name="info" size={18} color="#0284C7" style={{ marginRight: 10, marginTop: 2 }} />
-                                    <Text style={styles.infoText}>
-                                        Käytämme sähköpostiasi kirjautumiseen ja nouto- sekä toimitusilmoitusten lähettämiseen.
-                                    </Text>
-                                </View>
-
-                                <TouchableOpacity
-                                    style={styles.nextButton}
-                                    onPress={handleNextStep2}
-                                    activeOpacity={0.8}
-                                >
-                                    <Text style={styles.nextButtonText}>Jatka</Text>
-                                    <Feather name="arrow-right" size={20} color="white" style={styles.btnArrow} />
-                                </TouchableOpacity>
-                            </>
-                        )}
-
-                        {/* VAIHE 3: SALASANA & EHDOT */}
-                        {step === 3 && (
-                            <>
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Salasana</Text>
-                                    <View style={styles.inputContainer}>
-                                        <Feather name="lock" size={20} color="#6b7280" style={styles.icon} />
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Vähintään 6 merkkiä"
-                                            placeholderTextColor="#9ca3af"
-                                            value={password}
-                                            onChangeText={setPassword}
-                                            autoCapitalize="none"
-                                            secureTextEntry={!showPassword}
-                                            autoFocus={true}
-                                        />
-                                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                                            <Feather name={showPassword ? "eye" : "eye-off"} size={18} color="#9ca3af" />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Vahvista salasana</Text>
-                                    <View style={styles.inputContainer}>
-                                        <Feather name="lock" size={20} color="#6b7280" style={styles.icon} />
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Kirjoita salasana uudelleen"
-                                            placeholderTextColor="#9ca3af"
-                                            value={retypePassword}
-                                            onChangeText={setRetypePassword}
-                                            autoCapitalize="none"
-                                            secureTextEntry={!showRetypePassword}
-                                        />
-                                        <TouchableOpacity onPress={() => setShowRetypePassword(!showRetypePassword)}>
-                                            <Feather name={showRetypePassword ? "eye" : "eye-off"} size={18} color="#9ca3af" />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-
-                                <View style={styles.checkboxContainer}>
-                                    <Checkbox
-                                        style={styles.checkbox}
-                                        value={agreeToTerms}
-                                        onValueChange={setAgreeToTerms}
-                                        color={agreeToTerms ? '#00C2FF' : undefined}
-                                    />
-                                    <View style={styles.checkboxTextContainer}>
-                                        <Text style={styles.checkboxText}>Hyväksyn palvelun </Text>
-                                        <TouchableOpacity onPress={() => router.push('/auth/terms')}>
-                                            <Text style={styles.linkText}>Käyttöehdot & Tietosuojan</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-
-                                <TouchableOpacity
-                                    style={styles.signupButton}
-                                    onPress={signUpWithEmail}
-                                    disabled={loading}
-                                    activeOpacity={0.8}
-                                >
-                                    <Text style={styles.signupButtonText}>
-                                        {loading ? 'Luodaan tiliä...' : 'Luo Pesuni-tili'}
-                                    </Text>
-                                </TouchableOpacity>
-                            </>
-                        )}
-
-                        <TouchableOpacity
-                            onPress={() => router.replace('/auth/login')}
-                            style={styles.signInRow}
-                        >
-                            <Text style={styles.signInLink}>
-                                Onko sinulla jo tili? <Text style={styles.linkTextBold}>Kirjaudu sisään</Text>
-                            </Text>
-                        </TouchableOpacity>
+                        {/* Kun näppäimistö on auki, pidetään otsikko siistinä ja kompaktina ilman ahtautta */}
+                        <View style={[styles.topContainer, isKeyboardVisible && styles.topContainerCompact]}>
+                            {step === 1 && (
+                                <>
+                                    {!isKeyboardVisible && <Text style={styles.stepBadge}>VAIHE 1 / 3</Text>}
+                                    <Text style={[styles.title, isKeyboardVisible && styles.titleCompact]}>Mikä on nimesi?</Text>
+                                    {!isKeyboardVisible && (
+                                        <Text style={styles.subtitle}>Aloitetaan luomalla henkilökohtainen profiilisi</Text>
+                                    )}
+                                </>
+                            )}
+                            {step === 2 && (
+                                <>
+                                    {!isKeyboardVisible && <Text style={styles.stepBadge}>VAIHE 2 / 3</Text>}
+                                    <Text style={[styles.title, isKeyboardVisible && styles.titleCompact]}>Sähköpostiosoite</Text>
+                                    {!isKeyboardVisible && (
+                                        <Text style={styles.subtitle}>Mihin lähetämme tilausvahvistukset ja kuitit?</Text>
+                                    )}
+                                </>
+                            )}
+                            {step === 3 && (
+                                <>
+                                    {!isKeyboardVisible && <Text style={styles.stepBadge}>VAIHE 3 / 3</Text>}
+                                    <Text style={[styles.title, isKeyboardVisible && styles.titleCompact]}>Luo salasana</Text>
+                                    {!isKeyboardVisible && (
+                                        <Text style={styles.subtitle}>Valitse vähintään 6-merkkinen turvallinen salasana</Text>
+                                    )}
+                                </>
+                            )}
+                        </View>
                     </SafeAreaView>
-                </View>
-            </KeyboardAvoidingView>
-        </View>
+
+                    {/* VALKOINEN KORTTI - TÄYTTÄÄ KOKO POHJAN ILMAN SINISTÄ VUOTOA */}
+                    <View style={styles.whiteCard}>
+                        <SafeAreaView edges={['bottom']} style={styles.cardInner}>
+                            {/* VAIHE 1: NIMET */}
+                            {step === 1 && (
+                                <>
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Etunimi</Text>
+                                        <View style={styles.inputContainer}>
+                                            <Feather name="user" size={20} color="#6b7280" style={styles.icon} />
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Esim. Matti"
+                                                placeholderTextColor="#9ca3af"
+                                                value={firstName}
+                                                onChangeText={setFirstName}
+                                                autoCapitalize="words"
+                                                autoFocus={false}
+                                                returnKeyType="next"
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Sukunimi</Text>
+                                        <View style={styles.inputContainer}>
+                                            <Feather name="user" size={20} color="#6b7280" style={styles.icon} />
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Esim. Meikäläinen"
+                                                placeholderTextColor="#9ca3af"
+                                                value={lastName}
+                                                onChangeText={setLastName}
+                                                autoCapitalize="words"
+                                                autoFocus={false}
+                                                returnKeyType="done"
+                                                onSubmitEditing={handleNextStep1}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <TouchableOpacity
+                                        style={styles.nextButton}
+                                        onPress={handleNextStep1}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Text style={styles.nextButtonText}>Jatka</Text>
+                                        <Feather name="arrow-right" size={20} color="white" style={styles.btnArrow} />
+                                    </TouchableOpacity>
+                                </>
+                            )}
+
+                            {/* VAIHE 2: SÄHKÖPOSTI */}
+                            {step === 2 && (
+                                <>
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Sähköpostiosoite</Text>
+                                        <View style={styles.inputContainer}>
+                                            <MaterialCommunityIcons name="email-fast-outline" size={20} color="#6b7280" style={styles.icon} />
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="matti.meikalainen@email.com"
+                                                placeholderTextColor="#9ca3af"
+                                                value={email}
+                                                onChangeText={setEmail}
+                                                autoCapitalize="none"
+                                                keyboardType="email-address"
+                                                autoFocus={false}
+                                                returnKeyType="done"
+                                                onSubmitEditing={handleNextStep2}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    {!isKeyboardVisible && (
+                                        <View style={styles.infoBox}>
+                                            <Feather name="info" size={18} color="#0284C7" style={{ marginRight: 10, marginTop: 2 }} />
+                                            <Text style={styles.infoText}>
+                                                Käytämme sähköpostiasi kirjautumiseen ja nouto- sekä toimitusilmoitusten lähettämiseen.
+                                            </Text>
+                                        </View>
+                                    )}
+
+                                    <TouchableOpacity
+                                        style={styles.nextButton}
+                                        onPress={handleNextStep2}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Text style={styles.nextButtonText}>Jatka</Text>
+                                        <Feather name="arrow-right" size={20} color="white" style={styles.btnArrow} />
+                                    </TouchableOpacity>
+                                </>
+                            )}
+
+                            {/* VAIHE 3: SALASANA & EHDOT */}
+                            {step === 3 && (
+                                <>
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Salasana</Text>
+                                        <View style={styles.inputContainer}>
+                                            <Feather name="lock" size={20} color="#6b7280" style={styles.icon} />
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Vähintään 6 merkkiä"
+                                                placeholderTextColor="#9ca3af"
+                                                value={password}
+                                                onChangeText={setPassword}
+                                                autoCapitalize="none"
+                                                secureTextEntry={!showPassword}
+                                                autoFocus={false}
+                                            />
+                                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                                <Feather name={showPassword ? "eye" : "eye-off"} size={18} color="#9ca3af" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Vahvista salasana</Text>
+                                        <View style={styles.inputContainer}>
+                                            <Feather name="lock" size={20} color="#6b7280" style={styles.icon} />
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Kirjoita salasana uudelleen"
+                                                placeholderTextColor="#9ca3af"
+                                                value={retypePassword}
+                                                onChangeText={setRetypePassword}
+                                                autoCapitalize="none"
+                                                secureTextEntry={!showRetypePassword}
+                                                autoFocus={false}
+                                            />
+                                            <TouchableOpacity onPress={() => setShowRetypePassword(!showRetypePassword)}>
+                                                <Feather name={showRetypePassword ? "eye" : "eye-off"} size={18} color="#9ca3af" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.checkboxContainer}>
+                                        <Checkbox
+                                            style={styles.checkbox}
+                                            value={agreeToTerms}
+                                            onValueChange={setAgreeToTerms}
+                                            color={agreeToTerms ? '#00C2FF' : undefined}
+                                        />
+                                        <View style={styles.checkboxTextContainer}>
+                                            <Text style={styles.checkboxText}>Hyväksyn palvelun </Text>
+                                            <TouchableOpacity onPress={() => router.push('/auth/terms')}>
+                                                <Text style={styles.linkText}>Käyttöehdot & Tietosuojan</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+
+                                    <TouchableOpacity
+                                        style={styles.signupButton}
+                                        onPress={signUpWithEmail}
+                                        disabled={loading}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Text style={styles.signupButtonText}>
+                                            {loading ? 'Luodaan tiliä...' : 'Luo Pesuni-tili'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
+
+                            {!isKeyboardVisible && (
+                                <TouchableOpacity
+                                    onPress={() => router.replace('/auth/login')}
+                                    style={styles.signInRow}
+                                >
+                                    <Text style={styles.signInLink}>
+                                        Onko sinulla jo tili? <Text style={styles.linkTextBold}>Kirjaudu sisään</Text>
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                        </SafeAreaView>
+                    </View>
+                </KeyboardAvoidingView>
+            </View>
+        </TouchableWithoutFeedback>
     );
 }
 
@@ -420,6 +456,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         paddingTop: Platform.OS === 'ios' ? 12 : 24,
     },
+    topAreaKeyboard: {
+        flex: 0,
+        justifyContent: 'flex-start',
+        paddingTop: Platform.OS === 'ios' ? 8 : 16,
+        paddingBottom: 8,
+    },
     headerNav: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -439,9 +481,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     stepDot: {
-        width: 26,
-        height: 26,
-        borderRadius: 13,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
         backgroundColor: 'rgba(255, 255, 255, 0.35)',
         alignItems: 'center',
         justifyContent: 'center',
@@ -452,6 +494,9 @@ const styles = StyleSheet.create({
     stepDotText: {
         fontSize: 12,
         fontWeight: '800',
+        color: 'white',
+    },
+    stepDotTextActive: {
         color: '#0099FF',
     },
     stepLine: {
@@ -468,6 +513,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 10,
     },
+    topContainerCompact: {
+        marginBottom: 4,
+    },
     stepBadge: {
         fontSize: 12,
         fontWeight: '800',
@@ -483,6 +531,10 @@ const styles = StyleSheet.create({
         textShadowColor: 'rgba(0, 0, 0, 0.25)',
         textShadowRadius: 1,
         textShadowOffset: { width: 0, height: 2 },
+    },
+    titleCompact: {
+        fontSize: 20,
+        marginBottom: 0,
     },
     subtitle: {
         fontSize: 14,
