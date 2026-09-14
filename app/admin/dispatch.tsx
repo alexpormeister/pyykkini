@@ -464,7 +464,7 @@ export default function AdminDispatchScreen() {
             {/* YLÄPALKKI / HEADER */}
             <View style={styles.topHeader}>
                 <View style={styles.headerLeft}>
-                    <TouchableOpacity onPress={() => router.replace('/(tabs)')} style={styles.backBtn}>
+                    <TouchableOpacity onPress={() => router.replace('/admin' as any)} style={styles.backBtn}>
                         <Feather name="arrow-left" size={20} color="#0F172A" />
                     </TouchableOpacity>
                     <View>
