@@ -214,6 +214,7 @@ export default function SignUpScreen() {
                                             onSubmitEditing={handleNextStep2}
                                         />
                                     </View>
+                                </View>
 
                                 <TouchableOpacity
                                     style={styles.primaryButton}
