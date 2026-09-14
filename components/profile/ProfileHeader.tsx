@@ -101,17 +101,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ onLogoutPress }) => {
         }
     };
 
-    const handleLogoutPress = () => {
-        Alert.alert(
-            "Vahvista uloskirjautuminen",
-            "Haluatko varmasti kirjautua ulos tililtäsi?",
-            [
-                { text: "Peruuta", style: "cancel" },
-                { text: "Kirjaudu ulos", onPress: onLogoutPress, style: "destructive" }
-            ]
-        );
-    };
-
     const imageSource = { uri: avatarUrl || FALLBACK_AVATAR };
     const fullName = firstName && lastName ? `${firstName} ${lastName}` : 'Pesuni Käyttäjä';
 
@@ -135,7 +124,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ onLogoutPress }) => {
                 <TouchableOpacity
                     style={styles.logoutButton}
                     activeOpacity={0.8}
-                    onPress={handleLogoutPress}
+                    onPress={onLogoutPress}
                 >
                     <Feather name="log-out" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
                     <Text style={styles.logoutText}>Kirjaudu ulos</Text>
