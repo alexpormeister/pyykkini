@@ -214,14 +214,6 @@ export default function SignUpScreen() {
                                             onSubmitEditing={handleNextStep2}
                                         />
                                     </View>
-                                </View>
-
-                                <View style={styles.infoBox}>
-                                    <Feather name="shield" size={18} color="#0284C7" style={{ marginRight: 10, marginTop: 1 }} />
-                                    <Text style={styles.infoText}>
-                                        Tietojasi käsitellään turvallisesti, emmekä koskaan jaa niitä eteenpäin.
-                                    </Text>
-                                </View>
 
                                 <TouchableOpacity
                                     style={styles.primaryButton}
