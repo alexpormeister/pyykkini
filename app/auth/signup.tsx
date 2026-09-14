@@ -17,12 +17,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
+import { normalizePhoneNumberData } from '../../lib/phoneUtils';
 
 export default function SignUpScreen() {
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [retypePassword, setRetypePassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -48,6 +50,14 @@ export default function SignUpScreen() {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!email.trim() || !emailRegex.test(email.trim())) {
             Alert.alert('Tarkista sähköposti', 'Syötä kelvollinen sähköpostiosoite.');
+            return;
+        }
+        const cleanPhone = phone.trim().replace(/\D/g, '');
+        if (!phone.trim() || cleanPhone.length < 6) {
+            Alert.alert(
+                'Syötä puhelinnumero',
+                'Ole hyvä ja syötä puhelinnumerosi (esim. 040 123 4567). Tarvitsemme sen noutojen ja toimitusten yhteydenpitoon.'
+            );
             return;
         }
         Keyboard.dismiss();
@@ -76,6 +86,8 @@ export default function SignUpScreen() {
         }
 
         setLoading(true);
+        const normalizedPhone = normalizePhoneNumberData(phone);
+
         const { data, error } = await supabase.auth.signUp({
             email: email.trim(),
             password: password,
@@ -83,13 +95,22 @@ export default function SignUpScreen() {
                 data: {
                     first_name: firstName.trim(),
                     last_name: lastName.trim(),
+                    phone: normalizedPhone,
                 }
             }
         });
 
         if (error) {
             Alert.alert('Rekisteröinti epäonnistui', error.message);
-        } else if (data.session || data.user) {
+        } else {
+            if (data?.user?.id) {
+                await supabase.from('profiles').update({
+                    first_name: firstName.trim(),
+                    last_name: lastName.trim(),
+                    phone: normalizedPhone,
+                }).eq('user_id', data.user.id);
+            }
+
             Alert.alert(
                 'Tervetuloa Pesuniin! 🎉',
                 'Tilisi on luotu onnistuneesti. Tarkista sähköpostisi vahvistaaksesi tilisi.',
@@ -190,17 +211,17 @@ export default function SignUpScreen() {
                             </View>
                         )}
 
-                        {/* VAIHE 2: SÄHKÖPOSTI */}
+                        {/* VAIHE 2: YHTEYSTIEDOT (SÄHKÖPOSTI & PUHELINNUMERO) */}
                         {step === 2 && (
                             <View style={styles.stepWrapper}>
                                 <Text style={styles.stepBadge}>VAIHE 2 / 3</Text>
-                                <Text style={styles.headerTitle}>Sähköpostiosoite</Text>
+                                <Text style={styles.headerTitle}>Yhteystiedot</Text>
                                 <Text style={styles.headerSubtitle}>
-                                    Mihin sähköpostiin lähetämme tilausvahvistukset, kuitit ja noutotiedot?
+                                    Syötä sähköpostiosoitteesi ja puhelinnumerosi noutojen ja toimitusten sujuvuutta varten.
                                 </Text>
 
                                 <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Sähköposti</Text>
+                                    <Text style={styles.inputLabel}>Sähköpostiosoite</Text>
                                     <View style={styles.inputBox}>
                                         <TextInput
                                             style={styles.input}
@@ -210,6 +231,21 @@ export default function SignUpScreen() {
                                             onChangeText={setEmail}
                                             autoCapitalize="none"
                                             keyboardType="email-address"
+                                            returnKeyType="next"
+                                        />
+                                    </View>
+                                </View>
+
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.inputLabel}>Puhelinnumero</Text>
+                                    <View style={styles.inputBox}>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="040 123 4567"
+                                            placeholderTextColor="#94A3B8"
+                                            value={phone}
+                                            onChangeText={setPhone}
+                                            keyboardType="phone-pad"
                                             returnKeyType="done"
                                             onSubmitEditing={handleNextStep2}
                                         />
@@ -426,21 +462,6 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         color: '#0F172A',
-    },
-    infoBox: {
-        flexDirection: 'row',
-        backgroundColor: '#F0F9FF',
-        borderRadius: 14,
-        padding: 14,
-        borderWidth: 1,
-        borderColor: '#BAE6FD',
-        marginBottom: 24,
-    },
-    infoText: {
-        flex: 1,
-        fontSize: 13,
-        color: '#0369A1',
-        lineHeight: 18,
     },
     checkboxContainer: {
         flexDirection: 'row',
