@@ -37,8 +37,13 @@
         }
       ],
       "expo-font",
-      "expo-web-browser",
-      "@stripe/stripe-react-native",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.pesuni.app",
+          "enableGooglePay": true
+        }
+      ],
       "expo-image",
       "expo-sharing",
       "expo-status-bar"
