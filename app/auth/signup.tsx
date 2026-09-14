@@ -115,11 +115,21 @@ export default function SignUpScreen() {
             Alert.alert('Rekisteröinti epäonnistui', error.message);
         } else {
             if (data?.user?.id) {
-                await supabase.from('profiles').update({
+                const { error: upsertErr } = await supabase.from('profiles').upsert({
+                    user_id: data.user.id,
                     first_name: firstName.trim(),
                     last_name: lastName.trim(),
                     phone: normalizedPhone,
-                }).eq('user_id', data.user.id);
+                    email: email.trim(),
+                }, { onConflict: 'user_id' });
+
+                if (upsertErr) {
+                    await supabase.from('profiles').update({
+                        first_name: firstName.trim(),
+                        last_name: lastName.trim(),
+                        phone: normalizedPhone,
+                    }).eq('user_id', data.user.id);
+                }
             }
 
             Alert.alert(

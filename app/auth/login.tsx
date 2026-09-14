@@ -9,6 +9,7 @@ import {
     Image,
     KeyboardAvoidingView,
     Platform,
+    ScrollView,
     StatusBar,
     StyleSheet,
     Text,
@@ -35,9 +36,10 @@ import { getUserRole } from '../../lib/authHelper';
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
-    const [loading, setLoading] = useState(false)
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
     const router = useRouter();
 
     async function signInWithEmail() {
@@ -145,18 +147,22 @@ export default function LoginScreen() {
         }
     }
 
-
     return (
         <View style={styles.root}>
             <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+            
+            {/* 🎨 ELEGANTTI TAUSTAGRADIENTTI 🎨 */}
             <LinearGradient
-                colors={['#5CD1FF', '#00C2FF', '#0099FF']}
-                style={StyleSheet.absoluteFillObject}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+                colors={['#0369A1', '#0099FF', '#00C2FF', '#5CD1FF']}
+                style={StyleSheet.absoluteFill}
+                start={{ x: 0.1, y: 0 }}
+                end={{ x: 0.9, y: 1 }}
             />
-            {/* 🌊 KORISTEELLISET AALTO- JA VIRTAUSVIIVAT 🌊 */}
+
+            {/* 🌊 KORISTEELLISET AALTOVIIVAT JA PEHMEÄT HEHKUT 🌊 */}
             <View style={styles.lineContainer} pointerEvents="none">
+                <View style={styles.glowCircle1} />
+                <View style={styles.glowCircle2} />
                 <View style={styles.arcOuter} />
                 <View style={styles.arcMiddle} />
                 <View style={styles.arcInner} />
@@ -165,11 +171,19 @@ export default function LoginScreen() {
             </View>
 
             <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                style={styles.container}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={styles.keyboardContainer}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
             >
-                <SafeAreaView edges={['top']} style={styles.topArea}>
-                    <View style={styles.topContent}>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                    bounces={false}
+                    automaticallyAdjustKeyboardInsets={true}
+                >
+                    {/* YLÄREUNA: HERO / BRÄNDI */}
+                    <SafeAreaView edges={['top']} style={styles.heroArea}>
                         <Image
                             source={require('../../assets/images/3dglossy-logo.png')}
                             style={styles.logo}
@@ -177,86 +191,129 @@ export default function LoginScreen() {
                         />
                         <Text style={styles.title}>PESUNI</Text>
                         <Text style={styles.subtitle}>PUHDASTA ARKEA</Text>
+                    </SafeAreaView>
 
-                        <View style={styles.inputArea}>
-                            <View style={styles.inputContainer}>
-                                <Feather name="user" size={20} color="#6b7280" style={styles.icon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Email or Phone"
-                                    placeholderTextColor="#6b7280"
-                                    value={email}
-                                    onChangeText={(text: string) => setEmail(text)}
-                                    autoCapitalize="none"
-                                    keyboardType="email-address"
-                                />
+                    {/* VALKOINEN LOMAKEKORTTI */}
+                    <View style={styles.whiteCard}>
+                        <View style={styles.cardInner}>
+                            <Text style={styles.cardHeaderTitle}>Kirjaudu sisään</Text>
+                            <Text style={styles.cardHeaderSubtitle}>Syötä sähköpostiosoitteesi ja salasanasi</Text>
+
+                            {/* SÄHKÖPOSTI */}
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Sähköpostiosoite</Text>
+                                <View style={styles.inputContainer}>
+                                    <Feather name="mail" size={19} color="#64748B" style={styles.icon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="matti.meikalainen@email.com"
+                                        placeholderTextColor="#94A3B8"
+                                        value={email}
+                                        onChangeText={setEmail}
+                                        autoCapitalize="none"
+                                        keyboardType="email-address"
+                                        returnKeyType="next"
+                                    />
+                                </View>
                             </View>
-                            <View style={styles.inputContainer}>
-                                <Feather name="lock" size={20} color="#6b7280" style={styles.icon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Password"
-                                    placeholderTextColor="#6b7280"
-                                    value={password}
-                                    onChangeText={(text: string) => setPassword(text)}
-                                    autoCapitalize="none"
-                                    secureTextEntry
-                                />
+
+                            {/* SALASANA */}
+                            <View style={styles.inputGroup}>
+                                <View style={styles.labelRow}>
+                                    <Text style={styles.inputLabel}>Salasana</Text>
+                                    <TouchableOpacity
+                                        onPress={() => router.push('/auth/forgotPassword')}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    >
+                                        <Text style={styles.forgotPassword}>Unohditko salasanan?</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={styles.inputContainer}>
+                                    <Feather name="lock" size={19} color="#64748B" style={styles.icon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Kirjoita salasana"
+                                        placeholderTextColor="#94A3B8"
+                                        value={password}
+                                        onChangeText={setPassword}
+                                        autoCapitalize="none"
+                                        secureTextEntry={!showPassword}
+                                        returnKeyType="done"
+                                        onSubmitEditing={signInWithEmail}
+                                    />
+                                    <TouchableOpacity
+                                        onPress={() => setShowPassword(!showPassword)}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    >
+                                        <Feather name={showPassword ? "eye" : "eye-off"} size={18} color="#94A3B8" />
+                                    </TouchableOpacity>
+                                </View>
                             </View>
+
+                            {/* KIRJAUDU PAINIKE */}
+                            <TouchableOpacity
+                                style={styles.loginButton}
+                                onPress={signInWithEmail}
+                                disabled={loading}
+                                activeOpacity={0.85}
+                            >
+                                <Text style={styles.loginButtonText}>
+                                    {loading ? 'Kirjaudutaan...' : 'Kirjaudu sisään'}
+                                </Text>
+                            </TouchableOpacity>
+
+                            {/* VAIHTOEHTOISET KIRJAUTUMISET */}
+                            <View style={styles.dividerRow}>
+                                <View style={styles.dividerLine} />
+                                <Text style={styles.orText}>tai jatka palvelulla</Text>
+                                <View style={styles.dividerLine} />
+                            </View>
+
+                            <View style={styles.socialLoginContainer}>
+                                <TouchableOpacity
+                                    style={styles.socialButton}
+                                    onPress={() => signInWithProvider('google')}
+                                    disabled={loading}
+                                    activeOpacity={0.7}
+                                >
+                                    <FontAwesome name="google" size={22} color="#DB4437" />
+                                </TouchableOpacity>
+                                {Platform.OS === 'ios' && (
+                                    <TouchableOpacity
+                                        style={styles.socialButton}
+                                        onPress={() => signInWithProvider('apple')}
+                                        disabled={loading}
+                                        activeOpacity={0.7}
+                                    >
+                                        <FontAwesome name="apple" size={24} color="#000000" />
+                                    </TouchableOpacity>
+                                )}
+                                <TouchableOpacity
+                                    style={styles.socialButton}
+                                    onPress={() => signInWithProvider('facebook')}
+                                    disabled={loading}
+                                    activeOpacity={0.7}
+                                >
+                                    <FontAwesome name="facebook" size={22} color="#1877F2" />
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* REKISTERÖINTI LINKKI */}
+                            <TouchableOpacity
+                                style={styles.createButton}
+                                onPress={() => router.push("/auth/signup")}
+                                disabled={loading}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={styles.createButtonText}>
+                                    Eikö sinulla ole tiliä? <Text style={styles.createButtonBold}>Luo tili</Text>
+                                </Text>
+                            </TouchableOpacity>
+
+                            <SafeAreaView edges={['bottom']} />
                         </View>
                     </View>
-                </SafeAreaView>
-
-                {/* VALKOINEN KORTTI - TÄYTTÄÄ KOKO POHJAN ILMAN SINISTÄ VUOTOA */}
-                <View style={styles.whiteCard}>
-                    <SafeAreaView edges={['bottom']} style={styles.cardInner}>
-                        <TouchableOpacity onPress={() => router.push('/auth/forgotPassword')}>
-                            <Text style={styles.forgotPassword}>Forgot Password?</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.loginButton}
-                            onPress={() => signInWithEmail()}
-                            disabled={loading}
-                        >
-                            <Text style={styles.loginButtonText}>{loading ? 'Loading...' : 'Login'}</Text>
-                        </TouchableOpacity>
-
-                        <Text style={styles.orText}>or continue with</Text>
-
-                        <View style={styles.socialLoginContainer}>
-                            <TouchableOpacity
-                                style={styles.socialButton}
-                                onPress={() => signInWithProvider('google')}
-                                disabled={loading}
-                            >
-                                <FontAwesome name="google" size={24} color="#DB4437" />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.socialButton}
-                                onPress={() => signInWithProvider('apple')}
-                                disabled={loading}
-                            >
-                                <FontAwesome name="apple" size={24} color="#000000" />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.socialButton}
-                                onPress={() => signInWithProvider('facebook')}
-                                disabled={loading}
-                            >
-                                <FontAwesome name="facebook" size={24} color="#4267B2" />
-                            </TouchableOpacity>
-                        </View>
-
-                        <TouchableOpacity
-                            style={styles.createButton}
-                            onPress={() => router.push("/auth/signup")}
-                            disabled={loading}
-                        >
-                            <Text style={styles.createButtonText}>Create an account</Text>
-                        </TouchableOpacity>
-                    </SafeAreaView>
-                </View>
+                </ScrollView>
             </KeyboardAvoidingView>
         </View>
     );
@@ -268,8 +325,26 @@ const styles = StyleSheet.create({
         backgroundColor: '#00C2FF',
     },
     lineContainer: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         overflow: 'hidden',
+    },
+    glowCircle1: {
+        position: 'absolute',
+        top: -60,
+        left: -40,
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    },
+    glowCircle2: {
+        position: 'absolute',
+        top: 100,
+        right: -60,
+        width: 240,
+        height: 240,
+        borderRadius: 120,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
     },
     arcOuter: {
         position: 'absolute',
@@ -320,104 +395,124 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.15)',
         transform: [{ rotate: '-22deg' }],
     },
-    container: {
+    keyboardContainer: {
         flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
         justifyContent: 'space-between',
     },
-    topArea: {
-        flex: 1,
-        justifyContent: 'center',
-    },
-    topContent: {
+    heroArea: {
         alignItems: 'center',
+        paddingTop: Platform.OS === 'android' ? 24 : 12,
+        paddingBottom: 20,
         paddingHorizontal: 20,
     },
     logo: {
-        width: 150,
-        height: 150,
-        marginBottom: 8,
+        width: 105,
+        height: 105,
+        marginBottom: 6,
     },
     title: {
-        fontSize: 48,
-        fontWeight: 'bold',
-        color: 'white',
+        fontSize: 40,
+        fontWeight: '900',
+        color: '#FFFFFF',
         fontFamily: 'Montserrat',
-        textShadowColor: 'rgba(0, 0, 0, 0.3)',
-        textShadowRadius: 1,
-        textShadowOffset: { width: 0, height: 3 },
+        letterSpacing: 1.2,
+        textShadowColor: 'rgba(0, 0, 0, 0.25)',
+        textShadowRadius: 3,
+        textShadowOffset: { width: 0, height: 2 },
     },
     subtitle: {
-        fontSize: 16,
-        color: 'white',
-        letterSpacing: 1.5,
-        marginBottom: 20,
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#FFFFFF',
+        letterSpacing: 2,
+        marginTop: 2,
         textShadowColor: 'rgba(0, 40, 95, 0.35)',
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 3,
     },
-    inputArea: {
+    whiteCard: {
+        backgroundColor: '#FFFFFF',
+        borderTopLeftRadius: 36,
+        borderTopRightRadius: 36,
+        paddingHorizontal: 24,
+        paddingTop: 30,
+        paddingBottom: Platform.OS === 'ios' ? 16 : 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -8 },
+        shadowOpacity: 0.1,
+        shadowRadius: 16,
+        elevation: 10,
         width: '100%',
-        maxWidth: 380,
+    },
+    cardInner: {
+        width: '100%',
+    },
+    cardHeaderTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#0F172A',
+        letterSpacing: -0.4,
+        marginBottom: 4,
+    },
+    cardHeaderSubtitle: {
+        fontSize: 14,
+        color: '#64748B',
+        marginBottom: 22,
+    },
+    inputGroup: {
+        marginBottom: 16,
+    },
+    labelRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#334155',
+        marginBottom: 8,
+    },
+    forgotPassword: {
+        color: '#0284C7',
+        fontSize: 13,
+        fontWeight: '700',
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        borderRadius: 30,
-        paddingHorizontal: 20,
+        backgroundColor: '#F8FAFC',
+        borderRadius: 16,
+        paddingHorizontal: 16,
         paddingVertical: Platform.OS === 'ios' ? 15 : 12,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.7)',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        elevation: 2,
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
     },
     icon: {
-        marginRight: 10,
+        marginRight: 12,
     },
     input: {
         flex: 1,
-        color: '#333',
         fontSize: 16,
-    },
-    whiteCard: {
-        width: '100%',
-        backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: 40,
-        borderTopRightRadius: 40,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    cardInner: {
-        width: '100%',
-        paddingHorizontal: 30,
-        paddingTop: 28,
-        paddingBottom: Platform.OS === 'ios' ? 24 : 28,
-        alignItems: 'center',
-    },
-    forgotPassword: {
-        color: '#6b7280',
-        fontSize: 14,
-        marginBottom: 20,
+        color: '#0F172A',
     },
     loginButton: {
         backgroundColor: '#FFC700',
         paddingVertical: 16,
-        borderRadius: 30,
+        borderRadius: 24,
         width: '100%',
         alignItems: 'center',
-        marginBottom: 15,
+        marginTop: 6,
+        marginBottom: 20,
         shadowColor: "#E09A00",
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.35,
+        shadowOpacity: 0.3,
         shadowRadius: 8,
-        elevation: 6,
+        elevation: 5,
     },
     loginButtonText: {
         color: '#1A1B32',
@@ -425,45 +520,55 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         letterSpacing: 0.3,
     },
+    dividerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: '#E2E8F0',
+    },
     orText: {
-        color: '#9ca3af',
-        fontSize: 14,
-        marginVertical: 14,
+        color: '#94A3B8',
+        fontSize: 13,
+        fontWeight: '600',
+        marginHorizontal: 12,
     },
     socialLoginContainer: {
         flexDirection: 'row',
         justifyContent: 'center',
+        gap: 16,
         width: '100%',
+        marginBottom: 16,
     },
     socialButton: {
-        backgroundColor: 'white',
-        borderWidth: 1,
-        borderColor: '#d1d5db',
-        borderRadius: 25,
-        width: 50,
-        height: 50,
+        backgroundColor: '#F8FAFC',
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
+        borderRadius: 20,
+        width: 52,
+        height: 52,
         alignItems: 'center',
         justifyContent: 'center',
-        marginHorizontal: 12,
-        shadowColor: "#000",
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 2,
+        shadowOpacity: 0.04,
+        shadowRadius: 3,
+        elevation: 1,
     },
     createButton: {
-        backgroundColor: 'white',
-        paddingVertical: 15,
-        borderRadius: 30,
-        width: '100%',
+        paddingVertical: 10,
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#d1d5db',
-        marginTop: 15,
     },
     createButtonText: {
-        color: '#333',
-        fontSize: 16,
-        fontWeight: 'bold',
+        color: '#64748B',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    createButtonBold: {
+        color: '#0284C7',
+        fontWeight: '800',
     },
 });
