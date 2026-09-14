@@ -273,16 +273,16 @@ export default function DriverProfileScreen() {
                             style={styles.listItem}
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                                router.push('/general/chat');
+                                router.push('/admin/dispatch' as any);
                             }}
                             activeOpacity={0.7}
                         >
-                            <View style={[styles.iconBox, { backgroundColor: '#F0FDF4' }]}>
-                                <Feather name="plus-circle" size={18} color="#10B981" />
+                            <View style={[styles.iconBox, { backgroundColor: '#E0F2FE' }]}>
+                                <Feather name="clipboard" size={18} color="#0284C7" />
                             </View>
                             <View style={styles.itemContent}>
-                                <Text style={styles.itemTitle}>Aloita uusi keskustelu</Text>
-                                <Text style={styles.itemSubtitle}>Ota yhteys Pesunin ajojärjestelyyn</Text>
+                                <Text style={styles.itemTitle}>Ajojärjestely & Keikkataulu</Text>
+                                <Text style={styles.itemSubtitle}>Reaaliaikainen keikkojen hallinta</Text>
                             </View>
                             <Feather name="chevron-right" size={16} color="#94A3B8" />
                         </TouchableOpacity>

@@ -174,6 +174,15 @@ const ProfileScreen = () => {
 
     const supportSettings = [
         {
+            id: 'admin-dispatch',
+            label: 'Ajojärjestely & Keikkataulu',
+            icon: 'clipboard-list',
+            iconBg: '#E0F2FE',
+            iconColor: '#0284C7',
+            badge: 'Live',
+            onPress: () => router.push('/admin/dispatch' as any)
+        },
+        {
             id: '6',
             label: 'Keskustelut',
             icon: 'comments',
