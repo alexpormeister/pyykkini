@@ -195,9 +195,11 @@ const styles = StyleSheet.create({
         backgroundColor: '#00C2FF',
     },
     topArea: {
+        flex: 1,
         justifyContent: 'center',
-        paddingTop: Platform.OS === 'ios' ? 10 : 20,
-        paddingBottom: 20,
+        alignItems: 'center',
+        paddingTop: Platform.OS === 'ios' ? 24 : 32,
+        paddingBottom: 16,
     },
     lineContainer: {
         ...StyleSheet.absoluteFillObject,
@@ -261,7 +263,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     title: {
-        fontSize: 30,
+        fontSize: 32,
         fontWeight: 'bold',
         color: 'white',
         textAlign: 'center',
@@ -272,16 +274,17 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 16,
         color: 'white',
-        marginTop: 6,
+        marginTop: 8,
         letterSpacing: 0.5,
         textShadowColor: 'rgba(0, 40, 95, 0.35)',
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 3,
     },
     whiteCard: {
+        width: '100%',
         backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: 36,
-        borderTopRightRadius: 36,
+        borderTopLeftRadius: 40,
+        borderTopRightRadius: 40,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.1,
@@ -289,9 +292,10 @@ const styles = StyleSheet.create({
         elevation: 8,
     },
     cardInner: {
+        width: '100%',
         paddingHorizontal: 30,
         paddingTop: 28,
-        paddingBottom: Platform.OS === 'ios' ? 20 : 28,
+        paddingBottom: Platform.OS === 'ios' ? 24 : 28,
         alignItems: 'center',
     },
     inputContainer: {
