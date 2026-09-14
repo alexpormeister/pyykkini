@@ -25,7 +25,6 @@ import { formatPhoneNumberDisplay } from '../../lib/phoneUtils';
 import { supabase } from '../../lib/supabase';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const IS_DESKTOP = SCREEN_WIDTH >= 900;
 
 interface DriverUser {
     id: string;
@@ -80,6 +79,28 @@ interface FullOrder {
     created_at: string;
     tasks: TaskRow[];
     items: OrderItemRow[];
+}
+
+// 🌐 PURE HELPER FUNCTIONS
+function formatShortDate(isoStr?: string): string {
+    if (!isoStr) return '-';
+    try {
+        const d = new Date(isoStr);
+        if (isNaN(d.getTime())) return isoStr;
+        const day = d.getDate();
+        const month = d.getMonth() + 1;
+        return `${day}.${month}.`;
+    } catch {
+        return isoStr;
+    }
+}
+
+function getDriverDisplayName(driverId: string | null, driverList: DriverUser[]): string | null {
+    if (!driverId) return null;
+    const found = driverList.find(d => d.id === driverId);
+    if (!found) return 'Kuljettaja määritetty';
+    const name = `${found.first_name || ''} ${found.last_name || ''}`.trim();
+    return name || found.email || 'Kuljettaja';
 }
 
 export default function AdminDispatchScreen() {
@@ -289,15 +310,6 @@ export default function AdminDispatchScreen() {
         }
     };
 
-    // Helper: Kuljettajan nimi
-    const getDriverName = (driverId: string | null) => {
-        if (!driverId) return null;
-        const found = drivers.find(d => d.id === driverId);
-        if (!found) return 'Kuljettaja määritetty';
-        const name = `${found.first_name || ''} ${found.last_name || ''}`.trim();
-        return name || found.email || 'Kuljettaja';
-    };
-
     // 📊 TILASTOT (KPI)
     const stats = useMemo(() => {
         let unassigned = 0;
@@ -305,73 +317,80 @@ export default function AdminDispatchScreen() {
         let returning = 0;
         let delivered = 0;
 
-        orders.forEach(o => {
-            const st = o.status.toLowerCase();
-            const hasUnassignedTask = o.tasks.some(t => t.status === 'unassigned' || !t.driver_id);
+        (orders || []).forEach(o => {
+            if (!o) return;
+            const st = (o.status || '').toLowerCase();
+            const lst = (o.laundry_status || '').toLowerCase();
+            const trk = (o.tracking_status || '').toUpperCase();
+            const hasUnassignedTask = (o.tasks || []).some(t => t && (t.status === 'unassigned' || !t.driver_id));
+
             if (hasUnassignedTask && st !== 'delivered' && st !== 'cancelled' && st !== 'rejected') {
                 unassigned++;
             }
-            if (st === 'washing' || o.laundry_status === 'washing') {
+            if (st === 'washing' || lst === 'washing') {
                 washing++;
             }
-            if (st === 'returning' || o.tracking_status === 'OUT_FOR_DELIVERY') {
+            if (st === 'returning' || trk === 'OUT_FOR_DELIVERY') {
                 returning++;
             }
-            if (st === 'delivered' || o.tracking_status === 'COMPLETED') {
+            if (st === 'delivered' || trk === 'COMPLETED') {
                 delivered++;
             }
         });
 
-        return { total: orders.length, unassigned, washing, returning, delivered };
+        return { total: (orders || []).length, unassigned, washing, returning, delivered };
     }, [orders]);
 
     // 🔍 SUODATETTU LISTA
     const filteredOrders = useMemo(() => {
-        return orders.filter(o => {
-            // Tila-suodatus
-            const st = o.status.toLowerCase();
-            const lst = o.laundry_status.toLowerCase();
-            const isUnassigned = o.tasks.some(t => t.status === 'unassigned' || !t.driver_id);
-
-            if (statusFilter === 'unassigned' && (!isUnassigned || st === 'delivered' || st === 'cancelled')) return false;
-            if (statusFilter === 'picking_up' && st !== 'picking_up' && st !== 'accepted') return false;
-            if (statusFilter === 'washing' && st !== 'washing' && lst !== 'washing') return false;
-            if (statusFilter === 'returning' && st !== 'returning') return false;
-            if (statusFilter === 'delivered' && st !== 'delivered') return false;
-            if (statusFilter === 'cancelled' && st !== 'cancelled' && st !== 'rejected') return false;
-
-            // Tekstihaku
-            if (searchQuery.trim()) {
-                const q = searchQuery.toLowerCase();
-                const matchId = o.id.toLowerCase().includes(q);
-                const matchName = `${o.first_name} ${o.last_name}`.toLowerCase().includes(q);
-                const matchPhone = o.phone.toLowerCase().includes(q);
-                const matchAddress = o.address.toLowerCase().includes(q);
-                const matchService = o.service_name.toLowerCase().includes(q);
-                const driverName = (getDriverName(o.driver_id) || '').toLowerCase();
-                const matchDriver = driverName.includes(q);
-
-                if (!matchId && !matchName && !matchPhone && !matchAddress && !matchService && !matchDriver) {
-                    return false;
-                }
-            }
-
-            return true;
-        });
-    }, [orders, statusFilter, searchQuery, drivers]);
-
-    const formatShortDate = (isoStr?: string) => {
-        if (!isoStr) return '-';
         try {
-            const d = new Date(isoStr);
-            if (isNaN(d.getTime())) return isoStr;
-            const day = d.getDate();
-            const month = d.getMonth() + 1;
-            return `${day}.${month}.`;
-        } catch {
-            return isoStr;
+            return (orders || []).filter(o => {
+                if (!o) return false;
+
+                // Tila-suodatus
+                const st = (o.status || '').toLowerCase();
+                const lst = (o.laundry_status || '').toLowerCase();
+                const trk = (o.tracking_status || '').toUpperCase();
+                const isUnassigned = (o.tasks || []).some(t => t && (t.status === 'unassigned' || !t.driver_id));
+
+                if (statusFilter === 'unassigned' && (!isUnassigned || st === 'delivered' || st === 'cancelled' || st === 'rejected')) return false;
+                if (statusFilter === 'picking_up' && st !== 'picking_up' && st !== 'accepted') return false;
+                if (statusFilter === 'washing' && st !== 'washing' && lst !== 'washing') return false;
+                if (statusFilter === 'returning' && st !== 'returning') return false;
+                if (statusFilter === 'delivered' && st !== 'delivered' && trk !== 'COMPLETED') return false;
+                if (statusFilter === 'cancelled' && st !== 'cancelled' && st !== 'rejected') return false;
+
+                // Tekstihaku
+                if (searchQuery && searchQuery.trim()) {
+                    const q = searchQuery.trim().toLowerCase().replace(/^#/, '');
+                    const rawId = String(o.id || '').toLowerCase().replace(/[^a-zA-Z0-9]/g, '');
+                    const shortId = `#${rawId.slice(0, 8)}`;
+                    const fullId = String(o.id || '').toLowerCase();
+                    const matchId = rawId.includes(q) || shortId.toLowerCase().includes(q) || fullId.includes(q);
+                    
+                    const fullName = `${o.first_name || ''} ${o.last_name || ''}`.toLowerCase();
+                    const matchName = fullName.includes(q);
+                    
+                    const cleanPhone = String(o.phone || '').toLowerCase().replace(/\s+/g, '');
+                    const matchPhone = cleanPhone.includes(q.replace(/\s+/g, ''));
+                    
+                    const matchAddress = String(o.address || '').toLowerCase().includes(q);
+                    const matchService = String(o.service_name || '').toLowerCase().includes(q);
+                    const driverName = (getDriverDisplayName(o.driver_id, drivers) || '').toLowerCase();
+                    const matchDriver = driverName.includes(q);
+
+                    if (!matchId && !matchName && !matchPhone && !matchAddress && !matchService && !matchDriver) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+        } catch (err) {
+            console.error('Error filtering orders:', err);
+            return orders || [];
         }
-    };
+    }, [orders, statusFilter, searchQuery, drivers]);
 
     return (
         <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
@@ -461,10 +480,11 @@ export default function AdminDispatchScreen() {
                 ) : (
                     <View style={styles.ordersGrid}>
                         {filteredOrders.map((order) => {
-                            const rawId = String(order.id).replace(/[^a-zA-Z0-9]/g, '');
+                            const rawId = String(order.id || '').replace(/[^a-zA-Z0-9]/g, '');
                             const shortId = `#${rawId.slice(0, 8).toUpperCase()}`;
-                            const driverName = getDriverName(order.driver_id);
-                            const parsed = parseStructuredAddress(order.address);
+                            const driverName = getDriverDisplayName(order.driver_id, drivers);
+                            const customerName = `${order.first_name || ''} ${order.last_name || ''}`.trim() || 'Asiakas';
+                            const orderPriceStr = (Number(order.final_price || order.price || 0) || 0).toFixed(2);
 
                             return (
                                 <View key={order.id} style={styles.orderCard}>
@@ -492,12 +512,8 @@ export default function AdminDispatchScreen() {
                                     {/* ASIAKAS & YHTEYSTIEDOT */}
                                     <View style={styles.cardCustomerSection}>
                                         <View style={styles.custHeaderRow}>
-                                            <Text style={styles.custName}>
-                                                {order.first_name || order.last_name ? `${order.first_name} ${order.last_name}`.trim() : 'Asiakas'}
-                                            </Text>
-                                            <Text style={styles.orderPrice}>
-                                                {Number(order.final_price).toFixed(2)} €
-                                            </Text>
+                                            <Text style={styles.custName}>{customerName}</Text>
+                                            <Text style={styles.orderPrice}>{orderPriceStr} €</Text>
                                         </View>
 
                                         {/* PUHELIN */}
@@ -738,18 +754,18 @@ export default function AdminDispatchScreen() {
                                         selectedOrder.items.map((item, idx) => (
                                             <View key={item.id || idx} style={styles.itemRow}>
                                                 <Text style={styles.itemNameText}>{item.service_name || item.product_name} x {item.quantity}</Text>
-                                                <Text style={styles.itemPriceText}>{Number(item.total_price).toFixed(2)} €</Text>
+                                                <Text style={styles.itemPriceText}>{Number(item.total_price || 0).toFixed(2)} €</Text>
                                             </View>
                                         ))
                                     ) : (
                                         <View style={styles.itemRow}>
                                             <Text style={styles.itemNameText}>{selectedOrder.service_name}</Text>
-                                            <Text style={styles.itemPriceText}>{Number(selectedOrder.final_price).toFixed(2)} €</Text>
+                                            <Text style={styles.itemPriceText}>{Number(selectedOrder.final_price || selectedOrder.price || 0).toFixed(2)} €</Text>
                                         </View>
                                     )}
                                     <View style={styles.totalRow}>
                                         <Text style={styles.totalText}>Kokonaissumma:</Text>
-                                        <Text style={styles.totalPriceText}>{Number(selectedOrder.final_price).toFixed(2)} €</Text>
+                                        <Text style={styles.totalPriceText}>{Number(selectedOrder.final_price || selectedOrder.price || 0).toFixed(2)} €</Text>
                                     </View>
                                 </View>
 
@@ -765,7 +781,7 @@ export default function AdminDispatchScreen() {
                                                 <StatusPill status={t.status} />
                                             </View>
                                             <Text style={styles.detailText}>
-                                                Kuljettaja: {getDriverName(t.driver_id) || 'Ei määrätty'}
+                                                Kuljettaja: {getDriverDisplayName(t.driver_id, drivers) || 'Ei määrätty'}
                                             </Text>
                                             <Text style={styles.detailText}>
                                                 Aikaleima: {t.scheduled_date} ({t.scheduled_time || 'Oletus'})
