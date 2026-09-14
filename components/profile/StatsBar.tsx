@@ -1,47 +1,67 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-interface StatsBarProps {
-    points: number;
-    orders: number;
+export interface StatsBarProps {
+    points?: number;
+    orders?: number;
+    orderCount?: number;
+    onOrdersPress?: () => void;
+    onPointsPress?: () => void;
 }
 
-const StatsBar: React.FC<StatsBarProps> = ({ points, orders }) => {
+const StatsBar: React.FC<StatsBarProps> = ({
+    points = 0,
+    orders,
+    orderCount,
+    onOrdersPress,
+    onPointsPress,
+}) => {
+    const totalOrders = orders ?? orderCount ?? 0;
     // Lasketaan pisteiden arvo euroina (100p = 2€ -> kerroin 0.02)
     const euroValue = (points * 0.02).toFixed(2).replace('.', ',');
 
     return (
         <View style={styles.container}>
             {/* LAATTA 1: PESUPISTEET */}
-            <View style={styles.statCard}>
+            <TouchableOpacity
+                style={styles.statCard}
+                onPress={onPointsPress}
+                activeOpacity={onPointsPress ? 0.7 : 1}
+                disabled={!onPointsPress}
+            >
                 <View style={styles.cardHeaderRow}>
                     <View style={[styles.iconCircle, { backgroundColor: '#FEF3C7' }]}>
                         <MaterialCommunityIcons name="star-face" size={20} color="#D97706" />
                     </View>
                     <Text style={styles.cardHeaderTitle}>Pesupisteet</Text>
                 </View>
-                <Text style={styles.statNumber}>{points} <Text style={styles.unitText}>p</Text></Text>
+                <Text style={styles.statNumber}>
+                    {points} <Text style={styles.unitText}>p</Text>
+                </Text>
                 <View style={styles.valuePill}>
                     <Feather name="gift" size={12} color="#0284C7" style={{ marginRight: 4 }} />
                     <Text style={styles.euroValue}>{euroValue} € alennusta</Text>
                 </View>
-            </View>
+            </TouchableOpacity>
 
             {/* LAATTA 2: TILAUKSET */}
-            <View style={styles.statCard}>
+            <TouchableOpacity
+                style={styles.statCard}
+                onPress={onOrdersPress}
+                activeOpacity={onOrdersPress ? 0.7 : 1}
+                disabled={!onOrdersPress}
+            >
                 <View style={styles.cardHeaderRow}>
                     <View style={[styles.iconCircle, { backgroundColor: '#E0F2FE' }]}>
                         <MaterialCommunityIcons name="washing-machine" size={20} color="#0284C7" />
                     </View>
                     <Text style={styles.cardHeaderTitle}>Tilaukset</Text>
                 </View>
-                <Text style={styles.statNumber}>{orders} <Text style={styles.unitText}>kpl</Text></Text>
-                <View style={[styles.valuePill, { backgroundColor: '#F1F5F9' }]}>
-                    <Feather name="check" size={12} color="#64748B" style={{ marginRight: 4 }} />
-                    <Text style={[styles.euroValue, { color: '#64748B' }]}>Aktiiviset & menneet</Text>
-                </View>
-            </View>
+                <Text style={styles.statNumber}>
+                    {totalOrders} <Text style={styles.unitText}>kpl</Text>
+                </Text>
+            </TouchableOpacity>
         </View>
     );
 };
@@ -69,6 +89,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 3,
         justifyContent: 'space-between',
+        minHeight: 115,
     },
     cardHeaderRow: {
         flexDirection: 'row',
