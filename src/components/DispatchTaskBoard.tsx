@@ -2,14 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
-  ArrowRight,
   Clock,
   MapPin,
   Package,
@@ -18,17 +16,12 @@ import {
   Search,
   Truck,
   User,
-  UserCheck,
-  WashingMachine,
   X,
-  ExternalLink,
-  CheckCircle2,
-  AlertCircle,
   Copy,
   Check,
-  Layers,
   LayoutGrid,
-  List
+  List,
+  ArrowRight
 } from "lucide-react";
 
 interface OrderEmbedded {
@@ -97,7 +90,7 @@ interface LaundryInfo {
   name: string;
 }
 
-// 🌐 PURE HELPER FUNCTIONS (MÄÄRITELTY ENNEN KOMPONENTTIA TDZ-VIRHEIDEN ESTÄMISEKSI)
+// 🌐 PURE HELPER FUNCTIONS
 function getDriverFullName(p?: Profile | null): string {
   if (!p) return "Ei kuljettajaa (Jaossa)";
   const name = `${p.first_name || ""} ${p.last_name || ""}`.trim();
@@ -148,7 +141,6 @@ export const DispatchTaskBoard = () => {
   // Kuljettajan määrityksen modal
   const [assignModalTask, setAssignModalTask] = useState<TaskRow | null>(null);
 
-  // 1. Data Fetch
   const fetchAll = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
@@ -220,7 +212,6 @@ export const DispatchTaskBoard = () => {
     return drivers.find((d) => d.user_id === id) || null;
   };
 
-  // Vain aktiiviset keikat (ei jo valmistuneet)
   const activeTasks = useMemo(() => {
     return tasks.filter((t) => {
       if (!t) return false;
@@ -247,7 +238,6 @@ export const DispatchTaskBoard = () => {
     return Array.from(set).sort();
   }, [activeTasks]);
 
-  // 🔍 100% SUOJATTU JA VIRHEETÖN SUODATETTU LISTA
   const filteredTasks = useMemo(() => {
     try {
       const q = String(searchQuery || "").toLowerCase().trim().replace(/^#/, "");
@@ -301,7 +291,6 @@ export const DispatchTaskBoard = () => {
     }
   }, [activeTasks, searchQuery, cityFilter, drivers]);
 
-  // KPI-Laskenta
   const stats = useMemo(() => {
     let unassigned = 0;
     let pickingUp = 0;
@@ -333,14 +322,11 @@ export const DispatchTaskBoard = () => {
     };
   }, [filteredTasks]);
 
-  // 4 KANBAN-SARAKETTA
   const kanbanColumns = useMemo(() => {
     return [
       {
         key: "unassigned",
-        label: "Jaossa / Vapaat",
-        badgeColor: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300",
-        headerBorder: "border-t-4 border-amber-500",
+        label: "Jaossa",
         count: stats.unassigned,
         tasks: filteredTasks.filter((t) => {
           const orderSt = String(t.orders?.status || "").toLowerCase();
@@ -351,8 +337,6 @@ export const DispatchTaskBoard = () => {
       {
         key: "pickup",
         label: "Noudossa",
-        badgeColor: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300",
-        headerBorder: "border-t-4 border-blue-500",
         count: stats.pickingUp,
         tasks: filteredTasks.filter((t) => {
           const orderSt = String(t.orders?.status || "").toLowerCase();
@@ -363,8 +347,6 @@ export const DispatchTaskBoard = () => {
       {
         key: "washing",
         label: "Pesulassa",
-        badgeColor: "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-300",
-        headerBorder: "border-t-4 border-purple-500",
         count: stats.washing,
         tasks: filteredTasks.filter((t) => {
           const orderSt = String(t.orders?.status || "").toLowerCase();
@@ -374,8 +356,6 @@ export const DispatchTaskBoard = () => {
       {
         key: "delivery",
         label: "Palautuksessa",
-        badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300",
-        headerBorder: "border-t-4 border-emerald-500",
         count: stats.returning,
         tasks: filteredTasks.filter((t) => {
           const orderSt = String(t.orders?.status || "").toLowerCase();
@@ -386,7 +366,6 @@ export const DispatchTaskBoard = () => {
     ];
   }, [filteredTasks, stats]);
 
-  // Kopioi ID leikepöydälle
   const copyId = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(text);
@@ -394,14 +373,12 @@ export const DispatchTaskBoard = () => {
     toast({ title: "Kopioitu leikepöydälle", description: text });
   };
 
-  // 🎯 KULJETTAJAN MÄÄRITYS / VAPAUTUS
   const handleAssignDriver = async (task: TaskRow, driverId: string | null) => {
     setActionLoading(true);
     try {
       const nowIso = new Date().toISOString();
       const newStatus = driverId ? "assigned" : "unassigned";
 
-      // 1. Päivitetään delivery_task
       await supabase
         .from("delivery_tasks")
         .update({
@@ -411,7 +388,6 @@ export const DispatchTaskBoard = () => {
         })
         .eq("id", task.id);
 
-      // 2. Päivitetään order
       if (task.order_id) {
         await supabase
           .from("orders")
@@ -424,10 +400,10 @@ export const DispatchTaskBoard = () => {
       }
 
       toast({
-        title: driverId ? "Kuljettaja määritetty" : "Keikka vapautettu jakoon",
+        title: driverId ? "Kuljettaja määritetty" : "Keikka vapautettu",
         description: driverId
           ? `Keikka liitettiin kuljettajalle ${getDriverFullName(findDriver(driverId))}`
-          : "Keikka on nyt vapaana ja kuka tahansa kuljettaja voi ottaa sen.",
+          : "Keikka on nyt vapaana.",
       });
 
       setAssignModalTask(null);
@@ -439,207 +415,122 @@ export const DispatchTaskBoard = () => {
     }
   };
 
-  // 🎯 TILAN PÄIVITYS (PIKA)
-  const handleUpdateStatus = async (task: TaskRow, newOrderStatus: string, newLaundryStatus?: string) => {
-    setActionLoading(true);
-    try {
-      const nowIso = new Date().toISOString();
-      const payload: any = { status: newOrderStatus, updated_at: nowIso };
-      if (newLaundryStatus) payload.laundry_status = newLaundryStatus;
-      if (newOrderStatus === "delivered") payload.tracking_status = "COMPLETED";
-
-      if (task.order_id) {
-        await supabase.from("orders").update(payload).eq("id", task.order_id);
-      }
-
-      if (newOrderStatus === "delivered") {
-        await supabase
-          .from("delivery_tasks")
-          .update({ status: "completed", updated_at: nowIso })
-          .eq("id", task.id);
-      }
-
-      toast({ title: "Tila päivitetty", description: `Tilauksen tila: ${newOrderStatus}` });
-      await fetchAll();
-    } catch (err: any) {
-      toast({ title: "Virhe", description: err.message || "Tilan päivitys epäonnistui", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       
-      {/* 📊 KPI-TILASTOPALKKI */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Card className="border shadow-sm bg-card p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Aktiivisia keikkoja</p>
-              <h4 className="text-xl font-black text-foreground mt-0.5">{stats.total}</h4>
-            </div>
-            <div className="h-9 w-9 rounded-xl bg-blue-50 text-primary flex items-center justify-center dark:bg-blue-950">
-              <Layers className="h-4 w-4" />
-            </div>
-          </div>
-        </Card>
+      {/* KPI-RIVI (MINIMALISTINEN) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-3.5 rounded-xl border bg-card">
+          <p className="text-xs text-muted-foreground">Jaossa / Vapaana</p>
+          <h4 className="text-lg font-bold text-foreground mt-0.5">{stats.unassigned} kpl</h4>
+        </div>
 
-        <Card className="border shadow-sm bg-card p-3 border-amber-200 dark:border-amber-900">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Jaossa / Vapaat</p>
-              <h4 className="text-xl font-black text-amber-600 mt-0.5">{stats.unassigned}</h4>
-            </div>
-            <div className="h-9 w-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center dark:bg-amber-950">
-              <AlertCircle className="h-4 w-4" />
-            </div>
-          </div>
-        </Card>
+        <div className="p-3.5 rounded-xl border bg-card">
+          <p className="text-xs text-muted-foreground">Noudossa</p>
+          <h4 className="text-lg font-bold text-foreground mt-0.5">{stats.pickingUp} kpl</h4>
+        </div>
 
-        <Card className="border shadow-sm bg-card p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Noudossa</p>
-              <h4 className="text-xl font-black text-blue-600 mt-0.5">{stats.pickingUp}</h4>
-            </div>
-            <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center dark:bg-blue-950">
-              <Truck className="h-4 w-4" />
-            </div>
-          </div>
-        </Card>
+        <div className="p-3.5 rounded-xl border bg-card">
+          <p className="text-xs text-muted-foreground">Pesulassa</p>
+          <h4 className="text-lg font-bold text-foreground mt-0.5">{stats.washing} kpl</h4>
+        </div>
 
-        <Card className="border shadow-sm bg-card p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider">Pesulassa</p>
-              <h4 className="text-xl font-black text-purple-600 mt-0.5">{stats.washing}</h4>
-            </div>
-            <div className="h-9 w-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center dark:bg-purple-950">
-              <WashingMachine className="h-4 w-4" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="border shadow-sm bg-card p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Palautuksessa</p>
-              <h4 className="text-xl font-black text-emerald-600 mt-0.5">{stats.returning}</h4>
-            </div>
-            <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center dark:bg-emerald-950">
-              <CheckCircle2 className="h-4 w-4" />
-            </div>
-          </div>
-        </Card>
+        <div className="p-3.5 rounded-xl border bg-card">
+          <p className="text-xs text-muted-foreground">Palautuksessa</p>
+          <h4 className="text-lg font-bold text-foreground mt-0.5">{stats.returning} kpl</h4>
+        </div>
       </div>
 
-      {/* 🔍 HAKU & TOIMINTOPALKKI */}
-      <Card className="border shadow-sm p-4 bg-card">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-          
-          {/* Hakukenttä */}
-          <div className="relative w-full md:flex-1">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Etsi tilausnumerolla, nimellä, puhelimella, osoitteella tai kuskilla..."
-              className="pl-9 h-10 text-xs sm:text-sm bg-muted/40 border-muted-foreground/20 rounded-xl"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Kaupunkisuodatin */}
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <Select value={cityFilter} onValueChange={setCityFilter}>
-              <SelectTrigger className="h-10 text-xs sm:text-sm min-w-[150px] rounded-xl">
-                <MapPin className="h-3.5 w-3.5 mr-1.5 text-primary" />
-                <SelectValue placeholder="Kaikki kaupungit" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Kaikki kaupungit</SelectItem>
-                {cities.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Näkymävalitsin (Kanban / Lista) */}
-            <div className="flex items-center p-1 bg-muted rounded-xl border">
-              <Button
-                variant={viewMode === "kanban" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("kanban")}
-                className="h-8 px-2.5 text-xs"
-              >
-                <LayoutGrid className="h-3.5 w-3.5 mr-1" />
-                Taulu
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("list")}
-                className="h-8 px-2.5 text-xs"
-              >
-                <List className="h-3.5 w-3.5 mr-1" />
-                Lista
-              </Button>
-            </div>
-
-            {/* Päivitä */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchAll(true)}
-              disabled={refreshing}
-              className="h-10 px-3 rounded-xl"
+      {/* HAKU & TOIMINTOPALKKI */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 p-3 rounded-xl border bg-card">
+        <div className="relative w-full sm:flex-1">
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Hae tilausnumerolla, nimellä, puhelimella, osoitteella tai kuskilla..."
+            className="pl-8 h-8 text-xs bg-muted/30 border-muted-foreground/20 rounded-lg"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground"
             >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Select value={cityFilter} onValueChange={setCityFilter}>
+            <SelectTrigger className="h-8 text-xs min-w-[130px] rounded-lg">
+              <SelectValue placeholder="Kaikki alueet" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Kaikki alueet</SelectItem>
+              {cities.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="flex items-center p-0.5 bg-muted rounded-lg border">
+            <Button
+              variant={viewMode === "kanban" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("kanban")}
+              className="h-7 px-2 text-xs"
+            >
+              <LayoutGrid className="h-3 w-3 mr-1" />
+              Taulu
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("list")}
+              className="h-7 px-2 text-xs"
+            >
+              <List className="h-3 w-3 mr-1" />
+              Lista
             </Button>
           </div>
-        </div>
-      </Card>
 
-      {/* 📋 KEIKAT / PÄÄNÄKYMÄ */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchAll(true)}
+            disabled={refreshing}
+            className="h-8 px-2.5 rounded-lg"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+      </div>
+
+      {/* KEIKAT / PÄÄNÄKYMÄ */}
       {loading ? (
-        <div className="text-center py-16">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-3"></div>
-          <p className="text-sm font-medium text-muted-foreground">Ladataan reaaliaikaista keikkadataa...</p>
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground mx-auto mb-2"></div>
+          <p className="text-xs text-muted-foreground">Ladataan keikkoja...</p>
         </div>
       ) : filteredTasks.length === 0 ? (
-        <Card className="border border-dashed p-12 text-center">
-          <Package className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-          <h3 className="text-base font-bold text-foreground">Ei keikkoja tällä suodatuksella</h3>
-          <p className="text-xs text-muted-foreground mt-1">Kokeile vaihtaa hakusanaa tai kaupunkisuodatinta.</p>
-        </Card>
+        <div className="border border-dashed rounded-xl p-8 text-center bg-card">
+          <Package className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-xs text-muted-foreground">Ei keikkoja tällä suodatuksella.</p>
+        </div>
       ) : viewMode === "kanban" ? (
-        /* 1. KANBAN SARAKENÄKYMÄ */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+        /* KANBAN NÄKYMÄ */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-start">
           {kanbanColumns.map((col) => (
-            <div key={col.key} className="space-y-3">
-              {/* Sarakeotsikko */}
-              <div className={`bg-card p-3 rounded-2xl border shadow-sm ${col.headerBorder} flex items-center justify-between`}>
-                <div>
-                  <h4 className="text-sm font-bold text-foreground">{col.label}</h4>
-                  <p className="text-[11px] text-muted-foreground">{col.tasks.length} keikkaa</p>
-                </div>
-                <Badge className={`${col.badgeColor} font-bold text-xs`}>
-                  {col.count}
-                </Badge>
+            <div key={col.key} className="space-y-2.5">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-semibold text-foreground">{col.label}</span>
+                <span className="text-xs text-muted-foreground">{col.tasks.length}</span>
               </div>
 
-              {/* Sarakkeen keikkakortit */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {col.tasks.map((task) => {
                   const driver = findDriver(task.driver_id);
                   const isPickup = task.task_type === "pickup";
@@ -653,86 +544,74 @@ export const DispatchTaskBoard = () => {
                   const priceStr = Number(task.orders?.final_price || task.orders?.price || 0).toFixed(2);
 
                   return (
-                    <Card key={task.id} className="border shadow-sm hover:shadow-md transition-shadow rounded-2xl overflow-hidden bg-card">
-                      <div className="p-4 space-y-3">
-                        {/* Kortin Yläosa */}
-                        <div className="flex items-center justify-between">
-                          <button
-                            onClick={() => copyId(task.order_id || task.id)}
-                            className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted text-[11px] font-mono font-bold hover:bg-muted/80 text-primary"
-                          >
-                            {shortOrderId(task.order_id || task.id)}
-                            {copiedId === (task.order_id || task.id) ? (
-                              <Check className="h-3 w-3 text-emerald-600" />
-                            ) : (
-                              <Copy className="h-3 w-3 text-muted-foreground" />
-                            )}
-                          </button>
-
-                          <Badge variant="outline" className={isPickup ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}>
-                            {isPickup ? "📦 Nouto" : "🚗 Palautus"}
-                          </Badge>
-                        </div>
-
-                        {/* Asiakas & Puhelin */}
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-sm text-foreground">{customerName}</span>
-                            <span className="font-black text-sm text-primary">{priceStr} €</span>
-                          </div>
-
-                          {phone && (
-                            <a
-                              href={`tel:${phone.replace(/\s+/g, "")}`}
-                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-0.5"
-                            >
-                              <Phone className="h-3 w-3" />
-                              {phone}
-                            </a>
+                    <div key={task.id} className="p-3.5 rounded-xl border bg-card space-y-2.5 text-xs hover:border-muted-foreground/30 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={() => copyId(task.order_id || task.id)}
+                          className="font-mono font-bold hover:underline flex items-center gap-1 text-foreground"
+                        >
+                          {shortOrderId(task.order_id || task.id)}
+                          {copiedId === (task.order_id || task.id) ? (
+                            <Check className="h-3 w-3 text-foreground" />
+                          ) : (
+                            <Copy className="h-3 w-3 text-muted-foreground" />
                           )}
+                        </button>
+
+                        <span className="text-[11px] text-muted-foreground font-medium">
+                          {isPickup ? "Nouto" : "Palautus"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between font-medium">
+                          <span className="text-foreground font-semibold">{customerName}</span>
+                          <span className="text-foreground font-bold">{priceStr} €</span>
                         </div>
 
-                        {/* Osoite & Aika */}
-                        <div className="space-y-1 bg-muted/30 p-2.5 rounded-xl text-xs">
+                        {phone && (
                           <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-start gap-1.5 text-muted-foreground hover:text-foreground"
+                            href={`tel:${phone.replace(/\s+/g, "")}`}
+                            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mt-0.5"
                           >
-                            <MapPin className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                            <span className="line-clamp-2">{address || "Osoite puuttuu"}</span>
+                            <Phone className="h-3 w-3" />
+                            {phone}
                           </a>
+                        )}
+                      </div>
 
-                          <div className="flex items-center gap-1.5 text-muted-foreground pt-1 border-t border-muted/50">
-                            <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
-                            <span className="font-semibold text-foreground">
-                              {formatSafeDate(dateStr)} klo {timeWindow}
-                            </span>
-                          </div>
-                        </div>
+                      <div className="space-y-1 pt-1.5 border-t text-[11px] text-muted-foreground">
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-start gap-1 hover:text-foreground line-clamp-1"
+                        >
+                          <MapPin className="h-3 w-3 shrink-0 mt-0.5" />
+                          <span>{address || "Osoite puuttuu"}</span>
+                        </a>
 
-                        {/* Kuljettaja & Toiminnot */}
-                        <div className="pt-1 flex items-center justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Kuljettaja</p>
-                            <p className={`text-xs font-bold truncate ${driver ? "text-emerald-700 dark:text-emerald-400" : "text-amber-600"}`}>
-                              {getDriverFullName(driver)}
-                            </p>
-                          </div>
-
-                          <Button
-                            size="sm"
-                            variant={driver ? "outline" : "default"}
-                            onClick={() => setAssignModalTask(task)}
-                            className="h-8 text-xs font-semibold px-2.5 rounded-lg shrink-0"
-                          >
-                            <UserCheck className="h-3.5 w-3.5 mr-1" />
-                            {driver ? "Vaihda" : "Määritä"}
-                          </Button>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3 shrink-0" />
+                          <span>{formatSafeDate(dateStr)} klo {timeWindow}</span>
                         </div>
                       </div>
-                    </Card>
+
+                      <div className="pt-2 border-t flex items-center justify-between gap-2">
+                        <span className={`text-[11px] truncate ${driver ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                          {getDriverFullName(driver)}
+                        </span>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setAssignModalTask(task)}
+                          className="h-7 text-[11px] px-2 rounded-md shrink-0"
+                        >
+                          {driver ? "Vaihda" : "Määritä"}
+                        </Button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -740,20 +619,20 @@ export const DispatchTaskBoard = () => {
           ))}
         </div>
       ) : (
-        /* 2. TAULUKKONÄKYMÄ (LIST VIEW) */
-        <Card className="border shadow-sm rounded-2xl overflow-hidden bg-card">
+        /* LISTA NÄKYMÄ */
+        <div className="rounded-xl border bg-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-xs">
               <thead>
-                <tr className="bg-muted/50 border-b text-muted-foreground font-bold uppercase tracking-wider text-[11px]">
-                  <th className="p-3.5">Tilaus</th>
-                  <th className="p-3.5">Tyyppi</th>
-                  <th className="p-3.5">Asiakas</th>
-                  <th className="p-3.5">Osoite & Kaupunki</th>
-                  <th className="p-3.5">Aikaikkuna</th>
-                  <th className="p-3.5">Kuljettaja</th>
-                  <th className="p-3.5">Summa</th>
-                  <th className="p-3.5 text-right">Toiminnot</th>
+                <tr className="bg-muted/40 border-b text-muted-foreground font-semibold text-[11px]">
+                  <th className="p-3">Tilaus</th>
+                  <th className="p-3">Tyyppi</th>
+                  <th className="p-3">Asiakas</th>
+                  <th className="p-3">Osoite</th>
+                  <th className="p-3">Aika</th>
+                  <th className="p-3">Kuljettaja</th>
+                  <th className="p-3">Summa</th>
+                  <th className="p-3 text-right">Toiminto</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -770,49 +649,39 @@ export const DispatchTaskBoard = () => {
                   const priceStr = Number(task.orders?.final_price || task.orders?.price || 0).toFixed(2);
 
                   return (
-                    <tr key={task.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="p-3.5 font-mono font-bold text-primary">
+                    <tr key={task.id} className="hover:bg-muted/20">
+                      <td className="p-3 font-mono font-semibold">
                         <button onClick={() => copyId(task.order_id || task.id)} className="hover:underline flex items-center gap-1">
                           {shortOrderId(task.order_id || task.id)}
-                          <Copy className="h-3 w-3 text-muted-foreground" />
                         </button>
                       </td>
-                      <td className="p-3.5">
-                        <Badge variant="outline" className={isPickup ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"}>
-                          {isPickup ? "Nouto" : "Palautus"}
-                        </Badge>
+                      <td className="p-3 text-muted-foreground">
+                        {isPickup ? "Nouto" : "Palautus"}
                       </td>
-                      <td className="p-3.5">
-                        <div className="font-bold text-foreground">{customerName}</div>
-                        {phone && <a href={`tel:${phone.replace(/\s+/g, "")}`} className="text-[11px] text-blue-600 hover:underline">{phone}</a>}
+                      <td className="p-3">
+                        <span className="font-medium text-foreground">{customerName}</span>
+                        {phone && <span className="block text-[11px] text-muted-foreground">{phone}</span>}
                       </td>
-                      <td className="p-3.5 max-w-[220px]">
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="hover:underline text-muted-foreground hover:text-foreground line-clamp-1"
-                        >
-                          {address}
-                        </a>
+                      <td className="p-3 max-w-[200px] truncate text-muted-foreground">
+                        {address}
                       </td>
-                      <td className="p-3.5 whitespace-nowrap">
-                        <span className="font-semibold text-foreground">{formatSafeDate(dateStr)}</span> klo {timeWindow}
+                      <td className="p-3 text-muted-foreground whitespace-nowrap">
+                        {formatSafeDate(dateStr)} klo {timeWindow}
                       </td>
-                      <td className="p-3.5">
-                        <span className={`font-semibold ${driver ? "text-emerald-600" : "text-amber-600 font-bold"}`}>
+                      <td className="p-3">
+                        <span className={driver ? "text-foreground font-medium" : "text-muted-foreground"}>
                           {getDriverFullName(driver)}
                         </span>
                       </td>
-                      <td className="p-3.5 font-black text-foreground">
+                      <td className="p-3 font-semibold text-foreground">
                         {priceStr} €
                       </td>
-                      <td className="p-3.5 text-right">
+                      <td className="p-3 text-right">
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() => setAssignModalTask(task)}
-                          className="h-8 text-xs font-semibold rounded-lg"
+                          className="h-7 text-[11px] px-2"
                         >
                           {driver ? "Vaihda" : "Määritä"}
                         </Button>
@@ -823,41 +692,34 @@ export const DispatchTaskBoard = () => {
               </tbody>
             </table>
           </div>
-        </Card>
+        </div>
       )}
 
-      {/* 🚘 KULJETTAJAN VALINTAMODAALI */}
+      {/* KULJETTAJAN VALINTAMODAALI */}
       {assignModalTask && (
         <Dialog open={!!assignModalTask} onOpenChange={() => setAssignModalTask(null)}>
-          <DialogContent className="max-w-md rounded-2xl">
+          <DialogContent className="max-w-md rounded-xl">
             <DialogHeader>
-              <DialogTitle className="text-lg font-bold">Määritä kuljettaja keikalle</DialogTitle>
+              <DialogTitle className="text-base font-semibold">Määritä kuljettaja</DialogTitle>
               <DialogDescription className="text-xs">
-                Valitse kuljettaja tai vapauta keikka yleiseen jakoon
+                Valitse kuljettaja tai vapauta keikka yleiseen jakoon.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-3 py-3">
-              {/* VAPAUTA JAKOON NAPPI */}
+            <div className="space-y-2 py-2">
               <button
                 onClick={() => handleAssignDriver(assignModalTask, null)}
                 disabled={actionLoading}
-                className="w-full flex items-center justify-between p-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-left transition-colors dark:bg-amber-950/40"
+                className="w-full flex items-center justify-between p-3 rounded-lg border text-left hover:bg-muted transition-colors text-xs"
               >
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-amber-200 text-amber-800 flex items-center justify-center font-bold">
-                    <AlertCircle className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h5 className="text-sm font-bold text-amber-900 dark:text-amber-200">Vapauta yleiseen jakoon</h5>
-                    <p className="text-[11px] text-amber-700 dark:text-amber-400">Kuka tahansa kuljettaja voi ottaa tämän keikan</p>
-                  </div>
+                <div>
+                  <p className="font-semibold text-foreground">Vapauta yleiseen jakoon</p>
+                  <p className="text-[11px] text-muted-foreground">Kuka tahansa kuljettaja voi ottaa tämän keikan</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-amber-700" />
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </button>
 
-              {/* KULJETTAJALISTA */}
-              <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+              <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1">
                 {drivers.map((d) => {
                   const isCurrent = assignModalTask.driver_id === d.user_id;
                   const dName = getDriverFullName(d);
@@ -867,25 +729,18 @@ export const DispatchTaskBoard = () => {
                       key={d.user_id}
                       onClick={() => handleAssignDriver(assignModalTask, d.user_id)}
                       disabled={actionLoading}
-                      className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-colors ${
-                        isCurrent
-                          ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40"
-                          : "border-border bg-card hover:bg-muted"
+                      className={`w-full flex items-center justify-between p-2.5 rounded-lg border text-left transition-colors text-xs ${
+                        isCurrent ? "bg-muted font-semibold" : "hover:bg-muted/50"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`h-9 w-9 rounded-lg flex items-center justify-center font-bold ${isCurrent ? "bg-emerald-200 text-emerald-800" : "bg-blue-100 text-blue-800"}`}>
-                          <User className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <h5 className="text-sm font-bold text-foreground">{dName}</h5>
-                          <p className="text-[11px] text-muted-foreground">{d.phone || "Ei numeroa"}</p>
-                        </div>
+                      <div>
+                        <p className="text-foreground">{dName}</p>
+                        <p className="text-[11px] text-muted-foreground">{d.phone || "Ei numeroa"}</p>
                       </div>
                       {isCurrent ? (
-                        <Badge className="bg-emerald-600 text-white font-bold text-xs">Määritetty</Badge>
+                        <span className="text-[11px] text-muted-foreground font-semibold">Määritetty</span>
                       ) : (
-                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
                       )}
                     </button>
                   );
@@ -894,7 +749,7 @@ export const DispatchTaskBoard = () => {
             </div>
 
             <DialogFooter>
-              <Button variant="ghost" size="sm" onClick={() => setAssignModalTask(null)}>
+              <Button variant="ghost" size="sm" className="text-xs h-8" onClick={() => setAssignModalTask(null)}>
                 Sulje
               </Button>
             </DialogFooter>
