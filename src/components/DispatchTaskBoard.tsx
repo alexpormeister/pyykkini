@@ -27,6 +27,7 @@ import {
   Euro,
   ShieldCheck,
   ChevronsUpDown,
+  ChevronDown,
   Trash2,
   Plus,
   ArrowRight,
@@ -108,6 +109,13 @@ interface ProductInfo {
   product_id?: string;
   name: string;
   base_price: number;
+}
+
+interface LaundryProductPrice {
+  product_id: string;
+  laundry_id: string;
+  price: number;
+  is_active: boolean;
 }
 
 interface BookingProductItem {
@@ -373,6 +381,32 @@ export const DispatchTaskBoard: React.FC = () => {
   const [formNotes, setFormNotes] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
 
+  // Dynamiset pesulakohtaiset tuotehinnat ja haitarin tila (oletuksena kiinni)
+  const [laundryPrices, setLaundryPrices] = useState<LaundryProductPrice[]>([]);
+  const [isPriceBreakdownOpen, setIsPriceBreakdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (!formLaundryId) {
+      setLaundryPrices([]);
+      return;
+    }
+    const loadLaundryPrices = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("product_laundry_prices")
+          .select("product_id, laundry_id, price, is_active")
+          .eq("laundry_id", formLaundryId);
+
+        if (!error && data) {
+          setLaundryPrices(data as LaundryProductPrice[]);
+        }
+      } catch (err) {
+        console.error("Error loading laundry prices:", err);
+      }
+    };
+    loadLaundryPrices();
+  }, [formLaundryId]);
+
   const fetchAll = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
@@ -588,17 +622,37 @@ export const DispatchTaskBoard: React.FC = () => {
     return (formSubtotal + del + srv + formMinOrderSurcharge).toFixed(2);
   }, [formSubtotal, formDeliveryFee, formServiceFee, formMinOrderSurcharge]);
 
+  const formLaundryItemPrices = useMemo(() => {
+    let laundryTotal = 0;
+    formProducts.forEach((fp) => {
+      const targetProdId = fp.product_id || fp.id;
+      const prodObj = products.find(
+        (p) => p.product_id === targetProdId || p.id === targetProdId || p.name === fp.name
+      );
+      const actualProdId = prodObj?.product_id || prodObj?.id || targetProdId;
+      const lp = laundryPrices.find((r) => r.product_id === actualProdId && r.is_active);
+
+      if (lp && typeof lp.price === "number") {
+        laundryTotal += lp.price * fp.quantity;
+      } else {
+        laundryTotal += fp.unit_price * 0.7 * fp.quantity;
+      }
+    });
+
+    return Math.round(laundryTotal * 100) / 100;
+  }, [formProducts, laundryPrices, products]);
+
   const formPriceSplit = useMemo(() => {
     const itemsTotal = formSubtotal;
     const delFee = parseFloat(formDeliveryFee) || 0;
     const srvFee = parseFloat(formServiceFee) || 0;
-    const laundry = itemsTotal * 0.7;
-    const platform = itemsTotal * 0.3 + srvFee + formMinOrderSurcharge;
+    const laundry = formLaundryItemPrices;
+    const platform = Math.max(0, itemsTotal - laundry) + srvFee + formMinOrderSurcharge;
     const pickupDriver = delFee / 2;
     const deliveryDriver = delFee / 2;
     const totalNum = parseFloat(formTotalPrice);
     const vatRate = 25.5;
-    const vatAmount = totalNum - (totalNum / (1 + vatRate / 100));
+    const vatAmount = totalNum - totalNum / (1 + vatRate / 100);
     const netAmount = totalNum - vatAmount;
 
     return {
@@ -611,7 +665,7 @@ export const DispatchTaskBoard: React.FC = () => {
       vatAmount,
       netAmount,
     };
-  }, [formSubtotal, formDeliveryFee, formServiceFee, formMinOrderSurcharge, formTotalPrice]);
+  }, [formSubtotal, formDeliveryFee, formServiceFee, formMinOrderSurcharge, formTotalPrice, formLaundryItemPrices]);
 
   // Lomakkeen tyhjennys
   const handleResetForm = () => {
@@ -1471,111 +1525,126 @@ export const DispatchTaskBoard: React.FC = () => {
               </div>
             </div>
 
-            {/* 5. HINTAERITTELY JA PALKKIOJAKO (TAULUKKOLISTA) */}
-            <div className="p-3 rounded-lg border bg-muted/20 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-foreground uppercase tracking-wider">
-                  Hinta- ja palkkioerittely
-                </span>
-                <span className="text-[10px] text-muted-foreground font-mono">ALV 25,5 %</span>
-              </div>
+            {/* 5. HINTAERITTELY JA PALKKIOJAKO (HAITARIVALIKKO - OLETUKSENA KIINNI) */}
+            <div className="rounded-lg border bg-muted/20 overflow-hidden transition-all">
+              <button
+                type="button"
+                onClick={() => setIsPriceBreakdownOpen(!isPriceBreakdownOpen)}
+                className="w-full p-3 flex items-center justify-between text-left hover:bg-muted/40 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                    Hinta- ja palkkioerittely
+                  </span>
+                  <span className="text-[10px] text-muted-foreground border px-1.5 py-0.5 rounded bg-background font-mono">
+                    ALV 25,5 %
+                  </span>
+                </div>
 
-              <div className="rounded-md border bg-card overflow-hidden shadow-2xs">
-                <table className="w-full text-xs">
-                  <tbody className="divide-y divide-border/60">
-                    {/* Tuotteiden välisumma */}
-                    <tr className="hover:bg-muted/30">
-                      <td className="py-1.5 px-2.5 text-muted-foreground">Tuotteet yhteensä ({formProducts.reduce((acc, p) => acc + p.quantity, 0)} kpl)</td>
-                      <td className="py-1.5 px-2.5 text-right font-medium text-foreground">{formSubtotal.toFixed(2)} €</td>
-                    </tr>
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <span className="text-xs font-medium">
+                    {isPriceBreakdownOpen ? "Piilota erittely" : "Näytä erittely"}
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isPriceBreakdownOpen && "rotate-180")} />
+                </div>
+              </button>
 
-                    {/* Kotiinkuljetus */}
-                    <tr className="hover:bg-muted/30">
-                      <td className="py-1.5 px-2.5 text-muted-foreground">Kotiinkuljetus (nouto & palautus)</td>
-                      <td className="py-1.5 px-2.5 text-right font-medium text-foreground">
-                        {parseFloat(formDeliveryFee) > 0 ? `${parseFloat(formDeliveryFee).toFixed(2)} €` : "0,00 €"}
-                      </td>
-                    </tr>
+              {isPriceBreakdownOpen && (
+                <div className="p-3 pt-0 border-t space-y-2">
+                  <div className="rounded-md border bg-card overflow-hidden shadow-2xs mt-2">
+                    <table className="w-full text-xs">
+                      <tbody className="divide-y divide-border/60">
+                        {/* Tuotteiden välisumma */}
+                        <tr className="hover:bg-muted/30">
+                          <td className="py-1.5 px-2.5 text-muted-foreground">Tuotteet yhteensä ({formProducts.reduce((acc, p) => acc + p.quantity, 0)} kpl)</td>
+                          <td className="py-1.5 px-2.5 text-right font-medium text-foreground">{formSubtotal.toFixed(2)} €</td>
+                        </tr>
 
-                    {/* Palvelumaksu */}
-                    {parseFloat(formServiceFee) > 0 && (
-                      <tr className="hover:bg-muted/30">
-                        <td className="py-1.5 px-2.5 text-muted-foreground">Palvelumaksu</td>
-                        <td className="py-1.5 px-2.5 text-right font-medium text-foreground">{parseFloat(formServiceFee).toFixed(2)} €</td>
-                      </tr>
-                    )}
+                        {/* Kotiinkuljetus */}
+                        <tr className="hover:bg-muted/30">
+                          <td className="py-1.5 px-2.5 text-muted-foreground">Kotiinkuljetus (nouto & palautus)</td>
+                          <td className="py-1.5 px-2.5 text-right font-medium text-foreground">
+                            {parseFloat(formDeliveryFee) > 0 ? `${parseFloat(formDeliveryFee).toFixed(2)} €` : "0,00 €"}
+                          </td>
+                        </tr>
 
-                    {/* Minimitilauslisä jos sovelletaan */}
-                    {formMinOrderSurcharge > 0 && (
-                      <tr className="hover:bg-muted/30 bg-amber-500/10">
-                        <td className="py-1.5 px-2.5 text-amber-700 dark:text-amber-300 font-medium">Pientilauslisä (alle {parseFloat(formMinThreshold).toFixed(2)} € minimin)</td>
-                        <td className="py-1.5 px-2.5 text-right font-bold text-amber-700 dark:text-amber-300">+{formMinOrderSurcharge.toFixed(2)} €</td>
-                      </tr>
-                    )}
+                        {/* Palvelumaksu */}
+                        {parseFloat(formServiceFee) > 0 && (
+                          <tr className="hover:bg-muted/30">
+                            <td className="py-1.5 px-2.5 text-muted-foreground">Palvelumaksu</td>
+                            <td className="py-1.5 px-2.5 text-right font-medium text-foreground">{parseFloat(formServiceFee).toFixed(2)} €</td>
+                          </tr>
+                        )}
 
-                    {/* Palkkioerittely osio */}
-                    <tr className="bg-muted/50 font-semibold text-[10px] uppercase text-muted-foreground">
-                      <td colSpan={2} className="py-1 px-2.5 tracking-wider">
-                        Osuudet ja kuljettajapalkkiot
-                      </td>
-                    </tr>
+                        {/* Minimitilauslisä jos sovelletaan */}
+                        {formMinOrderSurcharge > 0 && (
+                          <tr className="hover:bg-muted/30 bg-muted/40">
+                            <td className="py-1.5 px-2.5 text-muted-foreground font-medium">Pientilauslisä (alle {parseFloat(formMinThreshold).toFixed(2)} € minimin)</td>
+                            <td className="py-1.5 px-2.5 text-right font-bold text-foreground">+{formMinOrderSurcharge.toFixed(2)} €</td>
+                          </tr>
+                        )}
 
-                    {/* Pesula */}
-                    <tr className="hover:bg-muted/30">
-                      <td className="py-1.5 px-2.5 pl-4 text-muted-foreground flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        Pesulan osuus (70%)
-                      </td>
-                      <td className="py-1.5 px-2.5 text-right font-semibold text-emerald-600 dark:text-emerald-400">
-                        {formPriceSplit.laundry.toFixed(2)} €
-                      </td>
-                    </tr>
+                        {/* Palkkioerittely osio */}
+                        <tr className="bg-muted/50 font-semibold text-[10px] uppercase text-muted-foreground">
+                          <td colSpan={2} className="py-1 px-2.5 tracking-wider">
+                            Pesulan, alustan ja kuljettajien osuudet
+                          </td>
+                        </tr>
 
-                    {/* Alusta */}
-                    <tr className="hover:bg-muted/30">
-                      <td className="py-1.5 px-2.5 pl-4 text-muted-foreground flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                        Alustan osuus (30% + palvelumaksu)
-                      </td>
-                      <td className="py-1.5 px-2.5 text-right font-semibold text-blue-600 dark:text-blue-400">
-                        {formPriceSplit.platform.toFixed(2)} €
-                      </td>
-                    </tr>
+                        {/* Pesula */}
+                        <tr className="hover:bg-muted/30">
+                          <td className="py-1.5 px-2.5 pl-4 text-muted-foreground">
+                            Pesulan osuus (laitoshinta)
+                          </td>
+                          <td className="py-1.5 px-2.5 text-right font-semibold text-foreground">
+                            {formPriceSplit.laundry.toFixed(2)} €
+                          </td>
+                        </tr>
 
-                    {/* Noutokuski */}
-                    <tr className="hover:bg-muted/30">
-                      <td className="py-1.5 px-2.5 pl-4 text-muted-foreground flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                        Noutokuljettaja (50% kuljetuksesta)
-                      </td>
-                      <td className="py-1.5 px-2.5 text-right font-semibold text-amber-600 dark:text-amber-400">
-                        {formPriceSplit.pickupDriver.toFixed(2)} €
-                      </td>
-                    </tr>
+                        {/* Alusta */}
+                        <tr className="hover:bg-muted/30">
+                          <td className="py-1.5 px-2.5 pl-4 text-muted-foreground">
+                            Alustan kate & palvelumaksu
+                          </td>
+                          <td className="py-1.5 px-2.5 text-right font-semibold text-foreground">
+                            {formPriceSplit.platform.toFixed(2)} €
+                          </td>
+                        </tr>
 
-                    {/* Paluukuski */}
-                    <tr className="hover:bg-muted/30">
-                      <td className="py-1.5 px-2.5 pl-4 text-muted-foreground flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-                        Palautuskuljettaja (50% kuljetuksesta)
-                      </td>
-                      <td className="py-1.5 px-2.5 text-right font-semibold text-purple-600 dark:text-purple-400">
-                        {formPriceSplit.deliveryDriver.toFixed(2)} €
-                      </td>
-                    </tr>
+                        {/* Noutokuski */}
+                        <tr className="hover:bg-muted/30">
+                          <td className="py-1.5 px-2.5 pl-4 text-muted-foreground">
+                            Noutokuljettajan palkkio
+                          </td>
+                          <td className="py-1.5 px-2.5 text-right font-semibold text-foreground">
+                            {formPriceSplit.pickupDriver.toFixed(2)} €
+                          </td>
+                        </tr>
 
-                    {/* Veroton & ALV */}
-                    <tr className="bg-muted/30 text-[11px] text-muted-foreground">
-                      <td className="py-1 px-2.5">Veroton summa (Netto ALV 0%)</td>
-                      <td className="py-1 px-2.5 text-right font-medium">{formPriceSplit.netAmount.toFixed(2)} €</td>
-                    </tr>
-                    <tr className="bg-muted/30 text-[11px] text-muted-foreground">
-                      <td className="py-1 px-2.5">ALV ({formPriceSplit.vatRate.toString().replace(".", ",")} %)</td>
-                      <td className="py-1 px-2.5 text-right font-medium">{formPriceSplit.vatAmount.toFixed(2)} €</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                        {/* Paluukuski */}
+                        <tr className="hover:bg-muted/30">
+                          <td className="py-1.5 px-2.5 pl-4 text-muted-foreground">
+                            Palautuskuljettajan palkkio
+                          </td>
+                          <td className="py-1.5 px-2.5 text-right font-semibold text-foreground">
+                            {formPriceSplit.deliveryDriver.toFixed(2)} €
+                          </td>
+                        </tr>
+
+                        {/* Veroton & ALV */}
+                        <tr className="bg-muted/30 text-[11px] text-muted-foreground">
+                          <td className="py-1 px-2.5">Veroton summa (Netto ALV 0%)</td>
+                          <td className="py-1 px-2.5 text-right font-medium text-foreground">{formPriceSplit.netAmount.toFixed(2)} €</td>
+                        </tr>
+                        <tr className="bg-muted/30 text-[11px] text-muted-foreground">
+                          <td className="py-1 px-2.5">ALV ({formPriceSplit.vatRate.toString().replace(".", ",")} %)</td>
+                          <td className="py-1 px-2.5 text-right font-medium text-foreground">{formPriceSplit.vatAmount.toFixed(2)} €</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* YHTEENVETO & LÄHETYS */}
