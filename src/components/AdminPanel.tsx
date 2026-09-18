@@ -15,6 +15,7 @@ import { AppSettingsManagement } from "@/components/AppSettingsManagement";
 import { SettlementManagement } from "@/components/SettlementManagement";
 import { AppManager } from "@/components/AppManager";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { 
   Users, 
   Package, 
@@ -142,27 +143,35 @@ export const AdminPanel = () => {
     try {
       const { data: activeShifts, error } = await supabase
         .from('driver_shifts')
-        .select(`
-          id,
-          driver_id,
-          started_at,
-          profiles:driver_id (
-            first_name,
-            last_name,
-            phone
-          )
-        `)
+        .select('id, driver_id, started_at')
         .eq('is_active', true);
 
       if (error) throw error;
 
-      const formattedDrivers = (activeShifts || []).map((shift: any) => ({
-        id: shift.driver_id,
-        first_name: shift.profiles?.first_name || 'Tuntematon',
-        last_name: shift.profiles?.last_name || 'Kuljettaja',
-        phone: shift.profiles?.phone,
-        started_at: shift.started_at
-      }));
+      const driverIds = (activeShifts || []).map((s: any) => s.driver_id).filter(Boolean);
+      let profileMap: Record<string, any> = {};
+
+      if (driverIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name, phone')
+          .in('user_id', driverIds);
+
+        (profiles || []).forEach((p: any) => {
+          profileMap[p.user_id] = p;
+        });
+      }
+
+      const formattedDrivers = (activeShifts || []).map((shift: any) => {
+        const p = profileMap[shift.driver_id];
+        return {
+          id: shift.driver_id,
+          first_name: p?.first_name || 'Tuntematon',
+          last_name: p?.last_name || 'Kuljettaja',
+          phone: p?.phone || null,
+          started_at: shift.started_at,
+        };
+      });
 
       setActiveDrivers(formattedDrivers);
     } catch (error) {
