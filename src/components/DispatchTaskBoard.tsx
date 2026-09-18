@@ -245,11 +245,6 @@ const SearchableSelect: React.FC<{
               <span className="flex items-center gap-1.5 truncate">
                 {selectedOption.icon}
                 <span className="truncate">{selectedOption.label}</span>
-                {selectedOption.badge && (
-                  <span className="text-[10px] text-muted-foreground ml-0.5">
-                    ({selectedOption.badge})
-                  </span>
-                )}
               </span>
             ) : (
               <span className="text-muted-foreground">{placeholder}</span>
@@ -570,7 +565,9 @@ export const DispatchTaskBoard: React.FC = () => {
     );
   };
 
-  // Kokonaishintalaskenta
+  // Kokonaishintalaskenta ja palkkiojako
+  const todayDateStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+
   const formSubtotal = useMemo(() => {
     return formProducts.reduce((sum, it) => sum + it.unit_price * it.quantity, 0);
   }, [formProducts]);
@@ -578,6 +575,22 @@ export const DispatchTaskBoard: React.FC = () => {
   const formTotalPrice = useMemo(() => {
     const del = parseFloat(formDeliveryFee) || 0;
     return (formSubtotal + del).toFixed(2);
+  }, [formSubtotal, formDeliveryFee]);
+
+  const formPriceSplit = useMemo(() => {
+    const itemsTotal = formSubtotal;
+    const delFee = parseFloat(formDeliveryFee) || 0;
+    const laundry = itemsTotal * 0.7;
+    const platform = itemsTotal * 0.3;
+    const pickupDriver = delFee / 2;
+    const deliveryDriver = delFee / 2;
+
+    return {
+      platform,
+      pickupDriver,
+      laundry,
+      deliveryDriver,
+    };
   }, [formSubtotal, formDeliveryFee]);
 
   // Lomakkeen tyhjennys
@@ -604,6 +617,14 @@ export const DispatchTaskBoard: React.FC = () => {
   // 🚀 LUO TILAUS JA VÄLITÄ KEIKKA
   const handleCreateOrderAndDispatch = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const pickupDateObj = new Date(formPickupDate);
+    if (pickupDateObj < today) {
+      toast({ title: "Virheellinen päivämäärä", description: "Noutopäivä ei voi olla menneisyydessä.", variant: "destructive" });
+      return;
+    }
 
     if (!formPhone.trim()) {
       toast({ title: "Puhelinnumero puuttuu", description: "Anna asiakkaan puhelinnumero.", variant: "destructive" });
@@ -1037,7 +1058,6 @@ export const DispatchTaskBoard: React.FC = () => {
     return products.map((p) => ({
       value: p.name,
       label: p.name,
-      badge: `${Number(p.base_price).toFixed(2)} €`,
       icon: <Package className="h-3 w-3 text-muted-foreground" />,
     }));
   }, [products]);
@@ -1055,9 +1075,9 @@ export const DispatchTaskBoard: React.FC = () => {
     const opts: SearchableOption[] = [
       {
         value: "unassigned",
-        label: "⚡ Yleinen jako (Kaikki kuskit)",
+        label: "Yleinen jako",
         badge: "Avoin",
-        icon: <Truck className="h-3.5 w-3.5 text-amber-500" />,
+        icon: <Truck className="h-3.5 w-3.5 text-primary" />,
       },
     ];
     drivers.forEach((d) => {
@@ -1065,7 +1085,7 @@ export const DispatchTaskBoard: React.FC = () => {
         value: d.user_id,
         label: getDriverFullName(d),
         sublabel: d.phone || undefined,
-        badge: d.is_active ? "🟢 Vuorossa" : "Pois",
+        badge: d.is_active ? "Vuorossa" : "Pois",
         icon: <User className="h-3.5 w-3.5 text-muted-foreground" />,
       });
     });
@@ -1094,9 +1114,6 @@ export const DispatchTaskBoard: React.FC = () => {
       {/* 🧭 YLÄRIVI: DISPATCH OPERAATTORIN PÄÄNÄKYMÄ (5 / 7 PALSTAA) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         
-        {/* ======================================================== */}
-        {/* VASEN SARAKE: TIIVIS & SELKEÄ TILAUSLOMAKE (5 PALSTAA)   */}
-        {/* ======================================================== */}
         {/* ======================================================== */}
         {/* VASEN SARAKE: SELKEÄ JA TILAVA TILAUSLOMAKE (5 PALSTAA)  */}
         {/* ======================================================== */}
@@ -1226,20 +1243,24 @@ export const DispatchTaskBoard: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs font-medium text-foreground/80 mb-1 block">Noutoaika</Label>
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-12 gap-2">
                     <Input
                       type="date"
                       value={formPickupDate}
+                      min={todayDateStr}
                       onChange={(e) => {
                         setFormPickupDate(e.target.value);
                         setFormDateType("custom");
+                        if (e.target.value > formReturnDate) {
+                          setFormReturnDate(e.target.value);
+                        }
                       }}
-                      className="h-9 text-sm w-[130px]"
+                      className="col-span-7 h-9 text-xs sm:text-sm px-2.5"
                     />
                     <select
                       value={formPickupTime}
                       onChange={(e) => setFormPickupTime(e.target.value)}
-                      className="h-9 flex-1 rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-ring"
+                      className="col-span-5 h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
                     >
                       {TIME_SLOTS.map((s) => (
                         <option key={s} value={s}>{s}</option>
@@ -1250,17 +1271,18 @@ export const DispatchTaskBoard: React.FC = () => {
 
                 <div>
                   <Label className="text-xs font-medium text-foreground/80 mb-1 block">Palautusaika</Label>
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-12 gap-2">
                     <Input
                       type="date"
                       value={formReturnDate}
+                      min={formPickupDate || todayDateStr}
                       onChange={(e) => setFormReturnDate(e.target.value)}
-                      className="h-9 text-sm w-[130px]"
+                      className="col-span-7 h-9 text-xs sm:text-sm px-2.5"
                     />
                     <select
                       value={formReturnTime}
                       onChange={(e) => setFormReturnTime(e.target.value)}
-                      className="h-9 flex-1 rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-ring"
+                      className="col-span-5 h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
                     >
                       {TIME_SLOTS.map((s) => (
                         <option key={s} value={s}>{s}</option>
@@ -1414,6 +1436,31 @@ export const DispatchTaskBoard: React.FC = () => {
                   placeholder="Esim. Soita ennen tuloa, jätä pussi oveen..."
                   className="h-9 text-sm"
                 />
+              </div>
+            </div>
+
+            {/* 5. PALKKIO- JA HINTAJAKO */}
+            <div className="p-2.5 rounded-lg border bg-muted/20 space-y-1.5">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
+                Hintajako
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                <div className="p-2 rounded-md bg-card border shadow-2xs">
+                  <span className="text-[10px] text-muted-foreground block font-medium">Alusta (30%)</span>
+                  <span className="text-xs font-bold text-foreground">{formPriceSplit.platform.toFixed(2)} €</span>
+                </div>
+                <div className="p-2 rounded-md bg-card border shadow-2xs">
+                  <span className="text-[10px] text-muted-foreground block font-medium">Noutokuski</span>
+                  <span className="text-xs font-bold text-foreground">{formPriceSplit.pickupDriver.toFixed(2)} €</span>
+                </div>
+                <div className="p-2 rounded-md bg-card border shadow-2xs">
+                  <span className="text-[10px] text-muted-foreground block font-medium">Pesula (70%)</span>
+                  <span className="text-xs font-bold text-foreground">{formPriceSplit.laundry.toFixed(2)} €</span>
+                </div>
+                <div className="p-2 rounded-md bg-card border shadow-2xs">
+                  <span className="text-[10px] text-muted-foreground block font-medium">Paluukuski</span>
+                  <span className="text-xs font-bold text-foreground">{formPriceSplit.deliveryDriver.toFixed(2)} €</span>
+                </div>
               </div>
             </div>
 

@@ -216,3 +216,18 @@ All colors MUST be HSL.
     transform: translateY(0);
   }
 }
+
+/* Hide Lovable badge / edit tags everywhere */
+#lovable-badge,
+[id*="lovable"],
+[class*="lovable-badge"],
+[class*="lovable-tag"],
+[class*="gpt-engineer"],
+a[href*="lovable.dev"],
+button[title*="Lovable"],
+div[data-lovable] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
