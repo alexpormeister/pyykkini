@@ -3,11 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { DispatchMap, MapTaskItem, MapLaundryItem } from "./DispatchMap";
+import { DispatchMap, MapTaskItem } from "./DispatchMap";
+import { cn } from "@/lib/utils";
 import {
   Clock,
   MapPin,
@@ -18,18 +19,18 @@ import {
   Truck,
   User,
   X,
-  Copy,
   Check,
-  LayoutGrid,
-  List,
-  ArrowRight,
   PlusCircle,
   Building2,
   CreditCard,
   FileText,
-  AlertCircle,
+  Euro,
+  ShieldCheck,
+  ChevronsUpDown,
+  Trash2,
+  Plus,
+  ArrowRight,
   Sparkles,
-  ShieldCheck
 } from "lucide-react";
 
 interface OrderEmbedded {
@@ -52,6 +53,7 @@ interface OrderEmbedded {
   service_name: string;
   final_price: number;
   price?: number;
+  payment_method?: string | null;
   access_code: string | null;
 }
 
@@ -103,8 +105,17 @@ interface LaundryInfo {
 
 interface ProductInfo {
   id: string;
+  product_id?: string;
   name: string;
   base_price: number;
+}
+
+interface BookingProductItem {
+  id: string;
+  product_id?: string;
+  name: string;
+  quantity: number;
+  unit_price: number;
 }
 
 // 🌐 PURE HELPER FUNCTIONS
@@ -149,7 +160,168 @@ const TIME_SLOTS = [
   "20:00 - 22:00",
 ];
 
-export const DispatchTaskBoard = () => {
+const CITIES = [
+  "Helsinki",
+  "Espoo",
+  "Vantaa",
+  "Kauniainen",
+  "Kirkkonummi",
+  "Kerava",
+  "Järvenpää",
+  "Tuusula",
+  "Nurmijärvi",
+  "Sipoo",
+  "Lohja",
+  "Vihti",
+];
+
+const PAYMENT_METHODS = [
+  { value: "invoice", label: "Lasku", icon: <FileText className="h-3.5 w-3.5 text-blue-500" /> },
+  { value: "card", label: "Korttimaksu", icon: <CreditCard className="h-3.5 w-3.5 text-emerald-500" /> },
+  { value: "cash", label: "Käteinen", icon: <Euro className="h-3.5 w-3.5 text-amber-500" /> },
+];
+
+interface SearchableOption {
+  value: string;
+  label: string;
+  sublabel?: string;
+  badge?: string;
+  icon?: React.ReactNode;
+}
+
+/**
+ * 🔍 Yleiskäyttöinen hakukentällinen dropdown-valitsin (Searchable Select / Combobox)
+ */
+const SearchableSelect: React.FC<{
+  options: SearchableOption[];
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  searchPlaceholder?: string;
+  emptyText?: string;
+  className?: string;
+  triggerClassName?: string;
+  disabled?: boolean;
+}> = ({
+  options,
+  value,
+  onChange,
+  placeholder = "Valitse...",
+  searchPlaceholder = "Hae nimellä tai sanalla...",
+  emptyText = "Ei tuloksia",
+  className,
+  triggerClassName,
+  disabled = false,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const selectedOption = options.find((o) => o.value === value);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(
+      (o) =>
+        o.label.toLowerCase().includes(q) ||
+        (o.sublabel && o.sublabel.toLowerCase().includes(q)) ||
+        (o.badge && o.badge.toLowerCase().includes(q))
+    );
+  }, [options, search]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className={cn(
+            "flex h-7 w-full items-center justify-between rounded-md border border-input bg-background px-2 py-0.5 text-xs text-foreground shadow-sm transition-colors hover:bg-accent/40 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+            triggerClassName
+          )}
+        >
+          <span className="truncate text-left font-medium">
+            {selectedOption ? (
+              <span className="flex items-center gap-1.5 truncate">
+                {selectedOption.icon}
+                <span className="truncate">{selectedOption.label}</span>
+                {selectedOption.badge && (
+                  <span className="text-[10px] text-muted-foreground ml-0.5">
+                    ({selectedOption.badge})
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">{placeholder}</span>
+            )}
+          </span>
+          <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className={cn("w-[280px] p-0 shadow-xl rounded-xl border bg-popover z-50", className)} align="start">
+        <div className="flex items-center border-b px-2.5 py-1.5 bg-muted/20">
+          <Search className="mr-1.5 h-3.5 w-3.5 shrink-0 opacity-50 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+            autoFocus
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch("")} className="text-muted-foreground hover:text-foreground">
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+        <div className="max-h-[200px] overflow-y-auto p-1 space-y-0.5">
+          {filtered.length === 0 ? (
+            <div className="p-3 text-center text-xs text-muted-foreground">{emptyText}</div>
+          ) : (
+            filtered.map((opt) => {
+              const isSelected = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                  className={cn(
+                    "w-full flex items-center justify-between rounded-md px-2 py-1.5 text-xs text-left transition-colors",
+                    isSelected ? "bg-primary/10 text-primary font-semibold" : "hover:bg-muted text-foreground"
+                  )}
+                >
+                  <div className="truncate pr-2">
+                    <div className="flex items-center gap-1.5 truncate">
+                      {opt.icon}
+                      <span className="truncate">{opt.label}</span>
+                    </div>
+                    {opt.sublabel && (
+                      <div className="text-[10px] text-muted-foreground truncate">{opt.sublabel}</div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {opt.badge && (
+                      <span className="text-[10px] bg-muted px-1 py-0.5 rounded text-muted-foreground font-normal">
+                        {opt.badge}
+                      </span>
+                    )}
+                    {isSelected && <Check className="h-3.5 w-3.5 text-primary" />}
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+export const DispatchTaskBoard: React.FC = () => {
   const { toast } = useToast();
 
   const [tasks, setTasks] = useState<TaskRow[]>([]);
@@ -158,46 +330,46 @@ export const DispatchTaskBoard = () => {
   const [products, setProducts] = useState<ProductInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
 
-  // Filters & Search
+  // Taulukon suodattimet
+  const [tabFilter, setTabFilter] = useState<"all" | "unassigned" | "pickup" | "washing" | "delivery">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [cityFilter, setCityFilter] = useState("all");
-  const [tabFilter, setTabFilter] = useState<"all" | "unassigned" | "pickup" | "washing" | "delivery">("all");
+
+  // Modaalit
   const [selectedMapTaskId, setSelectedMapTaskId] = useState<string | null>(null);
-
-  // Kuljettajan määrityksen modal
   const [assignModalTask, setAssignModalTask] = useState<TaskRow | null>(null);
+  const [assignLaundryModalTask, setAssignLaundryModalTask] = useState<TaskRow | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  // 📝 DISPATCH BOOKING FORM STATE (Uuden tilauksen luonti)
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
-  const defaultReturnStr = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 3);
-    return d.toISOString().split("T")[0];
-  }, []);
-
+  // 📝 TILAUSLOMAKKEEN TILA
   const [formDateType, setFormDateType] = useState<"today" | "tomorrow" | "custom">("today");
-  const [formPickupDate, setFormPickupDate] = useState(todayStr);
+  const [formPickupDate, setFormPickupDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [formPickupTime, setFormPickupTime] = useState("10:00 - 12:00");
-  const [formReturnDate, setFormReturnDate] = useState(defaultReturnStr);
-  const [formReturnTime, setFormReturnTime] = useState("16:00 - 18:00");
+  const [formReturnDate, setFormReturnDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    return d.toISOString().split("T")[0];
+  });
+  const [formReturnTime, setFormReturnTime] = useState("18:00 - 20:00");
 
   const [formFirstName, setFormFirstName] = useState("");
   const [formLastName, setFormLastName] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formEmail, setFormEmail] = useState("");
-  const [matchedUserId, setMatchedUserId] = useState<string | null>(null);
-  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
-
   const [formStreet, setFormStreet] = useState("");
   const [formPostalCode, setFormPostalCode] = useState("");
   const [formCity, setFormCity] = useState("Helsinki");
   const [formAccessCode, setFormAccessCode] = useState("");
+  const [matchedUserId, setMatchedUserId] = useState<string | null>(null);
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
 
-  const [formServiceType, setFormServiceType] = useState("Pesuni-Kassi (9 kg)");
-  const [formLaundryId, setFormLaundryId] = useState("");
-  const [formBasePrice, setFormBasePrice] = useState("35.90");
+  // Monituotteet
+  const [formProducts, setFormProducts] = useState<BookingProductItem[]>([
+    { id: "1", name: "Pesuni-Kassi (9 kg)", quantity: 1, unit_price: 35.90, product_id: "prod_kassi_9kg" }
+  ]);
+
+  const [formLaundryId, setFormLaundryId] = useState<string>("");
   const [formDeliveryFee, setFormDeliveryFee] = useState("9.90");
   const [formPaymentMethod, setFormPaymentMethod] = useState("invoice");
   const [formSelectedDriverId, setFormSelectedDriverId] = useState<string>("unassigned");
@@ -216,7 +388,7 @@ export const DispatchTaskBoard = () => {
         supabase.from("user_roles").select("user_id, role").eq("role", "driver"),
         supabase.from("driver_shifts").select("driver_id").eq("is_active", true),
         supabase.from("laundries").select("id, name, address, city, contact_phone").order("name"),
-        supabase.from("products").select("id, name, base_price").eq("is_active", true).order("sort_order"),
+        supabase.from("products").select("id, product_id, name, base_price").eq("is_active", true).order("sort_order"),
       ]);
 
       const taskRows = (tasksRes.data || []) as unknown as TaskRow[];
@@ -292,7 +464,7 @@ export const DispatchTaskBoard = () => {
       try {
         const { data } = await supabase
           .from("profiles")
-          .select("user_id, first_name, last_name")
+          .select("user_id, first_name, last_name, address")
           .ilike("phone", `%${cleanPhone}%`)
           .limit(1)
           .maybeSingle();
@@ -301,6 +473,10 @@ export const DispatchTaskBoard = () => {
           setMatchedUserId(data.user_id);
           if (!formFirstName && data.first_name) setFormFirstName(data.first_name);
           if (!formLastName && data.last_name) setFormLastName(data.last_name);
+          if (!formStreet && data.address) {
+            const parts = data.address.split(",");
+            if (parts.length >= 1) setFormStreet(parts[0].trim());
+          }
         } else {
           setMatchedUserId(null);
         }
@@ -315,7 +491,7 @@ export const DispatchTaskBoard = () => {
     return () => clearTimeout(timer);
   }, [formPhone]);
 
-  // Date selection shortcuts
+  // Päivämäärävalinnat
   const handleDateTypeSelect = (type: "today" | "tomorrow" | "custom") => {
     setFormDateType(type);
     const d = new Date();
@@ -326,26 +502,85 @@ export const DispatchTaskBoard = () => {
     setFormPickupDate(iso);
 
     const retD = new Date(d);
-    retD.setDate(retD.getDate() + 3);
+    retD.setDate(retD.getDate() + 2);
     setFormReturnDate(retD.toISOString().split("T")[0]);
   };
 
-  // Product selection handler
-  const handleProductSelect = (productName: string) => {
-    setFormServiceType(productName);
-    const p = products.find((prod) => prod.name === productName);
-    if (p) {
-      setFormBasePrice(p.base_price.toFixed(2));
-    }
+  // 🧺 Tuoterivien hallinta
+  const handleAddProductRow = () => {
+    const defaultProd = products[0] || { name: "Pesuni-Kassi (9 kg)", base_price: 35.90, product_id: "prod_kassi_9kg" };
+    setFormProducts((prev) => [
+      ...prev,
+      {
+        id: Math.random().toString(36).substring(7),
+        name: defaultProd.name,
+        quantity: 1,
+        unit_price: Number(defaultProd.base_price) || 0,
+        product_id: defaultProd.product_id || defaultProd.id,
+      },
+    ]);
   };
 
-  const formTotalPrice = useMemo(() => {
-    const base = parseFloat(formBasePrice) || 0;
-    const del = parseFloat(formDeliveryFee) || 0;
-    return (base + del).toFixed(2);
-  }, [formBasePrice, formDeliveryFee]);
+  const handleRemoveProductRow = (rowId: string) => {
+    if (formProducts.length <= 1) {
+      toast({ title: "Huomio", description: "Tilauksella on oltava vähintään yksi tuote." });
+      return;
+    }
+    setFormProducts((prev) => prev.filter((p) => p.id !== rowId));
+  };
 
-  // Reset form
+  const handleProductChange = (rowId: string, productName: string) => {
+    const found = products.find((p) => p.name === productName);
+    setFormProducts((prev) =>
+      prev.map((item) => {
+        if (item.id === rowId) {
+          return {
+            ...item,
+            name: productName,
+            unit_price: found ? Number(found.base_price) : item.unit_price,
+            product_id: found?.product_id || found?.id,
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleQuantityChange = (rowId: string, delta: number) => {
+    setFormProducts((prev) =>
+      prev.map((item) => {
+        if (item.id === rowId) {
+          const newQty = Math.max(1, item.quantity + delta);
+          return { ...item, quantity: newQty };
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleUnitPriceChange = (rowId: string, newPriceStr: string) => {
+    const priceNum = parseFloat(newPriceStr) || 0;
+    setFormProducts((prev) =>
+      prev.map((item) => {
+        if (item.id === rowId) {
+          return { ...item, unit_price: priceNum };
+        }
+        return item;
+      })
+    );
+  };
+
+  // Kokonaishintalaskenta
+  const formSubtotal = useMemo(() => {
+    return formProducts.reduce((sum, it) => sum + it.unit_price * it.quantity, 0);
+  }, [formProducts]);
+
+  const formTotalPrice = useMemo(() => {
+    const del = parseFloat(formDeliveryFee) || 0;
+    return (formSubtotal + del).toFixed(2);
+  }, [formSubtotal, formDeliveryFee]);
+
+  // Lomakkeen tyhjennys
   const handleResetForm = () => {
     setFormFirstName("");
     setFormLastName("");
@@ -358,9 +593,12 @@ export const DispatchTaskBoard = () => {
     setFormNotes("");
     setMatchedUserId(null);
     setFormSelectedDriverId("unassigned");
-    setFormServiceType("Pesuni-Kassi (9 kg)");
-    setFormBasePrice("35.90");
+    const defaultProd = products[0] || { name: "Pesuni-Kassi (9 kg)", base_price: 35.90, product_id: "prod_kassi_9kg" };
+    setFormProducts([
+      { id: "1", name: defaultProd.name, quantity: 1, unit_price: Number(defaultProd.base_price) || 35.90, product_id: defaultProd.product_id || defaultProd.id }
+    ]);
     setFormDeliveryFee("9.90");
+    setFormPaymentMethod("invoice");
   };
 
   // 🚀 LUO TILAUS JA VÄLITÄ KEIKKA
@@ -375,10 +613,13 @@ export const DispatchTaskBoard = () => {
       toast({ title: "Osoite puuttuu", description: "Anna nouto-osoite.", variant: "destructive" });
       return;
     }
+    if (formProducts.length === 0) {
+      toast({ title: "Tuotteet puuttuvat", description: "Lisää vähintään yksi tuote tilaukseen.", variant: "destructive" });
+      return;
+    }
 
     setFormSubmitting(true);
     try {
-      // 1. Tunnistetaan käyttäjä-ID
       let targetUserId = matchedUserId;
       if (!targetUserId) {
         const { data: authData } = await supabase.auth.getUser();
@@ -387,9 +628,9 @@ export const DispatchTaskBoard = () => {
 
       const fullCustomerName = `${formFirstName.trim()} ${formLastName.trim()}`.trim() || "Asiakas";
       const fullAddress = `${formStreet.trim()}, ${formPostalCode.trim() ? formPostalCode.trim() + " " : ""}${formCity.trim()}`;
-      const basePriceNum = parseFloat(formBasePrice) || 0;
+      const basePriceNum = formSubtotal;
       const deliveryFeeNum = parseFloat(formDeliveryFee) || 0;
-      const finalPriceNum = parseFloat(formTotalPrice) || basePriceNum + deliveryFeeNum;
+      const finalPriceNum = parseFloat(formTotalPrice);
 
       const assignedDriver = formSelectedDriverId !== "unassigned" ? formSelectedDriverId : null;
       const chosenLaundry = laundries.find((l) => l.id === formLaundryId) || laundries[0];
@@ -397,7 +638,9 @@ export const DispatchTaskBoard = () => {
       const laundryPhone = chosenLaundry?.contact_phone || "+358401422449";
       const laundryName = chosenLaundry?.name || "24Pesula Entresse";
 
-      // 2. Luodaan tilaus orders-tauluun
+      const summaryServiceName = formProducts.map((p) => `${p.name} x ${p.quantity}`).join(", ");
+
+      // 1. Luodaan tilaus orders-tauluun
       const { data: newOrder, error: orderErr } = await supabase
         .from("orders")
         .insert({
@@ -413,17 +656,18 @@ export const DispatchTaskBoard = () => {
           return_date: formReturnDate,
           return_time: formReturnTime,
           delivery_slot: formReturnTime,
-          service_name: formServiceType,
-          service_type: "standard",
+          service_name: summaryServiceName || "Pesupalvelu",
+          service_type: formProducts.length > 1 ? "multiple" : "standard",
           price: basePriceNum,
           delivery_fee: deliveryFeeNum,
           service_fee: 0,
           final_price: finalPriceNum,
+          payment_amount: finalPriceNum,
           laundry_id: formLaundryId || null,
           driver_id: assignedDriver,
           status: assignedDriver ? ("accepted" as any) : ("pending" as any),
           tracking_status: assignedDriver ? ("DRIVER_ASSIGNED" as any) : ("ORDER_PLACED" as any),
-          payment_status: "pending",
+          payment_status: formPaymentMethod === "card" ? "paid" : "pending",
           payment_method: formPaymentMethod,
           special_instructions: formNotes.trim() || null,
           terms_accepted: true,
@@ -435,7 +679,7 @@ export const DispatchTaskBoard = () => {
         throw new Error(orderErr?.message || "Tilauksen tallennus epäonnistui");
       }
 
-      // 3. Luodaan delivery_tasks: Nouto & Palautus
+      // 2. Luodaan delivery_tasks: Nouto & Palautus
       const pickupTask = {
         order_id: newOrder.id,
         task_type: "pickup",
@@ -472,20 +716,22 @@ export const DispatchTaskBoard = () => {
 
       await supabase.from("delivery_tasks").insert([pickupTask, deliveryTask]);
 
-      // 4. Lisätään order_items
-      await supabase.from("order_items").insert({
+      // 3. Lisätään kaikki order_items
+      const itemRows = formProducts.map((p) => ({
         order_id: newOrder.id,
-        service_name: formServiceType,
-        service_type: "standard",
-        quantity: 1,
-        unit_price: basePriceNum,
-        total_price: basePriceNum,
+        service_name: p.name,
+        service_type: p.product_id || "standard",
+        quantity: p.quantity,
+        unit_price: p.unit_price,
+        total_price: p.unit_price * p.quantity,
         laundry_id: formLaundryId || null,
-      });
+      }));
+
+      await supabase.from("order_items").insert(itemRows);
 
       toast({
         title: "Keikka luotu onnistuneesti!",
-        description: `Tilaus ${shortOrderId(newOrder.id)} välitetty ${assignedDriver ? "kuljettajalle" : "yleiseen jakoon"}.`,
+        description: `Tilaus ${shortOrderId(newOrder.id)} (${finalPriceNum.toFixed(2)} €) välitetty ${assignedDriver ? "kuljettajalle" : "yleiseen jakoon"}.`,
       });
 
       handleResetForm();
@@ -505,6 +751,123 @@ export const DispatchTaskBoard = () => {
   const findDriver = (id?: string | null) => {
     if (!id) return null;
     return drivers.find((d) => d.user_id === id) || null;
+  };
+
+  const findLaundry = (id?: string | null) => {
+    if (!id) return null;
+    return laundries.find((l) => l.id === id) || null;
+  };
+
+  // 🔄 KULJETTAJAN MÄÄRITYS / VAIHTO
+  const handleAssignDriver = async (task: TaskRow, driverId: string | null) => {
+    setActionLoading(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const newStatus = driverId ? "assigned" : "unassigned";
+
+      await supabase
+        .from("delivery_tasks")
+        .update({
+          driver_id: driverId,
+          status: newStatus,
+          updated_at: nowIso,
+        })
+        .eq("id", task.id);
+
+      if (task.order_id) {
+        await supabase
+          .from("orders")
+          .update({
+            driver_id: driverId,
+            status: driverId ? "accepted" : "pending",
+            tracking_status: driverId ? "DRIVER_ASSIGNED" : "ORDER_PLACED",
+            updated_at: nowIso,
+          })
+          .eq("id", task.order_id);
+      }
+
+      toast({
+        title: driverId ? "Kuljettaja määritetty" : "Keikka vapautettu",
+        description: driverId
+          ? `Keikka liitettiin kuljettajalle ${getDriverFullName(findDriver(driverId))}`
+          : "Keikka on nyt avoimessa jaossa.",
+      });
+
+      setAssignModalTask(null);
+      await fetchAll();
+    } catch (err: any) {
+      toast({ title: "Virhe", description: err.message || "Toiminto epäonnistui", variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 🏢 PESULAN MÄÄRITYS / VAIHTO SUORAAN LISTASTA
+  const handleAssignLaundry = async (task: TaskRow, laundryId: string | null) => {
+    setActionLoading(true);
+    try {
+      const chosenLaundry = laundries.find((l) => l.id === laundryId);
+      const laundryName = chosenLaundry?.name || null;
+      const laundryAddress = chosenLaundry?.address || null;
+      const laundryPhone = chosenLaundry?.contact_phone || null;
+      const nowIso = new Date().toISOString();
+
+      if (task.order_id) {
+        // Päivitetään noudon määränpääksi ja palautuksen lähtöpisteeksi uusi pesula
+        await supabase
+          .from("delivery_tasks")
+          .update({
+            laundry_id: laundryId,
+            destination_name: laundryName,
+            destination_address: laundryAddress,
+            destination_phone: laundryPhone,
+            updated_at: nowIso,
+          })
+          .eq("order_id", task.order_id)
+          .eq("task_type", "pickup");
+
+        await supabase
+          .from("delivery_tasks")
+          .update({
+            laundry_id: laundryId,
+            origin_name: laundryName,
+            origin_address: laundryAddress,
+            origin_phone: laundryPhone,
+            updated_at: nowIso,
+          })
+          .eq("order_id", task.order_id)
+          .eq("task_type", "delivery");
+
+        await supabase
+          .from("orders")
+          .update({
+            laundry_id: laundryId,
+            updated_at: nowIso,
+          })
+          .eq("id", task.order_id);
+
+        await supabase
+          .from("order_items")
+          .update({
+            laundry_id: laundryId,
+          })
+          .eq("order_id", task.order_id);
+      }
+
+      toast({
+        title: "Pesula määritetty",
+        description: laundryName
+          ? `Tilaus ${shortOrderId(task.order_id)} ohjattu pesulalle ${laundryName}`
+          : "Pesulan määritys poistettu.",
+      });
+
+      setAssignLaundryModalTask(null);
+      await fetchAll();
+    } catch (err: any) {
+      toast({ title: "Virhe", description: err.message || "Pesulan määritys epäonnistui", variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const activeTasks = useMemo(() => {
@@ -584,10 +947,14 @@ export const DispatchTaskBoard = () => {
           const driverNameStr = getDriverFullName(driver).toLowerCase();
           const matchDriver = driverNameStr.includes(q);
 
+          const laundry = findLaundry(t.laundry_id);
+          const laundryNameStr = (laundry?.name || "").toLowerCase();
+          const matchLaundry = laundryNameStr.includes(q);
+
           const serviceNameStr = String(t.orders?.service_name || "").toLowerCase();
           const matchService = serviceNameStr.includes(q);
 
-          if (!matchId && !matchName && !matchPhone && !matchAddr && !matchDriver && !matchService) {
+          if (!matchId && !matchName && !matchPhone && !matchAddr && !matchDriver && !matchLaundry && !matchService) {
             return false;
           }
         }
@@ -598,7 +965,7 @@ export const DispatchTaskBoard = () => {
       console.error("Dispatch filtering error:", err);
       return activeTasks;
     }
-  }, [activeTasks, searchQuery, cityFilter, tabFilter, drivers]);
+  }, [activeTasks, searchQuery, cityFilter, tabFilter, drivers, laundries]);
 
   const stats = useMemo(() => {
     let unassigned = 0;
@@ -659,116 +1026,208 @@ export const DispatchTaskBoard = () => {
         scheduledTime: t.scheduled_time_slot || t.orders?.pickup_time || "10-12",
         driverName: getDriverFullName(driver),
         driverId: t.driver_id,
-        laundryName: laundry?.name || "24Pesula Entresse",
+        laundryName: laundry?.name || "Ei määritetty",
         price: t.orders?.final_price || t.orders?.price || 35.9,
       };
     });
   }, [filteredTasks, drivers, laundries]);
 
-  const handleAssignDriver = async (task: TaskRow, driverId: string | null) => {
-    setActionLoading(true);
-    try {
-      const nowIso = new Date().toISOString();
-      const newStatus = driverId ? "assigned" : "unassigned";
+  // Dropdown-optiot hakukentällisille valitsimille
+  const productOptions: SearchableOption[] = useMemo(() => {
+    return products.map((p) => ({
+      value: p.name,
+      label: p.name,
+      badge: `${Number(p.base_price).toFixed(2)} €`,
+      icon: <Package className="h-3 w-3 text-muted-foreground" />,
+    }));
+  }, [products]);
 
-      await supabase
-        .from("delivery_tasks")
-        .update({
-          driver_id: driverId,
-          status: newStatus,
-          updated_at: nowIso,
-        })
-        .eq("id", task.id);
+  const laundryOptions: SearchableOption[] = useMemo(() => {
+    return laundries.map((l) => ({
+      value: l.id,
+      label: l.name,
+      sublabel: l.address || l.city || undefined,
+      icon: <Building2 className="h-3 w-3 text-primary" />,
+    }));
+  }, [laundries]);
 
-      if (task.order_id) {
-        await supabase
-          .from("orders")
-          .update({
-            driver_id: driverId,
-            status: driverId ? "accepted" : "pending",
-            tracking_status: driverId ? "DRIVER_ASSIGNED" : "ORDER_PLACED",
-            updated_at: nowIso,
-          })
-          .eq("id", task.order_id);
-      }
-
-      toast({
-        title: driverId ? "Kuljettaja määritetty" : "Keikka vapautettu",
-        description: driverId
-          ? `Keikka liitettiin kuljettajalle ${getDriverFullName(findDriver(driverId))}`
-          : "Keikka on nyt avoimessa jaossa.",
+  const driverOptions: SearchableOption[] = useMemo(() => {
+    const opts: SearchableOption[] = [
+      {
+        value: "unassigned",
+        label: "⚡ Yleinen jako (Kaikki kuskit)",
+        badge: "Avoin",
+        icon: <Truck className="h-3.5 w-3.5 text-amber-500" />,
+      },
+    ];
+    drivers.forEach((d) => {
+      opts.push({
+        value: d.user_id,
+        label: getDriverFullName(d),
+        sublabel: d.phone || undefined,
+        badge: d.is_active ? "🟢 Vuorossa" : "Pois",
+        icon: <User className="h-3.5 w-3.5 text-muted-foreground" />,
       });
+    });
+    return opts;
+  }, [drivers]);
 
-      setAssignModalTask(null);
-      await fetchAll();
-    } catch (err: any) {
-      toast({ title: "Virhe", description: err.message || "Toiminto epäonnistui", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  const cityOptions: SearchableOption[] = useMemo(() => {
+    return CITIES.map((c) => ({
+      value: c,
+      label: c,
+      icon: <MapPin className="h-3 w-3 text-muted-foreground" />,
+    }));
+  }, []);
+
+  const paymentOptions: SearchableOption[] = useMemo(() => {
+    return PAYMENT_METHODS.map((p) => ({
+      value: p.value,
+      label: p.label,
+      icon: p.icon,
+    }));
+  }, []);
 
   return (
     <div className="space-y-4 animate-fade-in">
       
-      {/* 🧭 YLÄRIVI: DISPATCH OPERAATTORIN PÄÄNÄKYMÄ (2-PALSTAINEN) */}
+      {/* 🧭 YLÄRIVI: DISPATCH OPERAATTORIN PÄÄNÄKYMÄ (5 / 7 PALSTAA) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         
         {/* ======================================================== */}
-        {/* VASEN SARAKE: DISPATCH TILAUSLOMAKE (BOOKING ENTRY)     */}
+        {/* VASEN SARAKE: TIIVIS & SELKEÄ TILAUSLOMAKE (5 PALSTAA)   */}
         {/* ======================================================== */}
-        <div className="lg:col-span-6 xl:col-span-6 p-4 rounded-xl border bg-card shadow-sm space-y-3.5">
+        <div className="lg:col-span-5 xl:col-span-5 p-3.5 rounded-xl border bg-card shadow-sm space-y-3">
+          
+          {/* HEADER */}
           <div className="flex items-center justify-between pb-2 border-b">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <PlusCircle className="h-4 w-4 text-primary" />
-              <h3 className="font-semibold text-sm text-foreground">Välittäjän tilausluonti (Dispatch Booking)</h3>
+              <h3 className="font-semibold text-xs text-foreground uppercase tracking-wide">Uusi tilaus & välitys</h3>
             </div>
-            <div className="text-[11px] text-muted-foreground">
+            <div>
               {matchedUserId ? (
-                <span className="text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  App-käyttäjä tunnistettu
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                  <ShieldCheck className="h-3 w-3" />
+                  Kanta-asiakas
                 </span>
               ) : (
-                <span>Puhelin- / Välitystilaus</span>
+                <span className="text-[10px] text-muted-foreground">Pika-tilaus</span>
               )}
             </div>
           </div>
 
-          <form onSubmit={handleCreateOrderAndDispatch} className="space-y-3">
+          <form onSubmit={handleCreateOrderAndDispatch} className="space-y-2.5">
             
-            {/* 1. AIKATAULU (DATE & TIME) */}
-            <div className="p-2.5 rounded-lg border bg-muted/20 space-y-2">
+            {/* 1. ASIAKAS & OSOITE */}
+            <div className="p-2 rounded-lg border bg-muted/20 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                  <User className="h-3 w-3 text-muted-foreground" />
+                  Asiakas & Nouto-osoite
+                </span>
+                {isCheckingPhone && <span className="text-[9px] text-muted-foreground">Etsitään profiilia...</span>}
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5">
+                <div>
+                  <Label className="text-[9px] text-muted-foreground">Puhelin *</Label>
+                  <Input
+                    value={formPhone}
+                    onChange={(e) => setFormPhone(e.target.value)}
+                    placeholder="040 123 4567"
+                    required
+                    className="h-7 text-xs font-medium"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[9px] text-muted-foreground">Etunimi</Label>
+                  <Input
+                    value={formFirstName}
+                    onChange={(e) => setFormFirstName(e.target.value)}
+                    placeholder="Matti"
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[9px] text-muted-foreground">Sukunimi</Label>
+                  <Input
+                    value={formLastName}
+                    onChange={(e) => setFormLastName(e.target.value)}
+                    placeholder="Meikäläinen"
+                    className="h-7 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-12 gap-1.5 pt-1">
+                <div className="col-span-5">
+                  <Label className="text-[9px] text-muted-foreground">Katuosoite *</Label>
+                  <Input
+                    value={formStreet}
+                    onChange={(e) => setFormStreet(e.target.value)}
+                    placeholder="Mannerheimintie 10 B"
+                    required
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="col-span-3">
+                  <Label className="text-[9px] text-muted-foreground">Kaupunki</Label>
+                  <SearchableSelect
+                    options={cityOptions}
+                    value={formCity}
+                    onChange={setFormCity}
+                    placeholder="Kaupunki"
+                    searchPlaceholder="Hae kaupunkia..."
+                    triggerClassName="h-7 text-xs"
+                  />
+                </div>
+                <div className="col-span-4">
+                  <Label className="text-[9px] text-muted-foreground">Rappu/Koodi</Label>
+                  <Input
+                    value={formAccessCode}
+                    onChange={(e) => setFormAccessCode(e.target.value)}
+                    placeholder="B 14 / 1234"
+                    className="h-7 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 2. AIKATAULU */}
+            <div className="p-2 rounded-lg border bg-muted/20 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3 text-muted-foreground" />
                   Aikataulu
                 </span>
                 <div className="flex items-center gap-1">
-                  <Button
+                  <button
                     type="button"
-                    variant={formDateType === "today" ? "secondary" : "ghost"}
-                    size="sm"
                     onClick={() => handleDateTypeSelect("today")}
-                    className="h-6 text-[11px] px-2"
+                    className={cn(
+                      "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+                      formDateType === "today" ? "bg-primary text-primary-foreground font-semibold" : "bg-muted text-muted-foreground hover:text-foreground"
+                    )}
                   >
                     Tänään
-                  </Button>
-                  <Button
+                  </button>
+                  <button
                     type="button"
-                    variant={formDateType === "tomorrow" ? "secondary" : "ghost"}
-                    size="sm"
                     onClick={() => handleDateTypeSelect("tomorrow")}
-                    className="h-6 text-[11px] px-2"
+                    className={cn(
+                      "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+                      formDateType === "tomorrow" ? "bg-primary text-primary-foreground font-semibold" : "bg-muted text-muted-foreground hover:text-foreground"
+                    )}
                   >
                     Huomenna
-                  </Button>
+                  </button>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-[10px] text-muted-foreground">Noutopäivä & aika</Label>
+                  <Label className="text-[9px] text-muted-foreground">Nouto (Pvm & Klo)</Label>
                   <div className="flex items-center gap-1 mt-0.5">
                     <Input
                       type="date"
@@ -777,326 +1236,239 @@ export const DispatchTaskBoard = () => {
                         setFormPickupDate(e.target.value);
                         setFormDateType("custom");
                       }}
-                      className="h-7 text-xs px-2"
+                      className="h-7 text-[11px] px-1.5 w-[110px]"
                     />
-                    <Select value={formPickupTime} onValueChange={setFormPickupTime}>
-                      <SelectTrigger className="h-7 text-[11px] px-2">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_SLOTS.map((slot) => (
-                          <SelectItem key={slot} value={slot} className="text-xs">
-                            {slot}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <select
+                      value={formPickupTime}
+                      onChange={(e) => setFormPickupTime(e.target.value)}
+                      className="h-7 flex-1 rounded-md border border-input bg-background px-1.5 text-[11px] text-foreground outline-none"
+                    >
+                      {TIME_SLOTS.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
                 <div>
-                  <Label className="text-[10px] text-muted-foreground">Palautuspäivä & aika</Label>
+                  <Label className="text-[9px] text-muted-foreground">Palautus (Pvm & Klo)</Label>
                   <div className="flex items-center gap-1 mt-0.5">
                     <Input
                       type="date"
                       value={formReturnDate}
                       onChange={(e) => setFormReturnDate(e.target.value)}
-                      className="h-7 text-xs px-2"
+                      className="h-7 text-[11px] px-1.5 w-[110px]"
                     />
-                    <Select value={formReturnTime} onValueChange={setFormReturnTime}>
-                      <SelectTrigger className="h-7 text-[11px] px-2">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_SLOTS.map((slot) => (
-                          <SelectItem key={slot} value={slot} className="text-xs">
-                            {slot}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <select
+                      value={formReturnTime}
+                      onChange={(e) => setFormReturnTime(e.target.value)}
+                      className="h-7 flex-1 rounded-md border border-input bg-background px-1.5 text-[11px] text-foreground outline-none"
+                    >
+                      {TIME_SLOTS.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* 2. ASIAKASTIEDOT (CUSTOMER DETAILS) */}
-            <div className="p-2.5 rounded-lg border bg-muted/20 space-y-2">
-              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                Asiakastiedot
-              </span>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">Etunimi</Label>
-                  <Input
-                    value={formFirstName}
-                    onChange={(e) => setFormFirstName(e.target.value)}
-                    placeholder="Matti"
-                    className="h-7 text-xs mt-0.5"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">Sukunimi</Label>
-                  <Input
-                    value={formLastName}
-                    onChange={(e) => setFormLastName(e.target.value)}
-                    placeholder="Meikäläinen"
-                    className="h-7 text-xs mt-0.5"
-                  />
-                </div>
+            {/* 3. MONITUOTTEET & PESULA */}
+            <div className="p-2 rounded-lg border bg-muted/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                  <Package className="h-3 w-3 text-muted-foreground" />
+                  Tuotteet & Palvelut ({formProducts.length} kpl)
+                </span>
+                <button
+                  type="button"
+                  onClick={handleAddProductRow}
+                  className="flex items-center gap-1 text-[10px] text-primary font-semibold hover:underline"
+                >
+                  <Plus className="h-3 w-3" />
+                  Lisää tuote
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[10px] text-muted-foreground flex items-center justify-between">
-                    <span>Puhelinnumero *</span>
-                    {isCheckingPhone && <span className="text-[9px] text-muted-foreground">Tarkistetaan...</span>}
-                  </Label>
-                  <Input
-                    value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
-                    placeholder="040 123 4567"
-                    required
-                    className="h-7 text-xs mt-0.5 font-medium"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">Sähköposti (valinnainen)</Label>
-                  <Input
-                    type="email"
-                    value={formEmail}
-                    onChange={(e) => setFormEmail(e.target.value)}
-                    placeholder="matti@esimerkki.fi"
-                    className="h-7 text-xs mt-0.5"
-                  />
-                </div>
-              </div>
-            </div>
+              {/* TUOTERIVIT */}
+              <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-0.5">
+                {formProducts.map((row) => (
+                  <div key={row.id} className="flex items-center gap-1.5 p-1 rounded-md border bg-card text-xs">
+                    <div className="flex-1 min-w-0">
+                      <SearchableSelect
+                        options={productOptions}
+                        value={row.name}
+                        onChange={(val) => handleProductChange(row.id, val)}
+                        placeholder="Valitse tuote..."
+                        searchPlaceholder="Hae tuotetta..."
+                        triggerClassName="h-6 text-[11px] py-0"
+                      />
+                    </div>
 
-            {/* 3. NOUTO-OSOITE (PICKUP ADDRESS) */}
-            <div className="p-2.5 rounded-lg border bg-muted/20 space-y-2">
-              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                Nouto-osoite
-              </span>
+                    {/* MÄÄRÄ (+ / -) */}
+                    <div className="flex items-center border rounded bg-muted/30 h-6 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleQuantityChange(row.id, -1)}
+                        className="px-1 text-muted-foreground hover:text-foreground h-full"
+                      >
+                        -
+                      </button>
+                      <span className="px-1.5 font-bold text-[11px]">{row.quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleQuantityChange(row.id, 1)}
+                        className="px-1 text-muted-foreground hover:text-foreground h-full"
+                      >
+                        +
+                      </button>
+                    </div>
 
-              <div className="grid grid-cols-12 gap-2">
-                <div className="col-span-8">
-                  <Label className="text-[10px] text-muted-foreground">Katuosoite & asuntonro *</Label>
-                  <Input
-                    value={formStreet}
-                    onChange={(e) => setFormStreet(e.target.value)}
-                    placeholder="Mannerheimintie 10 B 14"
-                    required
-                    className="h-7 text-xs mt-0.5"
-                  />
-                </div>
-                <div className="col-span-4">
-                  <Label className="text-[10px] text-muted-foreground">Rappukoodi / Summeri</Label>
-                  <Input
-                    value={formAccessCode}
-                    onChange={(e) => setFormAccessCode(e.target.value)}
-                    placeholder="B 1234"
-                    className="h-7 text-xs mt-0.5"
-                  />
-                </div>
-              </div>
+                    {/* HINTA */}
+                    <div className="w-[60px] shrink-0">
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={row.unit_price}
+                        onChange={(e) => handleUnitPriceChange(row.id, e.target.value)}
+                        className="h-6 text-[11px] px-1 text-right font-medium"
+                      />
+                    </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">Postinumero</Label>
-                  <Input
-                    value={formPostalCode}
-                    onChange={(e) => setFormPostalCode(e.target.value)}
-                    placeholder="00100"
-                    className="h-7 text-xs mt-0.5"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">Kaupunki</Label>
-                  <Select value={formCity} onValueChange={setFormCity}>
-                    <SelectTrigger className="h-7 text-xs mt-0.5">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Helsinki">Helsinki</SelectItem>
-                      <SelectItem value="Espoo">Espoo</SelectItem>
-                      <SelectItem value="Vantaa">Vantaa</SelectItem>
-                      <SelectItem value="Kauniainen">Kauniainen</SelectItem>
-                      <SelectItem value="Kirkkonummi">Kirkkonummi</SelectItem>
-                      <SelectItem value="Kerava">Kerava</SelectItem>
-                      <SelectItem value="Järvenpää">Järvenpää</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
+                    {/* RIVISUMMA */}
+                    <div className="w-[50px] text-right font-semibold text-[11px] text-foreground shrink-0">
+                      {(row.unit_price * row.quantity).toFixed(2)} €
+                    </div>
 
-            {/* 4. PALVELU, PESULA & HINNOITTELU */}
-            <div className="p-2.5 rounded-lg border bg-muted/20 space-y-2">
-              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                Palvelu & Pesula
-              </span>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">Palvelu / Tuote</Label>
-                  <Select value={formServiceType} onValueChange={handleProductSelect}>
-                    <SelectTrigger className="h-7 text-xs mt-0.5">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map((p) => (
-                        <SelectItem key={p.id} value={p.name} className="text-xs">
-                          {p.name} ({p.base_price.toFixed(2)} €)
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="Muu erikoispesu">Muu erikoispesu</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">Kumppanipesula</Label>
-                  <Select value={formLaundryId} onValueChange={setFormLaundryId}>
-                    <SelectTrigger className="h-7 text-xs mt-0.5">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {laundries.map((l) => (
-                        <SelectItem key={l.id} value={l.id} className="text-xs">
-                          {l.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    {/* POISTONAPPI */}
+                    {formProducts.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveProductRow(row.id)}
+                        className="text-muted-foreground hover:text-destructive p-0.5"
+                        title="Poista rivi"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
 
-              <div className="grid grid-cols-3 gap-2 pt-1 border-t">
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">Pesu (€)</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={formBasePrice}
-                    onChange={(e) => setFormBasePrice(e.target.value)}
-                    className="h-7 text-xs mt-0.5"
+              {/* PESULAN VALINTA */}
+              <div className="pt-1 border-t grid grid-cols-12 gap-2 items-center">
+                <div className="col-span-7">
+                  <Label className="text-[9px] text-muted-foreground">Kumppanipesula</Label>
+                  <SearchableSelect
+                    options={laundryOptions}
+                    value={formLaundryId}
+                    onChange={setFormLaundryId}
+                    placeholder="Valitse pesula..."
+                    searchPlaceholder="Hae pesulaa..."
+                    triggerClassName="h-7 text-xs"
                   />
                 </div>
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">Kuljetus (€)</Label>
+                <div className="col-span-5">
+                  <Label className="text-[9px] text-muted-foreground">Kuljetusmaksu (€)</Label>
                   <Input
                     type="number"
                     step="0.1"
                     value={formDeliveryFee}
                     onChange={(e) => setFormDeliveryFee(e.target.value)}
-                    className="h-7 text-xs mt-0.5"
+                    className="h-7 text-xs font-medium"
                   />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-muted-foreground font-bold">Yhteensä (€)</Label>
-                  <div className="h-7 px-2 flex items-center justify-center font-bold text-xs bg-muted rounded border mt-0.5 text-foreground">
-                    {formTotalPrice} €
-                  </div>
                 </div>
               </div>
             </div>
 
-            {/* 5. KULJETTAJA, MAKSUTAPA & OHJEET */}
-            <div className="p-2.5 rounded-lg border bg-muted/20 space-y-2">
+            {/* 4. KULJETTAJA & MAKSUTAPA */}
+            <div className="p-2 rounded-lg border bg-muted/20 space-y-1.5">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-[10px] text-muted-foreground">Kuljettajan määritys</Label>
-                  <Select value={formSelectedDriverId} onValueChange={setFormSelectedDriverId}>
-                    <SelectTrigger className="h-7 text-xs mt-0.5">
-                      <SelectValue placeholder="Valitse jako" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unassigned" className="text-xs font-semibold text-amber-700 dark:text-amber-400">
-                        ⚡ Yleinen jako (Kaikki kuskit)
-                      </SelectItem>
-                      {drivers.map((d) => (
-                        <SelectItem key={d.user_id} value={d.user_id} className="text-xs">
-                          {getDriverFullName(d)} {d.is_active ? "🟢" : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-[9px] text-muted-foreground">Kuljettajan jako</Label>
+                  <SearchableSelect
+                    options={driverOptions}
+                    value={formSelectedDriverId}
+                    onChange={setFormSelectedDriverId}
+                    placeholder="Valitse jako..."
+                    searchPlaceholder="Hae kuskia..."
+                    triggerClassName="h-7 text-xs"
+                  />
                 </div>
 
                 <div>
-                  <Label className="text-[10px] text-muted-foreground">Maksutapa</Label>
-                  <Select value={formPaymentMethod} onValueChange={setFormPaymentMethod}>
-                    <SelectTrigger className="h-7 text-xs mt-0.5">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="invoice">Lasku</SelectItem>
-                      <SelectItem value="card">Korttimaksu</SelectItem>
-                      <SelectItem value="pay_on_delivery">Maksu toimituksessa</SelectItem>
-                      <SelectItem value="app">Sovellusmaksu</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-[9px] text-muted-foreground">Maksutapa</Label>
+                  <SearchableSelect
+                    options={paymentOptions}
+                    value={formPaymentMethod}
+                    onChange={setFormPaymentMethod}
+                    placeholder="Maksutapa"
+                    searchPlaceholder="Hae maksutapaa..."
+                    triggerClassName="h-7 text-xs"
+                  />
                 </div>
               </div>
 
               <div>
-                <Label className="text-[10px] text-muted-foreground">Ohjeet kuljettajalle (INST)</Label>
+                <Label className="text-[9px] text-muted-foreground">Ohjeet kuljettajalle</Label>
                 <Input
                   value={formNotes}
                   onChange={(e) => setFormNotes(e.target.value)}
-                  placeholder="Esim. Soita 15 min ennen tuloa, jätä pussi oven taakse..."
-                  className="h-7 text-xs mt-0.5"
+                  placeholder="Esim. Soita ennen tuloa, jätä pussi oveen..."
+                  className="h-7 text-xs"
                 />
               </div>
             </div>
 
-            {/* TOIMINTONAPIT */}
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleResetForm}
-                disabled={formSubmitting}
-                className="text-xs h-8 px-3 text-muted-foreground"
-              >
-                Tyhjennä
-              </Button>
+            {/* YHTEENVETO & LÄHETYS */}
+            <div className="flex items-center justify-between pt-1 gap-2 border-t">
+              <div>
+                <span className="text-[10px] text-muted-foreground block">Yhteensä (sis. kuljetus):</span>
+                <span className="text-base font-extrabold text-foreground">{formTotalPrice} €</span>
+              </div>
 
-              <Button
-                type="submit"
-                size="sm"
-                disabled={formSubmitting}
-                className="text-xs h-8 px-5 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                {formSubmitting ? (
-                  <span className="flex items-center gap-1.5">
-                    <RefreshCw className="h-3 w-3 animate-spin" />
-                    Välitetään keikkaa...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5">
-                    <Check className="h-3.5 w-3.5" />
-                    Luo ja välitä keikka
-                  </span>
-                )}
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetForm}
+                  disabled={formSubmitting}
+                  className="text-xs h-7 px-2 text-muted-foreground"
+                >
+                  Tyhjennä
+                </Button>
+
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={formSubmitting}
+                  className="text-xs h-8 px-4 font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  {formSubmitting ? (
+                    <span className="flex items-center gap-1.5">
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      Välitetään...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5">
+                      <Check className="h-3.5 w-3.5" />
+                      Luo ja välitä
+                    </span>
+                  )}
+                </Button>
+              </div>
             </div>
 
           </form>
         </div>
 
         {/* ======================================================== */}
-        {/* OIKEA SARAKE: REAALIAIKAINEN KARTTA & TILAANNEKATSAUS    */}
+        {/* OIKEA SARAKE: REAALIAIKAINEN KARTTA (7 PALSTAA)          */}
         {/* ======================================================== */}
-        <div className="lg:col-span-6 xl:col-span-6 flex flex-col space-y-3">
+        <div className="lg:col-span-7 xl:col-span-7 flex flex-col space-y-2.5">
           
-          {/* KARTTAKOMPONENTTI */}
+          {/* KARTTA */}
           <div className="h-[430px] rounded-xl overflow-hidden border shadow-sm">
             <DispatchMap
               tasks={mapTasks}
@@ -1110,46 +1482,46 @@ export const DispatchTaskBoard = () => {
             />
           </div>
 
-          {/* REAALIAIKAINEN STATUS TICKER KARTAN ALLA */}
+          {/* STATUS TICKER KARTAN ALLA */}
           <div className="grid grid-cols-4 gap-2">
             <button
               onClick={() => setTabFilter(tabFilter === "unassigned" ? "all" : "unassigned")}
-              className={`p-2.5 rounded-lg border text-left transition-colors ${
+              className={`p-2 rounded-lg border text-left transition-colors ${
                 tabFilter === "unassigned" ? "bg-muted border-foreground/30 font-semibold" : "bg-card hover:bg-muted/50"
               }`}
             >
-              <p className="text-[10px] text-muted-foreground">Jaossa / Vapaana</p>
-              <h5 className="text-sm font-bold text-amber-600 mt-0.5">{stats.unassigned} kpl</h5>
+              <p className="text-[10px] text-muted-foreground">Jaossa</p>
+              <h5 className="text-sm font-bold text-amber-600">{stats.unassigned} kpl</h5>
             </button>
 
             <button
               onClick={() => setTabFilter(tabFilter === "pickup" ? "all" : "pickup")}
-              className={`p-2.5 rounded-lg border text-left transition-colors ${
+              className={`p-2 rounded-lg border text-left transition-colors ${
                 tabFilter === "pickup" ? "bg-muted border-foreground/30 font-semibold" : "bg-card hover:bg-muted/50"
               }`}
             >
               <p className="text-[10px] text-muted-foreground">Noudossa</p>
-              <h5 className="text-sm font-bold text-blue-600 mt-0.5">{stats.pickingUp} kpl</h5>
+              <h5 className="text-sm font-bold text-blue-600">{stats.pickingUp} kpl</h5>
             </button>
 
             <button
               onClick={() => setTabFilter(tabFilter === "washing" ? "all" : "washing")}
-              className={`p-2.5 rounded-lg border text-left transition-colors ${
+              className={`p-2 rounded-lg border text-left transition-colors ${
                 tabFilter === "washing" ? "bg-muted border-foreground/30 font-semibold" : "bg-card hover:bg-muted/50"
               }`}
             >
               <p className="text-[10px] text-muted-foreground">Pesulassa</p>
-              <h5 className="text-sm font-bold text-emerald-600 mt-0.5">{stats.washing} kpl</h5>
+              <h5 className="text-sm font-bold text-emerald-600">{stats.washing} kpl</h5>
             </button>
 
             <button
               onClick={() => setTabFilter(tabFilter === "delivery" ? "all" : "delivery")}
-              className={`p-2.5 rounded-lg border text-left transition-colors ${
+              className={`p-2 rounded-lg border text-left transition-colors ${
                 tabFilter === "delivery" ? "bg-muted border-foreground/30 font-semibold" : "bg-card hover:bg-muted/50"
               }`}
             >
               <p className="text-[10px] text-muted-foreground">Palautuksessa</p>
-              <h5 className="text-sm font-bold text-purple-600 mt-0.5">{stats.returning} kpl</h5>
+              <h5 className="text-sm font-bold text-purple-600">{stats.returning} kpl</h5>
             </button>
           </div>
 
@@ -1158,7 +1530,7 @@ export const DispatchTaskBoard = () => {
       </div>
 
       {/* ======================================================== */}
-      {/* ALARIVI: REAALIAIKAINEN KEIKKATAULUKKO (DISPATCH JOBS)  */}
+      {/* ALARIVI: KEIKKATAULUKKO PESULAN JA KUSKIN VALINNALLA     */}
       {/* ======================================================== */}
       <div className="space-y-2.5 pt-2">
         
@@ -1169,7 +1541,7 @@ export const DispatchTaskBoard = () => {
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Hae tilausnumerolla, asiakkaalla, osoitteella, puhelimella tai kuskilla..."
+              placeholder="Hae tilausnumerolla, asiakkaalla, osoitteella, pesulalla tai kuskilla..."
               className="pl-8 h-7 text-xs bg-muted/30 border-muted-foreground/20 rounded-lg"
             />
             {searchQuery && (
@@ -1183,19 +1555,15 @@ export const DispatchTaskBoard = () => {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Select value={cityFilter} onValueChange={setCityFilter}>
-              <SelectTrigger className="h-7 text-xs min-w-[120px] rounded-lg">
-                <SelectValue placeholder="Kaikki kaupungit" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Kaikki alueet</SelectItem>
-                {cities.map((c) => (
-                  <SelectItem key={c} value={c} className="text-xs">
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="w-[140px]">
+              <SearchableSelect
+                options={[{ value: "all", label: "Kaikki alueet" }, ...cities.map(c => ({ value: c, label: c }))]}
+                value={cityFilter}
+                onChange={setCityFilter}
+                placeholder="Alue"
+                triggerClassName="h-7 text-xs"
+              />
+            </div>
 
             <Button
               variant="outline"
@@ -1222,6 +1590,7 @@ export const DispatchTaskBoard = () => {
                   <th className="p-2.5">Asiakas</th>
                   <th className="p-2.5">Osoite</th>
                   <th className="p-2.5">Aikataulu</th>
+                  <th className="p-2.5">Pesula</th>
                   <th className="p-2.5">Kuljettaja</th>
                   <th className="p-2.5">Hinta</th>
                   <th className="p-2.5 text-right">Toiminnot</th>
@@ -1230,7 +1599,7 @@ export const DispatchTaskBoard = () => {
               <tbody className="divide-y divide-border">
                 {filteredTasks.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="p-8 text-center text-muted-foreground text-xs">
+                    <td colSpan={10} className="p-8 text-center text-muted-foreground text-xs">
                       Ei aktiivisia keikkoja hakuehdoilla.
                     </td>
                   </tr>
@@ -1250,6 +1619,7 @@ export const DispatchTaskBoard = () => {
                     const timeWindow = task.scheduled_time_slot || (isPickup ? task.orders?.pickup_time : task.orders?.return_time) || "10-12";
                     const price = task.orders?.final_price || task.orders?.price || 0;
                     const driver = findDriver(task.driver_id);
+                    const laundry = findLaundry(task.laundry_id);
 
                     const orderSt = String(task.orders?.status || "").toLowerCase();
                     const taskSt = String(task.status || "").toLowerCase();
@@ -1304,18 +1674,36 @@ export const DispatchTaskBoard = () => {
                           {phone && <span className="text-[10px] text-muted-foreground">{phone}</span>}
                         </td>
 
-                        <td className="p-2.5 max-w-[200px] truncate text-muted-foreground" title={address}>
+                        <td className="p-2.5 max-w-[180px] truncate text-muted-foreground" title={address}>
                           {address}
                         </td>
 
                         <td className="p-2.5 text-muted-foreground whitespace-nowrap">
-                          {formatSafeDate(dateStr)} klo {timeWindow}
+                          {formatSafeDate(dateStr)} {timeWindow}
                         </td>
 
-                        <td className="p-2.5">
-                          <span className={driver ? "text-foreground font-medium" : "text-amber-700 dark:text-amber-400 font-semibold"}>
-                            {getDriverFullName(driver)}
-                          </span>
+                        {/* 🏢 PESULAN VALINTA SUORAAN TAULUKOSTA */}
+                        <td className="p-2.5 w-[160px]">
+                          <SearchableSelect
+                            options={laundryOptions}
+                            value={task.laundry_id || ""}
+                            onChange={(val) => handleAssignLaundry(task, val)}
+                            placeholder="Määritä pesula"
+                            searchPlaceholder="Hae pesulaa..."
+                            triggerClassName="h-6 text-[11px] py-0 w-[150px]"
+                          />
+                        </td>
+
+                        {/* 🚘 KUSKIN VALINTA SUORAAN TAULUKOSTA */}
+                        <td className="p-2.5 w-[160px]">
+                          <SearchableSelect
+                            options={driverOptions}
+                            value={task.driver_id || "unassigned"}
+                            onChange={(val) => handleAssignDriver(task, val === "unassigned" ? null : val)}
+                            placeholder="Määritä kuski"
+                            searchPlaceholder="Hae kuskia..."
+                            triggerClassName="h-6 text-[11px] py-0 w-[150px]"
+                          />
                         </td>
 
                         <td className="p-2.5 font-semibold text-foreground whitespace-nowrap">
@@ -1323,28 +1711,19 @@ export const DispatchTaskBoard = () => {
                         </td>
 
                         <td className="p-2.5 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setSelectedMapTaskId(task.id);
-                                window.scrollTo({ top: 0, behavior: "smooth" });
-                              }}
-                              className="h-6 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
-                              title="Näytä kartalla"
-                            >
-                              <MapPin className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setAssignModalTask(task)}
-                              className="h-6 text-[10px] px-2"
-                            >
-                              {driver ? "Vaihda" : "Määritä"}
-                            </Button>
-                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setSelectedMapTaskId(task.id);
+                              window.scrollTo({ top: 0, behavior: "smooth" });
+                            }}
+                            className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
+                            title="Näytä kartalla"
+                          >
+                            <MapPin className="h-3 w-3 mr-1" />
+                            Kartta
+                          </Button>
                         </td>
                       </tr>
                     );
@@ -1356,7 +1735,7 @@ export const DispatchTaskBoard = () => {
         </div>
       </div>
 
-      {/* 🚘 KULJETTAJAN VALINTAMODAALI */}
+      {/* 🚘 KULJETTAJAN VALINTAMODAALI (FALLBACK / TARKASTELU) */}
       {assignModalTask && (
         <Dialog open={!!assignModalTask} onOpenChange={() => setAssignModalTask(null)}>
           <DialogContent className="max-w-md rounded-xl">
@@ -1418,6 +1797,55 @@ export const DispatchTaskBoard = () => {
         </Dialog>
       )}
 
+      {/* 🏢 PESULAN VALINTAMODAALI */}
+      {assignLaundryModalTask && (
+        <Dialog open={!!assignLaundryModalTask} onOpenChange={() => setAssignLaundryModalTask(null)}>
+          <DialogContent className="max-w-md rounded-xl">
+            <DialogHeader>
+              <DialogTitle className="text-base font-semibold">Määritä pesula tilaukselle</DialogTitle>
+              <DialogDescription className="text-xs">
+                Valitse pesula, jolle tämän tilauksen pyykit toimitetaan pestäväksi.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2 py-2 max-h-[260px] overflow-y-auto">
+              {laundries.map((l) => {
+                const isCurrent = assignLaundryModalTask.laundry_id === l.id;
+                return (
+                  <button
+                    key={l.id}
+                    onClick={() => handleAssignLaundry(assignLaundryModalTask, l.id)}
+                    disabled={actionLoading}
+                    className={cn(
+                      "w-full flex items-center justify-between p-2.5 rounded-lg border text-left transition-colors text-xs",
+                      isCurrent ? "bg-primary/10 border-primary font-semibold" : "hover:bg-muted"
+                    )}
+                  >
+                    <div>
+                      <p className="text-foreground">{l.name}</p>
+                      <p className="text-[11px] text-muted-foreground">{l.address || l.city || "Ei osoitetta"}</p>
+                    </div>
+                    {isCurrent ? (
+                      <Check className="h-4 w-4 text-primary" />
+                    ) : (
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <DialogFooter>
+              <Button variant="ghost" size="sm" className="text-xs h-8" onClick={() => setAssignLaundryModalTask(null)}>
+                Sulje
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
     </div>
   );
 };
+
+export default DispatchTaskBoard;
