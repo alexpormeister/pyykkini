@@ -11,9 +11,9 @@ All colors MUST be HSL.
 */
 
 @layer base {
-:root {
-    /* Turquoise landing page theme inspired by modern design */
-    --background: 180 50% 97%;  /* Light turquoise background #E0F7FA */
+  :root {
+    /* Fresh light background matching Pesuni blue theme */
+    --background: 200 65% 98%;
     --foreground: 215 25% 15%;
 
     --card: 0 0% 100%;
@@ -22,41 +22,41 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 15%;
 
-    /* Vibrant turquoise primary theme */
-    --primary: 180 84% 45%;
+    /* Pesuni vibrant blue primary theme (#08B6FF) */
+    --primary: 198 100% 52%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 180 90% 55%;
-    --primary-variant: 185 84% 35%;
+    --primary-glow: 198 100% 64%;
+    --primary-variant: 202 100% 42%;
 
     /* Playful warm secondary colors */
     --secondary: 45 100% 85%;
     --secondary-foreground: 45 30% 25%;
 
-    --muted: 180 30% 92%;
+    --muted: 200 40% 94%;
     --muted-foreground: 215 16% 46%;
 
-    --accent: 180 60% 85%;
-    --accent-foreground: 180 84% 20%;
+    --accent: 198 70% 92%;
+    --accent-foreground: 198 100% 30%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 180 31% 88%;
-    --input: 180 31% 88%;
-    --ring: 180 84% 45%;
+    --border: 200 35% 90%;
+    --input: 200 35% 90%;
+    --ring: 198 100% 52%;
 
-    /* Playful gradients for modern look */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
-    --gradient-hero: linear-gradient(135deg, hsl(180 84% 45%), hsl(185 95% 55%));
-    --gradient-subtle: linear-gradient(180deg, hsl(180 50% 97%), hsl(180 40% 94%));
-    --gradient-fun: linear-gradient(135deg, hsl(180 84% 45%), hsl(45 100% 70%));
-    --gradient-landing: linear-gradient(135deg, hsl(180 50% 97%), hsl(185 45% 92%));
-    --gradient-radial: radial-gradient(circle, hsl(var(--primary-glow) / 0.3), transparent);
+    /* Gradients matching #08B6FF */
+    --gradient-primary: linear-gradient(135deg, hsl(198 100% 52%), hsl(198 100% 64%));
+    --gradient-hero: linear-gradient(135deg, hsl(198 100% 52%), hsl(205 100% 60%));
+    --gradient-subtle: linear-gradient(180deg, hsl(200 65% 98%), hsl(200 50% 94%));
+    --gradient-fun: linear-gradient(135deg, hsl(198 100% 52%), hsl(45 100% 70%));
+    --gradient-landing: linear-gradient(135deg, hsl(200 65% 98%), hsl(198 55% 94%));
+    --gradient-radial: radial-gradient(circle, hsl(198 100% 64% / 0.35), transparent);
 
     /* Enhanced shadows for depth */
-    --shadow-elegant: 0 10px 30px -10px hsl(var(--primary) / 0.3);
-    --shadow-glow: 0 0 40px hsl(var(--primary-glow) / 0.5);
-    --shadow-fun: 0 15px 35px -5px hsl(180 84% 45% / 0.25);
+    --shadow-elegant: 0 10px 30px -10px hsl(198 100% 52% / 0.3);
+    --shadow-glow: 0 0 40px hsl(198 100% 64% / 0.5);
+    --shadow-fun: 0 15px 35px -5px hsl(198 100% 52% / 0.25);
 
     /* Smooth animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
