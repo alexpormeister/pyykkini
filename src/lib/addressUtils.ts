@@ -21,6 +21,10 @@ export interface PhotonAddressSuggestion {
   postcode?: string;
   city?: string;
   detail?: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
 }
 
 const KNOWN_CITIES = [
@@ -153,6 +157,140 @@ export function formatAddressFromParts(parts: {
   return postalPart ? `${streetFull}, ${postalPart}` : streetFull;
 }
 
+export const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  helsinki: { lat: 60.1699, lng: 24.9384 },
+  espoo: { lat: 60.2055, lng: 24.6559 },
+  vantaa: { lat: 60.2934, lng: 25.0378 },
+  kauniainen: { lat: 60.2098, lng: 24.7269 },
+  kirkkonummi: { lat: 60.1238, lng: 24.4385 },
+  kerava: { lat: 60.4034, lng: 25.105 },
+  jarvenpaa: { lat: 60.4722, lng: 25.0889 },
+  sipoo: { lat: 60.3775, lng: 25.2694 },
+  tuusula: { lat: 60.4028, lng: 25.0292 },
+  nurmijarvi: { lat: 60.4619, lng: 24.8078 },
+  lohja: { lat: 60.25, lng: 24.0667 },
+  vihti: { lat: 60.4167, lng: 24.3167 },
+  turku: { lat: 60.4518, lng: 22.2666 },
+  tampere: { lat: 61.4978, lng: 23.761 },
+  tampereen: { lat: 61.4978, lng: 23.761 },
+  lahti: { lat: 60.9827, lng: 25.6612 },
+  pori: { lat: 61.4851, lng: 21.7974 },
+  oulu: { lat: 65.0121, lng: 25.4651 },
+  jyvaskyla: { lat: 62.2426, lng: 25.7473 },
+  kuopio: { lat: 62.8924, lng: 27.6782 },
+};
+
+export function getCityCenterCoordinates(cityOrAddress?: string): { lat: number; lng: number } {
+  if (!cityOrAddress) return CITY_COORDINATES.helsinki;
+  const clean = cityOrAddress.toLowerCase().replace(/ä/g, 'a').replace(/ö/g, 'o');
+  for (const [cityName, coords] of Object.entries(CITY_COORDINATES)) {
+    if (clean.includes(cityName)) {
+      return coords;
+    }
+  }
+  return CITY_COORDINATES.helsinki;
+}
+
+/**
+ * Puhdistaa osoitteesta rappu-, kerros- ja huoneistomerkinnät tarkempaa OpenStreetMap/Photon-geokoodausta varten
+ */
+export function cleanAddressForGeocoding(address: string): string {
+  if (!address) return '';
+  let clean = address.trim();
+  clean = clean.replace(/\b(\d+)\s*krs\b/gi, '');
+  clean = clean.replace(/\b(liiketila|porras|rappu|asunto|as\.?|huoneisto|talo)\s*[\w\d-]+\b/gi, '');
+  clean = clean.replace(/\b[A-Za-z]\s*\d{1,4}\b/g, ''); // esim. A 12, B 34
+  clean = clean.replace(/\s+/g, ' ').trim();
+  clean = clean.replace(/,\s*,/g, ',');
+  return clean;
+}
+
+const inMemoryGeoCache = new Map<string, { lat: number; lng: number }>();
+
+/**
+ * 🎯 Tarkka osoitegeokoodaus (Photon / Nominatim välimuistilla)
+ */
+export async function geocodeAddress(
+  address: string,
+  fallbackCity = 'Espoo'
+): Promise<{ lat: number; lng: number }> {
+  if (!address || !address.trim()) {
+    return getCityCenterCoordinates(fallbackCity);
+  }
+
+  const cleaned = cleanAddressForGeocoding(address);
+  const cacheKey = cleaned.toLowerCase().trim();
+
+  if (inMemoryGeoCache.has(cacheKey)) {
+    return inMemoryGeoCache.get(cacheKey)!;
+  }
+
+  try {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem(`pesuni_geo_${cacheKey}`) : null;
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed.lat === 'number' && typeof parsed.lng === 'number') {
+        inMemoryGeoCache.set(cacheKey, parsed);
+        return parsed;
+      }
+    }
+  } catch {}
+
+  // 1. Photon Geocoder (OSM-pohjainen, nopea ja tarkka Suomessa)
+  try {
+    const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(cleaned)}&limit=1&lat=60.2&lon=24.8`;
+    const res = await fetch(photonUrl);
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.features && data.features.length > 0) {
+        const [lng, lat] = data.features[0].geometry.coordinates;
+        if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+          const coords = { lat, lng };
+          inMemoryGeoCache.set(cacheKey, coords);
+          try {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(`pesuni_geo_${cacheKey}`, JSON.stringify(coords));
+            }
+          } catch {}
+          return coords;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Photon geocode warning for:', cleaned, err);
+  }
+
+  // 2. Nominatim Fallback
+  try {
+    const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=fi&limit=1&q=${encodeURIComponent(cleaned)}`;
+    const res = await fetch(nomUrl, { headers: { 'User-Agent': 'PesuniWeb/1.0' } });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          const coords = { lat, lng };
+          inMemoryGeoCache.set(cacheKey, coords);
+          try {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(`pesuni_geo_${cacheKey}`, JSON.stringify(coords));
+            }
+          } catch {}
+          return coords;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Nominatim fallback warning for:', cleaned, err);
+  }
+
+  // 3. Fallback kaupungin keskipisteeseen
+  const fallback = getCityCenterCoordinates(fallbackCity || address);
+  inMemoryGeoCache.set(cacheKey, fallback);
+  return fallback;
+}
+
 /**
  * 🌐 Hakee osoite-ehdotukset Photon / OpenStreetMap API:sta
  */
@@ -161,7 +299,7 @@ export async function searchAddressPhoton(query: string): Promise<PhotonAddressS
   if (trimmed.length < 2) return [];
 
   try {
-    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}&limit=10&lat=64.0&lon=26.0`;
+    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}&limit=10&lat=60.2&lon=24.8`;
     const res = await fetch(url);
     if (!res.ok) return [];
 
@@ -193,6 +331,10 @@ export async function searchAddressPhoton(query: string): Promise<PhotonAddressS
         formatted += `, ${postalPart}`;
       }
 
+      const coords = feature.geometry?.coordinates && feature.geometry.coordinates.length >= 2
+        ? { lat: feature.geometry.coordinates[1], lng: feature.geometry.coordinates[0] }
+        : undefined;
+
       if (!seen.has(formatted)) {
         seen.add(formatted);
         results.push({
@@ -203,6 +345,7 @@ export async function searchAddressPhoton(query: string): Promise<PhotonAddressS
           postcode,
           city,
           detail: [p.district, p.state, p.country || 'Suomi'].filter(Boolean).join(', '),
+          coordinates: coords,
         });
       }
     }

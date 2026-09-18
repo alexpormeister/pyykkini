@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,17 @@ import {
   Clock,
   Phone,
   User,
-  Maximize2
+  Maximize2,
+  Minimize2,
+  Building2,
+  Crosshair,
+  Layers,
+  Sparkles,
+  CheckCircle2,
+  X,
 } from "lucide-react";
+import { geocodeAddress, getCityCenterCoordinates, CITY_COORDINATES } from "@/lib/addressUtils";
+import { cn } from "@/lib/utils";
 
 export interface MapTaskItem {
   id: string;
@@ -26,6 +35,8 @@ export interface MapTaskItem {
   driverId: string | null;
   laundryName: string;
   price: number;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface MapLaundryItem {
@@ -34,6 +45,8 @@ export interface MapLaundryItem {
   address?: string | null;
   city?: string | null;
   contact_phone?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 interface DispatchMapProps {
@@ -42,55 +55,8 @@ interface DispatchMapProps {
   selectedTaskId?: string | null;
   onSelectTask?: (taskId: string) => void;
   onAssignDriver?: (taskId: string) => void;
-}
-
-const CITY_COORDINATES: Record<string, [number, number]> = {
-  helsinki: [60.1699, 24.9384],
-  espoo: [60.2055, 24.6559],
-  vantaa: [60.2934, 25.0378],
-  kauniainen: [60.2098, 24.7269],
-  kirkkonummi: [60.1238, 24.4385],
-  kerava: [60.4034, 25.105],
-  jarvenpaa: [60.4722, 25.0889],
-  sipoo: [60.3775, 25.2694],
-  tuusula: [60.4028, 25.0292],
-  nurmijarvi: [60.4619, 24.8078],
-  lohja: [60.25, 24.0667],
-  turku: [60.4518, 22.2666],
-  tampere: [61.4978, 23.761],
-};
-
-function getDeterministicCoordinates(address: string, fallbackCity = "helsinki"): [number, number] {
-  const cleanAddr = (address || "").toLowerCase();
-  
-  let baseCoords: [number, number] = CITY_COORDINATES.helsinki;
-  for (const [cityName, coords] of Object.entries(CITY_COORDINATES)) {
-    if (cleanAddr.includes(cityName)) {
-      baseCoords = coords;
-      break;
-    }
-  }
-
-  if (baseCoords === CITY_COORDINATES.helsinki && fallbackCity) {
-    const f = fallbackCity.toLowerCase();
-    for (const [cityName, coords] of Object.entries(CITY_COORDINATES)) {
-      if (f.includes(cityName)) {
-        baseCoords = coords;
-        break;
-      }
-    }
-  }
-
-  let hash = 0;
-  for (let i = 0; i < cleanAddr.length; i++) {
-    hash = (hash << 5) - hash + cleanAddr.charCodeAt(i);
-    hash |= 0;
-  }
-
-  const latOffset = ((Math.abs(hash) % 1000) / 1000 - 0.5) * 0.06;
-  const lngOffset = ((Math.abs(hash * 31) % 1000) / 1000 - 0.5) * 0.09;
-
-  return [baseCoords[0] + latOffset, baseCoords[1] + lngOffset];
+  onAssignLaundry?: (taskId: string) => void;
+  className?: string;
 }
 
 export const DispatchMap: React.FC<DispatchMapProps> = ({
@@ -99,6 +65,8 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
   selectedTaskId,
   onSelectTask,
   onAssignDriver,
+  onAssignLaundry,
+  className,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -106,12 +74,76 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
 
   const [mapFilter, setMapFilter] = useState<"all" | "pickup" | "delivery">("all");
   const [selectedTask, setSelectedTask] = useState<MapTaskItem | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [coordsMap, setCoordsMap] = useState<Record<string, [number, number]>>({});
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
+  // 1. ASYNC GEOCODING: Tarkat oikeat koordinaatit pesuloille ja tilauksille
+  useEffect(() => {
+    let isMounted = true;
+
+    const resolveCoordinates = async () => {
+      setIsGeocoding(true);
+      const updatedCoords: Record<string, [number, number]> = {};
+
+      // 1. Geokoodaa pesulat
+      for (const l of laundries) {
+        const key = `laundry_${l.id}`;
+        if (coordsMap[key]) {
+          updatedCoords[key] = coordsMap[key];
+          continue;
+        }
+
+        if (l.latitude && l.longitude) {
+          updatedCoords[key] = [l.latitude, l.longitude];
+        } else if (l.address) {
+          const res = await geocodeAddress(l.address, l.city || "Espoo");
+          updatedCoords[key] = [res.lat, res.lng];
+        } else {
+          const res = getCityCenterCoordinates(l.city || "Espoo");
+          updatedCoords[key] = [res.lat, res.lng];
+        }
+      }
+
+      // 2. Geokoodaa tilaukset/keikat
+      for (const t of tasks) {
+        const key = `task_${t.id}`;
+        if (coordsMap[key]) {
+          updatedCoords[key] = coordsMap[key];
+          continue;
+        }
+
+        if (t.latitude && t.longitude) {
+          updatedCoords[key] = [t.latitude, t.longitude];
+        } else if (t.address) {
+          const res = await geocodeAddress(t.address, t.city || "Helsinki");
+          updatedCoords[key] = [res.lat, res.lng];
+        } else {
+          const res = getCityCenterCoordinates(t.city || "Helsinki");
+          updatedCoords[key] = [res.lat, res.lng];
+        }
+      }
+
+      if (isMounted) {
+        setCoordsMap((prev) => ({ ...prev, ...updatedCoords }));
+        setIsGeocoding(false);
+      }
+    };
+
+    resolveCoordinates();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [tasks, laundries]);
+
+  // 2. ALUSTA LEAFLET KARTTA
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
+    // Espoon ja Helsingin välinen oletuskeskipiste
     const map = L.map(mapContainerRef.current, {
-      center: [60.19, 24.85],
+      center: [60.2055, 24.6559], // Espoon keskus
       zoom: 11,
       zoomControl: false,
     });
@@ -133,6 +165,7 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
     };
   }, []);
 
+  // 3. IKKUNAN KOON MUUTOSTEN KÄSITTELY
   useEffect(() => {
     const handleResize = () => {
       mapInstanceRef.current?.invalidateSize();
@@ -143,8 +176,9 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
       window.removeEventListener("resize", handleResize);
       clearTimeout(timer);
     };
-  }, []);
+  }, [isFullscreen]);
 
+  // 4. PIIRETÄÄN TARKAT MARKERIT KUN KOORDINAATIT TAI VALINNAT MUUTTUVAT
   useEffect(() => {
     const map = mapInstanceRef.current;
     const markersLayer = markersLayerRef.current;
@@ -153,17 +187,19 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
     markersLayer.clearLayers();
     const bounds: [number, number][] = [];
 
-    // Laundries
+    // --- PESULAT (VIHREÄT KUMPPANIMARKERIT) ---
     laundries.forEach((l) => {
-      const coords = getDeterministicCoordinates(l.address || l.name, l.city || "Espoo");
+      const coords = coordsMap[`laundry_${l.id}`] || (l.latitude && l.longitude ? [l.latitude, l.longitude] : null);
+      if (!coords) return;
+
       bounds.push(coords);
 
       const laundryIconHtml = `
-        <div class="relative flex items-center justify-center">
-          <div class="w-7 h-7 rounded-full bg-emerald-600 text-white shadow-md border-2 border-white flex items-center justify-center font-bold text-xs">
+        <div class="relative flex flex-col items-center group cursor-pointer">
+          <div class="w-8 h-8 rounded-full bg-emerald-600 text-white shadow-xl border-2 border-white flex items-center justify-center font-bold text-sm transition-transform hover:scale-110">
             🏢
           </div>
-          <div class="absolute -bottom-4 bg-emerald-950 text-[10px] text-white px-1.5 py-0.5 rounded shadow whitespace-nowrap font-medium pointer-events-none">
+          <div class="mt-1 bg-emerald-950/90 text-[10px] text-white px-2 py-0.5 rounded-full shadow-md whitespace-nowrap font-semibold border border-emerald-500/30">
             ${l.name}
           </div>
         </div>
@@ -171,48 +207,58 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
 
       const laundryIcon = L.divIcon({
         html: laundryIconHtml,
-        className: "custom-leaflet-pin",
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        className: "custom-leaflet-laundry-pin",
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
       });
 
-      const marker = L.marker(coords, { icon: laundryIcon });
+      const marker = L.marker(coords, { icon: laundryIcon, zIndexOffset: 500 });
       marker.bindPopup(`
-        <div class="p-2 space-y-1 min-w-[180px]">
-          <div class="font-bold text-xs text-emerald-800">🏢 Kumppanipesula</div>
-          <div class="font-semibold text-sm">${l.name}</div>
-          <div class="text-xs text-gray-600">${l.address || "Espoo"}</div>
-          ${l.contact_phone ? `<div class="text-xs text-gray-500">Puh: ${l.contact_phone}</div>` : ""}
+        <div style="font-family: sans-serif; font-size: 12px; line-height: 1.4; min-width: 190px;">
+          <div style="font-weight: bold; color: #059669; font-size: 11px; text-transform: uppercase; margin-bottom: 2px;">
+            🏢 Kumppanipesula
+          </div>
+          <div style="font-weight: bold; font-size: 14px; color: #111827; margin-bottom: 4px;">
+            ${l.name}
+          </div>
+          <div style="color: #4b5563; font-size: 12px; margin-bottom: 2px;">
+            📍 ${l.address || l.city || "Espoo"}
+          </div>
+          ${l.contact_phone ? `<div style="color: #6b7280; font-size: 11px;">📞 ${l.contact_phone}</div>` : ""}
         </div>
       `);
       markersLayer.addLayer(marker);
     });
 
-    // Tasks
+    // --- TILAUKSET & KEIKAT (NOUDOT JA PALAUTUKSET) ---
     const displayedTasks = tasks.filter((t) => {
       if (mapFilter === "all") return true;
       return t.task_type === mapFilter;
     });
 
     displayedTasks.forEach((t) => {
+      const coords = coordsMap[`task_${t.id}`] || (t.latitude && t.longitude ? [t.latitude, t.longitude] : null);
+      if (!coords) return;
+
+      bounds.push(coords);
+
       const isPickup = t.task_type === "pickup";
       const isAssigned = !!t.driverId;
       const isSelected = selectedTaskId === t.id;
-      const coords = getDeterministicCoordinates(t.address, t.city);
-      bounds.push(coords);
 
+      // Noudot: Sininen / Amber, Palautukset: Purppura / Ruusu
       const bgColor = isPickup
         ? isAssigned ? "bg-blue-600" : "bg-amber-500"
         : isAssigned ? "bg-purple-600" : "bg-rose-500";
 
-      const borderRing = isSelected ? "ring-4 ring-primary scale-110" : "border-2 border-white";
+      const borderRing = isSelected ? "ring-4 ring-primary scale-125 z-50" : "border-2 border-white hover:scale-110";
 
       const pinHtml = `
-        <div class="relative flex items-center justify-center transition-transform cursor-pointer ${borderRing}">
+        <div class="relative flex flex-col items-center cursor-pointer transition-transform ${borderRing}">
           <div class="w-7 h-7 rounded-full ${bgColor} text-white shadow-lg flex items-center justify-center font-bold text-[11px]">
             ${isPickup ? "N" : "P"}
           </div>
-          <div class="absolute -bottom-4 bg-slate-900/90 text-[10px] text-white px-1.5 py-0.2 rounded shadow whitespace-nowrap font-medium pointer-events-none">
+          <div class="mt-0.5 bg-slate-900/90 text-[10px] text-white px-1.5 py-0.2 rounded shadow whitespace-nowrap font-medium pointer-events-none">
             ${t.scheduledTime || (isPickup ? "Nouto" : "Palautus")}
           </div>
         </div>
@@ -225,177 +271,278 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
         iconAnchor: [14, 14],
       });
 
-      const marker = L.marker(coords, { icon: pinIcon });
+      const marker = L.marker(coords, { icon: pinIcon, zIndexOffset: isSelected ? 1000 : 100 });
 
       marker.on("click", () => {
         setSelectedTask(t);
         if (onSelectTask) onSelectTask(t.id);
+        map.flyTo(coords, Math.max(map.getZoom(), 13), { duration: 0.8 });
       });
 
       markersLayer.addLayer(marker);
     });
 
-    if (bounds.length > 0) {
-      try {
-        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
-      } catch (err) {
-        console.error("Map fitBounds error:", err);
+    // Jos valittu tietty keikka, lennä siihen
+    if (selectedTaskId) {
+      const activeCoords = coordsMap[`task_${selectedTaskId}`];
+      if (activeCoords) {
+        map.flyTo(activeCoords, Math.max(map.getZoom(), 14), { duration: 0.8 });
       }
     }
-  }, [tasks, laundries, mapFilter, selectedTaskId]);
+  }, [tasks, laundries, coordsMap, mapFilter, selectedTaskId]);
 
+  // Päivitä valittu keikka kun selectedTaskId muuttuu ulkoa
+  useEffect(() => {
+    if (selectedTaskId) {
+      const match = tasks.find((t) => t.id === selectedTaskId);
+      if (match) setSelectedTask(match);
+    }
+  }, [selectedTaskId, tasks]);
+
+  // Kartan kohdistusnapit
   const handleCenterCity = (cityKey: string) => {
     const coords = CITY_COORDINATES[cityKey];
     if (coords && mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo(coords, 12, { duration: 1 });
+      mapInstanceRef.current.flyTo([coords.lat, coords.lng], 12, { duration: 0.8 });
     }
   };
 
   const handleFitAll = () => {
-    if (!mapInstanceRef.current || tasks.length === 0) return;
-    const coordsList = tasks.map((t) => getDeterministicCoordinates(t.address, t.city));
-    if (coordsList.length > 0) {
-      mapInstanceRef.current.fitBounds(coordsList, { padding: [40, 40], maxZoom: 13 });
+    if (!mapInstanceRef.current) return;
+    const allCoords: [number, number][] = Object.values(coordsMap);
+    if (allCoords.length > 0) {
+      mapInstanceRef.current.fitBounds(allCoords, { padding: [50, 50], maxZoom: 14 });
     }
   };
 
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+    setTimeout(() => {
+      mapInstanceRef.current?.invalidateSize();
+    }, 150);
+    setTimeout(() => {
+      mapInstanceRef.current?.invalidateSize();
+    }, 400);
+  };
+
   return (
-    <div className="relative w-full h-full min-h-[380px] rounded-xl overflow-hidden border bg-muted/20 flex flex-col">
-      {/* KARTAN YLÄPALKKI */}
-      <div className="absolute top-2.5 left-2.5 right-2.5 z-[1000] flex flex-wrap items-center justify-between gap-1.5 pointer-events-none">
-        <div className="flex items-center gap-1 bg-background/95 backdrop-blur-sm p-1 rounded-lg border shadow-sm pointer-events-auto">
-          <Button
-            variant={mapFilter === "all" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setMapFilter("all")}
-            className="h-6 text-[11px] px-2"
-          >
-            Kaikki ({tasks.length})
-          </Button>
-          <Button
-            variant={mapFilter === "pickup" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setMapFilter("pickup")}
-            className="h-6 text-[11px] px-2 text-blue-700 dark:text-blue-400"
-          >
-            <Package className="h-3 w-3 mr-1" />
-            Noudot ({tasks.filter((t) => t.task_type === "pickup").length})
-          </Button>
-          <Button
-            variant={mapFilter === "delivery" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setMapFilter("delivery")}
-            className="h-6 text-[11px] px-2 text-purple-700 dark:text-purple-400"
-          >
-            <Truck className="h-3 w-3 mr-1" />
-            Palautukset ({tasks.filter((t) => t.task_type === "delivery").length})
-          </Button>
-        </div>
+    <>
+      {/* Fullscreen Backdrop if expanded */}
+      {isFullscreen && (
+        <div
+          className="fixed inset-0 bg-background/80 backdrop-blur-md z-[9998] transition-opacity animate-fade-in"
+          onClick={toggleFullscreen}
+        />
+      )}
 
-        <div className="hidden sm:flex items-center gap-1 bg-background/95 backdrop-blur-sm p-1 rounded-lg border shadow-sm pointer-events-auto">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleFitAll}
-            className="h-6 text-[11px] px-1.5"
-            title="Sovita kaikki kohteet"
-          >
-            <Maximize2 className="h-3 w-3 mr-1" />
-            Sovita
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleCenterCity("helsinki")}
-            className="h-6 text-[11px] px-1.5"
-          >
-            Helsinki
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleCenterCity("espoo")}
-            className="h-6 text-[11px] px-1.5"
-          >
-            Espoo
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleCenterCity("vantaa")}
-            className="h-6 text-[11px] px-1.5"
-          >
-            Vantaa
-          </Button>
-        </div>
-      </div>
+      <div
+        className={cn(
+          "transition-all duration-300 overflow-hidden flex flex-col bg-card border",
+          isFullscreen
+            ? "fixed inset-3 md:inset-8 z-[9999] rounded-2xl shadow-2xl"
+            : cn("relative w-full h-full min-h-[480px] lg:min-h-[560px] rounded-xl shadow-sm", className)
+        )}
+      >
+        {/* KARTAN YLÄPALKKI / TYÖKALUT */}
+        <div className="absolute top-3 left-3 right-3 z-[1000] flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+          {/* Suodatus: Kaikki / Noudot / Palautukset */}
+          <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md p-1 rounded-xl border shadow-md pointer-events-auto">
+            <Button
+              variant={mapFilter === "all" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setMapFilter("all")}
+              className="h-7 text-xs px-2.5 font-semibold"
+            >
+              Kaikki ({tasks.length})
+            </Button>
+            <Button
+              variant={mapFilter === "pickup" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setMapFilter("pickup")}
+              className="h-7 text-xs px-2.5 text-blue-600 dark:text-blue-400 font-semibold"
+            >
+              <Package className="h-3.5 w-3.5 mr-1" />
+              Noudot ({tasks.filter((t) => t.task_type === "pickup").length})
+            </Button>
+            <Button
+              variant={mapFilter === "delivery" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setMapFilter("delivery")}
+              className="h-7 text-xs px-2.5 text-purple-600 dark:text-purple-400 font-semibold"
+            >
+              <Truck className="h-3.5 w-3.5 mr-1" />
+              Palautukset ({tasks.filter((t) => t.task_type === "delivery").length})
+            </Button>
 
-      <div ref={mapContainerRef} className="w-full flex-1 min-h-[360px] z-0" />
+            {isGeocoding && (
+              <span className="text-[10px] text-muted-foreground px-2 flex items-center gap-1 animate-pulse">
+                <Sparkles className="h-3 w-3 text-primary" />
+                Päivitetään koordinaatteja...
+              </span>
+            )}
+          </div>
 
-      {selectedTask && (
-        <div className="absolute bottom-2.5 left-2.5 right-2.5 z-[1000] bg-background/95 backdrop-blur-md p-3 rounded-xl border shadow-lg animate-fade-in">
-          <div className="flex items-start justify-between gap-2">
-            <div className="space-y-1 flex-1">
-              <div className="flex items-center gap-2">
-                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${
-                  selectedTask.task_type === "pickup" ? "bg-blue-600" : "bg-purple-600"
-                }`}>
-                  {selectedTask.task_type === "pickup" ? "Nouto" : "Palautus"}
-                </span>
-                <span className="text-xs font-bold text-foreground">
-                  {selectedTask.customerName}
-                </span>
-                {selectedTask.phone && (
-                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                    <Phone className="h-3 w-3" />
-                    {selectedTask.phone}
-                  </span>
-                )}
-              </div>
-
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="truncate">{selectedTask.address}</span>
-              </p>
-
-              <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-0.5">
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  klo {selectedTask.scheduledTime}
-                </span>
-                <span className="flex items-center gap-1">
-                  <User className="h-3 w-3" />
-                  {selectedTask.driverName || "Ei kuskia (Jaossa)"}
-                </span>
-                <span className="font-semibold text-foreground">
-                  {selectedTask.price.toFixed(2)} €
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 shrink-0">
-              {onAssignDriver && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onAssignDriver(selectedTask.id)}
-                  className="h-7 text-xs"
-                >
-                  {selectedTask.driverId ? "Vaihda kuski" : "Määritä kuski"}
-                </Button>
-              )}
+          {/* Oikean puolen pikavalinnat & Koko ruutu */}
+          <div className="flex items-center gap-1 bg-background/95 backdrop-blur-md p-1 rounded-xl border shadow-md pointer-events-auto">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleFitAll}
+              className="h-7 text-xs px-2 text-foreground font-medium"
+              title="Sovita kaikki kohteet"
+            >
+              <Crosshair className="h-3.5 w-3.5 mr-1 text-primary" />
+              Sovita
+            </Button>
+            
+            <div className="hidden sm:flex items-center gap-0.5 border-l pl-1">
               <Button
-                size="sm"
                 variant="ghost"
-                onClick={() => setSelectedTask(null)}
-                className="h-7 text-xs px-2 text-muted-foreground"
+                size="sm"
+                onClick={() => handleCenterCity("espoo")}
+                className="h-7 text-xs px-2"
               >
-                ✕
+                Espoo
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleCenterCity("helsinki")}
+                className="h-7 text-xs px-2"
+              >
+                Helsinki
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleCenterCity("vantaa")}
+                className="h-7 text-xs px-2"
+              >
+                Vantaa
               </Button>
             </div>
+
+            {/* KOKORUUTUNAPPI (ISOMPI KARTTA) */}
+            <Button
+              variant={isFullscreen ? "default" : "outline"}
+              size="sm"
+              onClick={toggleFullscreen}
+              className="h-7 text-xs px-2.5 font-semibold ml-0.5"
+              title={isFullscreen ? "Pienennä kartta" : "Suurenna kartta koko ruudulle"}
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize2 className="h-3.5 w-3.5 mr-1" />
+                  Pienennä
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="h-3.5 w-3.5 mr-1" />
+                  Isompi kartta
+                </>
+              )}
+            </Button>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* KARTTAKONTIN ELEMENTTI */}
+        <div ref={mapContainerRef} className="w-full flex-1 h-full min-h-[440px] z-0" />
+
+        {/* VALITUN KOHTEEN TIETOLAATIKKO (ALAPALKKI) */}
+        {selectedTask && (
+          <div className="absolute bottom-3 left-3 right-3 z-[1000] bg-background/95 backdrop-blur-md p-3.5 rounded-2xl border shadow-xl animate-fade-in">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1.5 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={cn(
+                      "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold text-white shadow-sm",
+                      selectedTask.task_type === "pickup" ? "bg-blue-600" : "bg-purple-600"
+                    )}
+                  >
+                    {selectedTask.task_type === "pickup" ? "📦 Nouto" : "🚚 Palautus"}
+                  </span>
+
+                  <span className="text-sm font-bold text-foreground">
+                    {selectedTask.customerName}
+                  </span>
+
+                  {selectedTask.phone && (
+                    <a
+                      href={`tel:${selectedTask.phone}`}
+                      className="text-xs text-primary hover:underline font-semibold flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-md"
+                    >
+                      <Phone className="h-3 w-3" />
+                      {selectedTask.phone}
+                    </a>
+                  )}
+
+                  <span className="text-xs font-bold px-2 py-0.5 rounded bg-muted text-foreground">
+                    {selectedTask.price.toFixed(2)} €
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground pt-0.5">
+                  <span className="flex items-center gap-1 font-medium text-foreground">
+                    <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+                    {selectedTask.address}
+                  </span>
+
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    Aikataulu: {selectedTask.scheduledTime}
+                  </span>
+
+                  <span className="flex items-center gap-1">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    Kuski: {selectedTask.driverName || "Jaossa"}
+                  </span>
+
+                  <span className="flex items-center gap-1">
+                    <Building2 className="h-3.5 w-3.5 text-emerald-600" />
+                    Pesula: {selectedTask.laundryName}
+                  </span>
+                </div>
+              </div>
+
+              {/* TOIMINTANAPIT */}
+              <div className="flex items-center gap-2 shrink-0">
+                {onAssignDriver && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onAssignDriver(selectedTask.id)}
+                    className="h-8 text-xs font-semibold"
+                  >
+                    {selectedTask.driverId ? "Vaihda kuljettaja" : "Määritä kuljettaja"}
+                  </Button>
+                )}
+
+                {onAssignLaundry && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onAssignLaundry(selectedTask.id)}
+                    className="h-8 text-xs font-semibold"
+                  >
+                    Määritä pesula
+                  </Button>
+                )}
+
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelectedTask(null)}
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                  title="Sulje"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 };

@@ -1468,8 +1468,8 @@ export const DispatchTaskBoard: React.FC = () => {
         {/* ======================================================== */}
         <div className="lg:col-span-7 xl:col-span-7 flex flex-col space-y-2.5">
           
-          {/* KARTTA */}
-          <div className="h-[430px] rounded-xl overflow-hidden border shadow-sm">
+          {/* KARTTA (SUUREMPI JA LAADUKKAAMPI NÄKYMÄ) */}
+          <div className="h-[520px] lg:h-[560px] rounded-xl overflow-hidden border shadow-sm">
             <DispatchMap
               tasks={mapTasks}
               laundries={laundries}
@@ -1478,6 +1478,10 @@ export const DispatchTaskBoard: React.FC = () => {
               onAssignDriver={(taskId) => {
                 const target = tasks.find((t) => t.id === taskId);
                 if (target) setAssignModalTask(target);
+              }}
+              onAssignLaundry={(taskId) => {
+                const target = tasks.find((t) => t.id === taskId);
+                if (target) setAssignLaundryModalTask(target);
               }}
             />
           </div>
