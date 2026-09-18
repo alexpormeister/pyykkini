@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -130,10 +129,6 @@ export const Landing = () => {
         <div className="container relative mx-auto px-4">
           <div className="grid items-center gap-12 lg:grid-cols-2">
             <div className="text-center lg:text-left">
-              <Badge className="mb-6 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary hover:bg-primary/15 sm:text-sm">
-                🧺 Pyykkihuolto kotiovellesi Espoossa & Pääkaupunkiseudulla
-              </Badge>
-
               <h1 className="font-fredoka text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
                 Unohda pyykkipäivä.{" "}
                 <span className="bg-gradient-hero bg-clip-text text-transparent">Tilaa pesula suoraan kotiovelle.</span>
@@ -164,19 +159,16 @@ export const Landing = () => {
                 </form>
 
                 <p className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground lg:justify-start">
-                  <Clock className="h-3.5 w-3.5" /> Iltanoudot samana päivänä · Toimitus 48 h
+                  <Clock className="h-3.5 w-3.5" /> Iltanoudot samana päivänä, toimitus 48 tunnissa
                 </p>
               </div>
             </div>
 
-            <div className="relative flex justify-center">
-              <div className="absolute inset-0 -z-10 bg-gradient-radial blur-2xl" aria-hidden />
+            <div className="relative flex justify-center items-center">
               <img
                 src={appMockup}
                 alt="Pesuni-sovellus näyttää tilauksen reaaliaikaisen seurannan"
-                width={912}
-                height={1200}
-                className="animate-float w-[260px] drop-shadow-2xl sm:w-[320px] lg:w-[380px]"
+                className="animate-float w-[520px] max-w-full drop-shadow-2xl sm:w-[620px] md:w-[700px] lg:w-[780px]"
               />
             </div>
           </div>
@@ -188,7 +180,7 @@ export const Landing = () => {
         <div className="container mx-auto px-4">
           <div className="mx-auto mb-12 max-w-2xl text-center">
             <h2 className="font-fredoka text-3xl text-foreground sm:text-4xl">Miten Pesuni toimii?</h2>
-            <p className="mt-4 text-muted-foreground">Kolme askelta puhtaisiin tekstiileihin – ilman pesukonetta.</p>
+            <p className="mt-4 text-muted-foreground">Kolme helppoa askelta puhtaisiin tekstiileihin ilman omaa pesukonetta.</p>
           </div>
 
           <div className="grid gap-6 md:grid-cols-3">
@@ -291,15 +283,8 @@ export const Landing = () => {
         <div className="container mx-auto px-4">
           <div className="grid gap-8 md:grid-cols-3">
             <div>
-              <div className="mb-4 flex items-center gap-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-primary">
-                  <Droplets className="h-5 w-5 text-primary-foreground" />
-                </span>
-                <span className="font-fredoka text-xl text-foreground">Pesuni</span>
-              </div>
               <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-                Pyykkihuolto kotiovellesi. Noudamme, pesemme ja palautamme tekstiilisi 48 tunnissa –
-                yhteistyössä paikallisten ammattipesuloiden kanssa.
+                Pyykkihuolto kotiovellesi. Noudamme, pesemme ja palautamme tekstiilisi 48 tunnissa yhteistyössä paikallisten ammattipesuloiden kanssa.
               </p>
               <AppStoreBadges size="sm" className="mt-6" />
             </div>
@@ -321,7 +306,7 @@ export const Landing = () => {
                 <a href="mailto:asiakaspalvelu@pesuni.fi" className="hover:text-primary">asiakaspalvelu@pesuni.fi</a>
               </p>
               <Button variant="ghost" size="sm" className="mt-4 px-0 text-muted-foreground" onClick={() => navigate("/auth")}>
-                Pesulaportaali & henkilöstön kirjautuminen
+                Pesulaportaali ja henkilöstön kirjautuminen
               </Button>
             </div>
           </div>

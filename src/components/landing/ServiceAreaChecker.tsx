@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { MapPin, Search, PartyPopper, Mail, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -98,7 +97,7 @@ export const ServiceAreaChecker = () => {
     setEmail("");
     toast({
       title: "Kiitos! Olet listalla 🎉",
-      description: "Lähetämme sinulle -15 % etukoodin heti kun avaamme alueellasi.",
+      description: "Lähetämme sinulle 15 % etukoodin heti kun avaamme alueellasi.",
     });
   };
 
@@ -136,7 +135,7 @@ export const ServiceAreaChecker = () => {
           <form onSubmit={handleNotify} className="mt-5 space-y-4 rounded-2xl border border-border bg-muted/50 p-5">
             <p className="text-sm text-muted-foreground">
               <span className="font-semibold text-foreground">Emme ole vielä täällä, mutta laajennamme pian!</span>{" "}
-              Jätä sähköpostisi, niin saat ilmoituksen ja <span className="font-semibold text-primary">-15 % etukoodin</span>{" "}
+              Jätä sähköpostisi, niin saat ilmoituksen ja <span className="font-semibold text-primary">15 % etukoodin</span>{" "}
               kun avaamme alueellasi.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -165,14 +164,14 @@ export const ServiceAreaChecker = () => {
           </p>
           <div className="flex flex-wrap gap-2">
             {areas.map((a) => (
-              <Badge
+              <button
+                type="button"
                 key={a.label}
-                variant="secondary"
                 onClick={() => setQuery(a.label)}
-                className="cursor-pointer rounded-full bg-primary/10 px-3 py-1 text-primary hover:bg-primary/20"
+                className="cursor-pointer rounded-xl border border-border bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary hover:text-primary transition-colors"
               >
                 {a.label}
-              </Badge>
+              </button>
             ))}
           </div>
         </div>
