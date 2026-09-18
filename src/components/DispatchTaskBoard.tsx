@@ -366,6 +366,8 @@ export const DispatchTaskBoard: React.FC = () => {
 
   const [formLaundryId, setFormLaundryId] = useState<string>("");
   const [formDeliveryFee, setFormDeliveryFee] = useState("9.90");
+  const [formServiceFee, setFormServiceFee] = useState("2.00");
+  const [formMinThreshold, setFormMinThreshold] = useState("0");
   const [formPaymentMethod, setFormPaymentMethod] = useState("invoice");
   const [formSelectedDriverId, setFormSelectedDriverId] = useState<string>("unassigned");
   const [formNotes, setFormNotes] = useState("");
@@ -572,26 +574,44 @@ export const DispatchTaskBoard: React.FC = () => {
     return formProducts.reduce((sum, it) => sum + it.unit_price * it.quantity, 0);
   }, [formProducts]);
 
+  const formMinOrderSurcharge = useMemo(() => {
+    const minThreshold = parseFloat(formMinThreshold) || 0;
+    if (minThreshold > 0 && formSubtotal > 0 && formSubtotal < minThreshold) {
+      return Math.max(0, minThreshold - formSubtotal);
+    }
+    return 0;
+  }, [formSubtotal, formMinThreshold]);
+
   const formTotalPrice = useMemo(() => {
     const del = parseFloat(formDeliveryFee) || 0;
-    return (formSubtotal + del).toFixed(2);
-  }, [formSubtotal, formDeliveryFee]);
+    const srv = parseFloat(formServiceFee) || 0;
+    return (formSubtotal + del + srv + formMinOrderSurcharge).toFixed(2);
+  }, [formSubtotal, formDeliveryFee, formServiceFee, formMinOrderSurcharge]);
 
   const formPriceSplit = useMemo(() => {
     const itemsTotal = formSubtotal;
     const delFee = parseFloat(formDeliveryFee) || 0;
+    const srvFee = parseFloat(formServiceFee) || 0;
     const laundry = itemsTotal * 0.7;
-    const platform = itemsTotal * 0.3;
+    const platform = itemsTotal * 0.3 + srvFee + formMinOrderSurcharge;
     const pickupDriver = delFee / 2;
     const deliveryDriver = delFee / 2;
+    const totalNum = parseFloat(formTotalPrice);
+    const vatRate = 25.5;
+    const vatAmount = totalNum - (totalNum / (1 + vatRate / 100));
+    const netAmount = totalNum - vatAmount;
 
     return {
       platform,
       pickupDriver,
       laundry,
       deliveryDriver,
+      totalNum,
+      vatRate,
+      vatAmount,
+      netAmount,
     };
-  }, [formSubtotal, formDeliveryFee]);
+  }, [formSubtotal, formDeliveryFee, formServiceFee, formMinOrderSurcharge, formTotalPrice]);
 
   // Lomakkeen tyhjennys
   const handleResetForm = () => {
@@ -611,6 +631,8 @@ export const DispatchTaskBoard: React.FC = () => {
       { id: "1", name: defaultProd.name, quantity: 1, unit_price: Number(defaultProd.base_price) || 35.90, product_id: defaultProd.product_id || defaultProd.id }
     ]);
     setFormDeliveryFee("9.90");
+    setFormServiceFee("2.00");
+    setFormMinThreshold("0");
     setFormPaymentMethod("invoice");
   };
 
@@ -681,7 +703,7 @@ export const DispatchTaskBoard: React.FC = () => {
           service_type: formProducts.length > 1 ? "multiple" : "standard",
           price: basePriceNum,
           delivery_fee: deliveryFeeNum,
-          service_fee: 0,
+          service_fee: parseFloat(formServiceFee) || 0,
           final_price: finalPriceNum,
           payment_amount: finalPriceNum,
           laundry_id: formLaundryId || null,
@@ -1374,9 +1396,9 @@ export const DispatchTaskBoard: React.FC = () => {
                 ))}
               </div>
 
-              {/* PESULA & KULJETUSMAKSU */}
-              <div className="pt-2 border-t grid grid-cols-12 gap-3 items-center">
-                <div className="col-span-12 sm:col-span-7">
+              {/* PESULA, KULJETUSMAKSU JA PALVELUMAKSU */}
+              <div className="pt-2 border-t grid grid-cols-12 gap-2.5 items-end">
+                <div className="col-span-12 sm:col-span-6">
                   <Label className="text-xs font-medium text-foreground/80 mb-1 block">Kumppanipesula</Label>
                   <SearchableSelect
                     options={laundryOptions}
@@ -1387,13 +1409,23 @@ export const DispatchTaskBoard: React.FC = () => {
                     triggerClassName="h-9 text-sm"
                   />
                 </div>
-                <div className="col-span-12 sm:col-span-5">
-                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Kuljetusmaksu (€)</Label>
+                <div className="col-span-6 sm:col-span-3">
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Kuljetus (€)</Label>
                   <Input
                     type="number"
                     step="0.1"
                     value={formDeliveryFee}
                     onChange={(e) => setFormDeliveryFee(e.target.value)}
+                    className="h-9 text-sm font-semibold"
+                  />
+                </div>
+                <div className="col-span-6 sm:col-span-3">
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Palvelumaksu (€)</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={formServiceFee}
+                    onChange={(e) => setFormServiceFee(e.target.value)}
                     className="h-9 text-sm font-semibold"
                   />
                 </div>
@@ -1439,28 +1471,110 @@ export const DispatchTaskBoard: React.FC = () => {
               </div>
             </div>
 
-            {/* 5. PALKKIO- JA HINTAJAKO */}
-            <div className="p-2.5 rounded-lg border bg-muted/20 space-y-1.5">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-                Hintajako
-              </span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                <div className="p-2 rounded-md bg-card border shadow-2xs">
-                  <span className="text-[10px] text-muted-foreground block font-medium">Alusta (30%)</span>
-                  <span className="text-xs font-bold text-foreground">{formPriceSplit.platform.toFixed(2)} €</span>
-                </div>
-                <div className="p-2 rounded-md bg-card border shadow-2xs">
-                  <span className="text-[10px] text-muted-foreground block font-medium">Noutokuski</span>
-                  <span className="text-xs font-bold text-foreground">{formPriceSplit.pickupDriver.toFixed(2)} €</span>
-                </div>
-                <div className="p-2 rounded-md bg-card border shadow-2xs">
-                  <span className="text-[10px] text-muted-foreground block font-medium">Pesula (70%)</span>
-                  <span className="text-xs font-bold text-foreground">{formPriceSplit.laundry.toFixed(2)} €</span>
-                </div>
-                <div className="p-2 rounded-md bg-card border shadow-2xs">
-                  <span className="text-[10px] text-muted-foreground block font-medium">Paluukuski</span>
-                  <span className="text-xs font-bold text-foreground">{formPriceSplit.deliveryDriver.toFixed(2)} €</span>
-                </div>
+            {/* 5. HINTAERITTELY JA PALKKIOJAKO (TAULUKKOLISTA) */}
+            <div className="p-3 rounded-lg border bg-muted/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Hinta- ja palkkioerittely
+                </span>
+                <span className="text-[10px] text-muted-foreground font-mono">ALV 25,5 %</span>
+              </div>
+
+              <div className="rounded-md border bg-card overflow-hidden shadow-2xs">
+                <table className="w-full text-xs">
+                  <tbody className="divide-y divide-border/60">
+                    {/* Tuotteiden välisumma */}
+                    <tr className="hover:bg-muted/30">
+                      <td className="py-1.5 px-2.5 text-muted-foreground">Tuotteet yhteensä ({formProducts.reduce((acc, p) => acc + p.quantity, 0)} kpl)</td>
+                      <td className="py-1.5 px-2.5 text-right font-medium text-foreground">{formSubtotal.toFixed(2)} €</td>
+                    </tr>
+
+                    {/* Kotiinkuljetus */}
+                    <tr className="hover:bg-muted/30">
+                      <td className="py-1.5 px-2.5 text-muted-foreground">Kotiinkuljetus (nouto & palautus)</td>
+                      <td className="py-1.5 px-2.5 text-right font-medium text-foreground">
+                        {parseFloat(formDeliveryFee) > 0 ? `${parseFloat(formDeliveryFee).toFixed(2)} €` : "0,00 €"}
+                      </td>
+                    </tr>
+
+                    {/* Palvelumaksu */}
+                    {parseFloat(formServiceFee) > 0 && (
+                      <tr className="hover:bg-muted/30">
+                        <td className="py-1.5 px-2.5 text-muted-foreground">Palvelumaksu</td>
+                        <td className="py-1.5 px-2.5 text-right font-medium text-foreground">{parseFloat(formServiceFee).toFixed(2)} €</td>
+                      </tr>
+                    )}
+
+                    {/* Minimitilauslisä jos sovelletaan */}
+                    {formMinOrderSurcharge > 0 && (
+                      <tr className="hover:bg-muted/30 bg-amber-500/10">
+                        <td className="py-1.5 px-2.5 text-amber-700 dark:text-amber-300 font-medium">Pientilauslisä (alle {parseFloat(formMinThreshold).toFixed(2)} € minimin)</td>
+                        <td className="py-1.5 px-2.5 text-right font-bold text-amber-700 dark:text-amber-300">+{formMinOrderSurcharge.toFixed(2)} €</td>
+                      </tr>
+                    )}
+
+                    {/* Palkkioerittely osio */}
+                    <tr className="bg-muted/50 font-semibold text-[10px] uppercase text-muted-foreground">
+                      <td colSpan={2} className="py-1 px-2.5 tracking-wider">
+                        Osuudet ja kuljettajapalkkiot
+                      </td>
+                    </tr>
+
+                    {/* Pesula */}
+                    <tr className="hover:bg-muted/30">
+                      <td className="py-1.5 px-2.5 pl-4 text-muted-foreground flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Pesulan osuus (70%)
+                      </td>
+                      <td className="py-1.5 px-2.5 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                        {formPriceSplit.laundry.toFixed(2)} €
+                      </td>
+                    </tr>
+
+                    {/* Alusta */}
+                    <tr className="hover:bg-muted/30">
+                      <td className="py-1.5 px-2.5 pl-4 text-muted-foreground flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                        Alustan osuus (30% + palvelumaksu)
+                      </td>
+                      <td className="py-1.5 px-2.5 text-right font-semibold text-blue-600 dark:text-blue-400">
+                        {formPriceSplit.platform.toFixed(2)} €
+                      </td>
+                    </tr>
+
+                    {/* Noutokuski */}
+                    <tr className="hover:bg-muted/30">
+                      <td className="py-1.5 px-2.5 pl-4 text-muted-foreground flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        Noutokuljettaja (50% kuljetuksesta)
+                      </td>
+                      <td className="py-1.5 px-2.5 text-right font-semibold text-amber-600 dark:text-amber-400">
+                        {formPriceSplit.pickupDriver.toFixed(2)} €
+                      </td>
+                    </tr>
+
+                    {/* Paluukuski */}
+                    <tr className="hover:bg-muted/30">
+                      <td className="py-1.5 px-2.5 pl-4 text-muted-foreground flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                        Palautuskuljettaja (50% kuljetuksesta)
+                      </td>
+                      <td className="py-1.5 px-2.5 text-right font-semibold text-purple-600 dark:text-purple-400">
+                        {formPriceSplit.deliveryDriver.toFixed(2)} €
+                      </td>
+                    </tr>
+
+                    {/* Veroton & ALV */}
+                    <tr className="bg-muted/30 text-[11px] text-muted-foreground">
+                      <td className="py-1 px-2.5">Veroton summa (Netto ALV 0%)</td>
+                      <td className="py-1 px-2.5 text-right font-medium">{formPriceSplit.netAmount.toFixed(2)} €</td>
+                    </tr>
+                    <tr className="bg-muted/30 text-[11px] text-muted-foreground">
+                      <td className="py-1 px-2.5">ALV ({formPriceSplit.vatRate.toString().replace(".", ",")} %)</td>
+                      <td className="py-1 px-2.5 text-right font-medium">{formPriceSplit.vatAmount.toFixed(2)} €</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 

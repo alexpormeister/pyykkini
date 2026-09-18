@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { OrderReceiptModal, ReceiptOrder } from "./OrderReceiptModal";
 import {
   Activity,
   AlertTriangle,
@@ -173,6 +174,7 @@ export const OrderSearchPanel = () => {
 
   // Details Modal & Event Logs
   const [selectedOrder, setSelectedOrder] = useState<OrderRecord | null>(null);
+  const [receiptOrder, setReceiptOrder] = useState<ReceiptOrder | null>(null);
   const [activeModalTab, setActiveModalTab] = useState<"details" | "logs">("details");
   const [orderLogs, setOrderLogs] = useState<OrderLogEntry[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -1047,7 +1049,7 @@ export const OrderSearchPanel = () => {
                 <TableHead className="font-bold">Pesula</TableHead>
                 <TableHead className="font-bold">Summa</TableHead>
                 <TableHead className="font-bold">Tila</TableHead>
-                <TableHead className="text-right font-bold w-[90px]">Toiminnot</TableHead>
+                <TableHead className="text-right font-bold w-[140px]">Toiminnot</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1157,11 +1159,20 @@ export const OrderSearchPanel = () => {
                       </TableCell>
 
                       {/* 11. Toiminnot */}
-                      <TableCell className="text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="text-right whitespace-nowrap space-x-1" onClick={(e) => e.stopPropagation()}>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 px-2 text-xs flex items-center gap-1"
+                          className="h-7 px-2 text-xs font-semibold text-primary border-primary/30 hover:bg-primary/10 inline-flex items-center gap-1"
+                          onClick={() => setReceiptOrder(order)}
+                          title="Lataa / tulosta virallinen kuitti"
+                        >
+                          <FileText className="h-3 w-3" /> Kuitti
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
                           onClick={() => setSelectedOrder(order)}
                         >
                           <Eye className="h-3 w-3" /> Tiedot
@@ -1475,13 +1486,30 @@ export const OrderSearchPanel = () => {
             </Tabs>
           )}
 
-          <DialogFooter className="mt-2 pt-2 border-t">
+          <DialogFooter className="mt-2 pt-2 border-t flex flex-row items-center justify-between sm:justify-between w-full">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs h-8 text-primary border-primary/40 hover:bg-primary/10 font-bold flex items-center gap-1.5"
+              onClick={() => selectedOrder && setReceiptOrder(selectedOrder)}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Avaa virallinen kuitti
+            </Button>
             <Button size="sm" onClick={() => setSelectedOrder(null)}>
               Sulje
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 📄 VIRALLINEN OSTOKUITTI -MODAALI */}
+      <OrderReceiptModal
+        order={receiptOrder}
+        isOpen={!!receiptOrder}
+        onClose={() => setReceiptOrder(null)}
+        laundryName={laundryOf(receiptOrder?.laundry_id)?.name}
+      />
     </div>
   );
 };
