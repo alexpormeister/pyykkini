@@ -363,7 +363,31 @@ export const SettlementManagement = () => {
   const detailRows = useMemo(() => {
     if (!detail) return [];
     if (detail.type === "driver") {
-      const tasks = detail.group.tasks || [];
+      let tasks = detail.group.tasks || [];
+      if (tasks.length === 0 && detail.group.orderIds.length > 0) {
+        tasks = driverTasks.filter((t) => detail.group.orderIds.includes(t.order_id));
+      }
+      if (tasks.length === 0 && detail.group.orderIds.length > 0) {
+        return detail.group.orderIds.map((orderId) => {
+          const order = orders.find((o) => o.id === orderId);
+          return {
+            orderId,
+            task: {
+              id: orderId,
+              order_id: orderId,
+              driver_id: detail.group.key,
+              task_type: "delivery",
+              driver_payout: detail.group.net / (detail.group.orderIds.length || 1),
+              completed_at: order?.created_at || null,
+              origin_name: "Nouto",
+              destination_name: "Palautus",
+            } as DriverTaskRow,
+            order,
+            orderItems: [],
+            tasks: [],
+          };
+        });
+      }
       return tasks.map((t) => {
         const order = orders.find((o) => o.id === t.order_id);
         return {
@@ -379,11 +403,58 @@ export const SettlementManagement = () => {
     return detail.group.orderIds.map((orderId) => {
       const order = orders.find((o) => o.id === orderId);
       const orderItems = (itemsByOrder[orderId] || []).filter(
-        (it) => (it.laundry_id || order?.laundry_id || "unassigned") === detail.group.key
+        (it) => (it.laundry_id || order?.laundry_id || "unassigned") === detail.group.key || detail.group.key === "history" || !detail.group.key
       );
       return { orderId, order, orderItems, tasks: [], task: null as any };
     });
-  }, [detail, orders, itemsByOrder]);
+  }, [detail, orders, itemsByOrder, driverTasks]);
+
+  const handleShowSettlementDetail = (s: SettlementRow) => {
+    const orderIds = Array.isArray(s.order_ids) ? s.order_ids : [];
+    
+    if (s.payee_type === "driver") {
+      const matchedTasks = driverTasks.filter((t) => {
+        if (s.payee_id && t.driver_id === s.payee_id) {
+          return orderIds.length === 0 || orderIds.includes(t.order_id);
+        }
+        return orderIds.includes(t.order_id);
+      });
+
+      const grp: Group = {
+        key: s.payee_id || s.id,
+        name: s.payee_name,
+        ordersCount: s.orders_count || (matchedTasks.length > 0 ? matchedTasks.length : orderIds.length),
+        tasksCount: matchedTasks.length,
+        gross: Number(s.gross_amount || s.net_amount),
+        commission: Number(s.platform_commission || 0),
+        net: Number(s.net_amount),
+        orderIds: orderIds.length > 0 ? orderIds : Array.from(new Set(matchedTasks.map((t) => t.order_id))),
+        tasks: matchedTasks,
+      };
+
+      setDetail({
+        title: `${s.payee_name} – Tilityserittely (${fmtDate(s.paid_at)})`,
+        type: "driver",
+        group: grp,
+      });
+    } else {
+      const grp: Group = {
+        key: s.payee_id || "history",
+        name: s.payee_name,
+        ordersCount: s.orders_count || orderIds.length,
+        gross: Number(s.gross_amount || s.net_amount),
+        commission: Number(s.platform_commission || 0),
+        net: Number(s.net_amount),
+        orderIds: orderIds,
+      };
+
+      setDetail({
+        title: `${s.payee_name} – Tilityserittely (${fmtDate(s.paid_at)})`,
+        type: "laundry",
+        group: grp,
+      });
+    }
+  };
 
   const downloadCsv = (type: "laundry" | "driver", group: Group) => {
     const header =
@@ -706,12 +777,13 @@ export const SettlementManagement = () => {
                     <TableHead>Tyyppi</TableHead>
                     <TableHead className="text-right">Summa</TableHead>
                     <TableHead>Kuittaaja</TableHead>
+                    <TableHead className="text-right">Toiminnot</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {settlements.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                      <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
                         Ei tilityshistoriaa
                       </TableCell>
                     </TableRow>
@@ -727,6 +799,19 @@ export const SettlementManagement = () => {
                         </TableCell>
                         <TableCell className="text-right font-semibold">{eur(Number(s.net_amount))}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{s.paid_by_name || "-"}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleShowSettlementDetail(s)}
+                              className="h-8 text-xs font-medium"
+                            >
+                              <FileText className="h-3.5 w-3.5 mr-1 text-primary" />
+                              Näytä erittely
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                 </TableBody>

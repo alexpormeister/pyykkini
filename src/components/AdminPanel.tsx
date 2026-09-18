@@ -197,7 +197,7 @@ export const AdminPanel = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16">
-      <div className="container mx-auto px-4 sm:px-6 py-6 max-w-6xl space-y-6">
+      <div className={cn("mx-auto px-2 sm:px-4 py-4 space-y-5", activeSection === 'support' ? "w-full max-w-[1850px]" : "max-w-7xl")}>
         
         {/* YLÄPALKKI & NAVIGAATIO */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b">

@@ -236,7 +236,7 @@ const SearchableSelect: React.FC<{
           type="button"
           disabled={disabled}
           className={cn(
-            "flex h-7 w-full items-center justify-between rounded-md border border-input bg-background px-2 py-0.5 text-xs text-foreground shadow-sm transition-colors hover:bg-accent/40 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground shadow-xs transition-colors hover:bg-accent/40 focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
             triggerClassName
           )}
         >
@@ -1097,117 +1097,115 @@ export const DispatchTaskBoard: React.FC = () => {
         {/* ======================================================== */}
         {/* VASEN SARAKE: TIIVIS & SELKEÄ TILAUSLOMAKE (5 PALSTAA)   */}
         {/* ======================================================== */}
-        <div className="lg:col-span-5 xl:col-span-5 p-3.5 rounded-xl border bg-card shadow-sm space-y-3">
+        {/* ======================================================== */}
+        {/* VASEN SARAKE: SELKEÄ JA TILAVA TILAUSLOMAKE (5 PALSTAA)  */}
+        {/* ======================================================== */}
+        <div className="lg:col-span-5 xl:col-span-5 p-4 rounded-xl border bg-card shadow-xs space-y-4">
           
           {/* HEADER */}
-          <div className="flex items-center justify-between pb-2 border-b">
-            <div className="flex items-center gap-1.5">
-              <PlusCircle className="h-4 w-4 text-primary" />
-              <h3 className="font-semibold text-xs text-foreground uppercase tracking-wide">Uusi tilaus & välitys</h3>
-            </div>
+          <div className="flex items-center justify-between pb-2.5 border-b">
+            <h3 className="font-bold text-sm text-foreground">Uusi tilaus & välitys</h3>
             <div>
               {matchedUserId ? (
-                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                  <ShieldCheck className="h-3 w-3" />
+                <span className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                  <ShieldCheck className="h-3.5 w-3.5" />
                   Kanta-asiakas
                 </span>
               ) : (
-                <span className="text-[10px] text-muted-foreground">Pika-tilaus</span>
+                <span className="text-xs text-muted-foreground">Pikatilaus</span>
               )}
             </div>
           </div>
 
-          <form onSubmit={handleCreateOrderAndDispatch} className="space-y-2.5">
+          <form onSubmit={handleCreateOrderAndDispatch} className="space-y-3.5">
             
             {/* 1. ASIAKAS & OSOITE */}
-            <div className="p-2 rounded-lg border bg-muted/20 space-y-1.5">
+            <div className="p-3 rounded-lg border bg-muted/20 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                  <User className="h-3 w-3 text-muted-foreground" />
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider">
                   Asiakas & Nouto-osoite
                 </span>
-                {isCheckingPhone && <span className="text-[9px] text-muted-foreground">Etsitään profiilia...</span>}
+                {isCheckingPhone && <span className="text-xs text-muted-foreground">Etsitään...</span>}
               </div>
 
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
-                  <Label className="text-[9px] text-muted-foreground">Puhelin *</Label>
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Puhelin *</Label>
                   <Input
                     value={formPhone}
                     onChange={(e) => setFormPhone(e.target.value)}
                     placeholder="040 123 4567"
                     required
-                    className="h-7 text-xs font-medium"
+                    className="h-9 text-sm"
                   />
                 </div>
                 <div>
-                  <Label className="text-[9px] text-muted-foreground">Etunimi</Label>
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Etunimi</Label>
                   <Input
                     value={formFirstName}
                     onChange={(e) => setFormFirstName(e.target.value)}
                     placeholder="Matti"
-                    className="h-7 text-xs"
+                    className="h-9 text-sm"
                   />
                 </div>
                 <div>
-                  <Label className="text-[9px] text-muted-foreground">Sukunimi</Label>
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Sukunimi</Label>
                   <Input
                     value={formLastName}
                     onChange={(e) => setFormLastName(e.target.value)}
                     placeholder="Meikäläinen"
-                    className="h-7 text-xs"
+                    className="h-9 text-sm"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-12 gap-1.5 pt-1">
-                <div className="col-span-5">
-                  <Label className="text-[9px] text-muted-foreground">Katuosoite *</Label>
+              <div className="grid grid-cols-12 gap-2.5">
+                <div className="col-span-12 sm:col-span-5">
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Katuosoite *</Label>
                   <Input
                     value={formStreet}
                     onChange={(e) => setFormStreet(e.target.value)}
                     placeholder="Mannerheimintie 10 B"
                     required
-                    className="h-7 text-xs"
+                    className="h-9 text-sm"
                   />
                 </div>
-                <div className="col-span-3">
-                  <Label className="text-[9px] text-muted-foreground">Kaupunki</Label>
+                <div className="col-span-6 sm:col-span-4">
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Kaupunki</Label>
                   <SearchableSelect
                     options={cityOptions}
                     value={formCity}
                     onChange={setFormCity}
                     placeholder="Kaupunki"
                     searchPlaceholder="Hae kaupunkia..."
-                    triggerClassName="h-7 text-xs"
+                    triggerClassName="h-9 text-sm"
                   />
                 </div>
-                <div className="col-span-4">
-                  <Label className="text-[9px] text-muted-foreground">Rappu/Koodi</Label>
+                <div className="col-span-6 sm:col-span-3">
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Rappu / Koodi</Label>
                   <Input
                     value={formAccessCode}
                     onChange={(e) => setFormAccessCode(e.target.value)}
-                    placeholder="B 14 / 1234"
-                    className="h-7 text-xs"
+                    placeholder="B 14 / Koodi"
+                    className="h-9 text-sm"
                   />
                 </div>
               </div>
             </div>
 
             {/* 2. AIKATAULU */}
-            <div className="p-2 rounded-lg border bg-muted/20 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                  <Clock className="h-3 w-3 text-muted-foreground" />
+            <div className="p-3 rounded-lg border bg-muted/20 space-y-2.5">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider">
                   Aikataulu
                 </span>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 bg-background border rounded-lg p-0.5">
                   <button
                     type="button"
                     onClick={() => handleDateTypeSelect("today")}
                     className={cn(
-                      "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
-                      formDateType === "today" ? "bg-primary text-primary-foreground font-semibold" : "bg-muted text-muted-foreground hover:text-foreground"
+                      "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+                      formDateType === "today" ? "bg-primary text-primary-foreground font-semibold shadow-xs" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     Tänään
@@ -1216,8 +1214,8 @@ export const DispatchTaskBoard: React.FC = () => {
                     type="button"
                     onClick={() => handleDateTypeSelect("tomorrow")}
                     className={cn(
-                      "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
-                      formDateType === "tomorrow" ? "bg-primary text-primary-foreground font-semibold" : "bg-muted text-muted-foreground hover:text-foreground"
+                      "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+                      formDateType === "tomorrow" ? "bg-primary text-primary-foreground font-semibold shadow-xs" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     Huomenna
@@ -1225,10 +1223,10 @@ export const DispatchTaskBoard: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-[9px] text-muted-foreground">Nouto (Pvm & Klo)</Label>
-                  <div className="flex items-center gap-1 mt-0.5">
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Noutoaika</Label>
+                  <div className="flex items-center gap-2">
                     <Input
                       type="date"
                       value={formPickupDate}
@@ -1236,12 +1234,12 @@ export const DispatchTaskBoard: React.FC = () => {
                         setFormPickupDate(e.target.value);
                         setFormDateType("custom");
                       }}
-                      className="h-7 text-[11px] px-1.5 w-[110px]"
+                      className="h-9 text-sm w-[130px]"
                     />
                     <select
                       value={formPickupTime}
                       onChange={(e) => setFormPickupTime(e.target.value)}
-                      className="h-7 flex-1 rounded-md border border-input bg-background px-1.5 text-[11px] text-foreground outline-none"
+                      className="h-9 flex-1 rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-ring"
                     >
                       {TIME_SLOTS.map((s) => (
                         <option key={s} value={s}>{s}</option>
@@ -1251,18 +1249,18 @@ export const DispatchTaskBoard: React.FC = () => {
                 </div>
 
                 <div>
-                  <Label className="text-[9px] text-muted-foreground">Palautus (Pvm & Klo)</Label>
-                  <div className="flex items-center gap-1 mt-0.5">
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Palautusaika</Label>
+                  <div className="flex items-center gap-2">
                     <Input
                       type="date"
                       value={formReturnDate}
                       onChange={(e) => setFormReturnDate(e.target.value)}
-                      className="h-7 text-[11px] px-1.5 w-[110px]"
+                      className="h-9 text-sm w-[130px]"
                     />
                     <select
                       value={formReturnTime}
                       onChange={(e) => setFormReturnTime(e.target.value)}
-                      className="h-7 flex-1 rounded-md border border-input bg-background px-1.5 text-[11px] text-foreground outline-none"
+                      className="h-9 flex-1 rounded-md border border-input bg-background px-2.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-ring"
                     >
                       {TIME_SLOTS.map((s) => (
                         <option key={s} value={s}>{s}</option>
@@ -1273,27 +1271,26 @@ export const DispatchTaskBoard: React.FC = () => {
               </div>
             </div>
 
-            {/* 3. MONITUOTTEET & PESULA */}
-            <div className="p-2 rounded-lg border bg-muted/20 space-y-2">
+            {/* 3. TUOTTEET & PESULA */}
+            <div className="p-3 rounded-lg border bg-muted/20 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                  <Package className="h-3 w-3 text-muted-foreground" />
-                  Tuotteet & Palvelut ({formProducts.length} kpl)
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Tuotteet ({formProducts.length} kpl)
                 </span>
                 <button
                   type="button"
                   onClick={handleAddProductRow}
-                  className="flex items-center gap-1 text-[10px] text-primary font-semibold hover:underline"
+                  className="flex items-center gap-1 text-xs text-primary font-semibold hover:underline"
                 >
-                  <Plus className="h-3 w-3" />
+                  <Plus className="h-3.5 w-3.5" />
                   Lisää tuote
                 </button>
               </div>
 
               {/* TUOTERIVIT */}
-              <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-0.5">
+              <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
                 {formProducts.map((row) => (
-                  <div key={row.id} className="flex items-center gap-1.5 p-1 rounded-md border bg-card text-xs">
+                  <div key={row.id} className="flex items-center gap-2 p-1.5 rounded-lg border bg-card text-sm">
                     <div className="flex-1 min-w-0">
                       <SearchableSelect
                         options={productOptions}
@@ -1301,42 +1298,42 @@ export const DispatchTaskBoard: React.FC = () => {
                         onChange={(val) => handleProductChange(row.id, val)}
                         placeholder="Valitse tuote..."
                         searchPlaceholder="Hae tuotetta..."
-                        triggerClassName="h-6 text-[11px] py-0"
+                        triggerClassName="h-9 text-sm"
                       />
                     </div>
 
                     {/* MÄÄRÄ (+ / -) */}
-                    <div className="flex items-center border rounded bg-muted/30 h-6 shrink-0">
+                    <div className="flex items-center border rounded-md bg-muted/30 h-9 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleQuantityChange(row.id, -1)}
-                        className="px-1 text-muted-foreground hover:text-foreground h-full"
+                        className="px-2.5 text-muted-foreground hover:text-foreground h-full font-bold"
                       >
                         -
                       </button>
-                      <span className="px-1.5 font-bold text-[11px]">{row.quantity}</span>
+                      <span className="px-2 font-bold text-sm min-w-[20px] text-center">{row.quantity}</span>
                       <button
                         type="button"
                         onClick={() => handleQuantityChange(row.id, 1)}
-                        className="px-1 text-muted-foreground hover:text-foreground h-full"
+                        className="px-2.5 text-muted-foreground hover:text-foreground h-full font-bold"
                       >
                         +
                       </button>
                     </div>
 
                     {/* HINTA */}
-                    <div className="w-[60px] shrink-0">
+                    <div className="w-[72px] shrink-0">
                       <Input
                         type="number"
                         step="0.1"
                         value={row.unit_price}
                         onChange={(e) => handleUnitPriceChange(row.id, e.target.value)}
-                        className="h-6 text-[11px] px-1 text-right font-medium"
+                        className="h-9 text-sm px-2 text-right font-semibold"
                       />
                     </div>
 
                     {/* RIVISUMMA */}
-                    <div className="w-[50px] text-right font-semibold text-[11px] text-foreground shrink-0">
+                    <div className="w-[60px] text-right font-bold text-sm text-foreground shrink-0">
                       {(row.unit_price * row.quantity).toFixed(2)} €
                     </div>
 
@@ -1345,116 +1342,112 @@ export const DispatchTaskBoard: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleRemoveProductRow(row.id)}
-                        className="text-muted-foreground hover:text-destructive p-0.5"
+                        className="text-muted-foreground hover:text-destructive p-1.5 rounded-md hover:bg-destructive/10 shrink-0 transition-colors"
                         title="Poista rivi"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     )}
                   </div>
                 ))}
               </div>
 
-              {/* PESULAN VALINTA */}
-              <div className="pt-1 border-t grid grid-cols-12 gap-2 items-center">
-                <div className="col-span-7">
-                  <Label className="text-[9px] text-muted-foreground">Kumppanipesula</Label>
+              {/* PESULA & KULJETUSMAKSU */}
+              <div className="pt-2 border-t grid grid-cols-12 gap-3 items-center">
+                <div className="col-span-12 sm:col-span-7">
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Kumppanipesula</Label>
                   <SearchableSelect
                     options={laundryOptions}
                     value={formLaundryId}
                     onChange={setFormLaundryId}
                     placeholder="Valitse pesula..."
                     searchPlaceholder="Hae pesulaa..."
-                    triggerClassName="h-7 text-xs"
+                    triggerClassName="h-9 text-sm"
                   />
                 </div>
-                <div className="col-span-5">
-                  <Label className="text-[9px] text-muted-foreground">Kuljetusmaksu (€)</Label>
+                <div className="col-span-12 sm:col-span-5">
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Kuljetusmaksu (€)</Label>
                   <Input
                     type="number"
                     step="0.1"
                     value={formDeliveryFee}
                     onChange={(e) => setFormDeliveryFee(e.target.value)}
-                    className="h-7 text-xs font-medium"
+                    className="h-9 text-sm font-semibold"
                   />
                 </div>
               </div>
             </div>
 
-            {/* 4. KULJETTAJA & MAKSUTAPA */}
-            <div className="p-2 rounded-lg border bg-muted/20 space-y-1.5">
-              <div className="grid grid-cols-2 gap-2">
+            {/* 4. KULJETTAJA, MAKSUTAPA & OHJEET */}
+            <div className="p-3 rounded-lg border bg-muted/20 space-y-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-[9px] text-muted-foreground">Kuljettajan jako</Label>
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Kuljettajan jako</Label>
                   <SearchableSelect
                     options={driverOptions}
                     value={formSelectedDriverId}
                     onChange={setFormSelectedDriverId}
                     placeholder="Valitse jako..."
                     searchPlaceholder="Hae kuskia..."
-                    triggerClassName="h-7 text-xs"
+                    triggerClassName="h-9 text-sm"
                   />
                 </div>
 
                 <div>
-                  <Label className="text-[9px] text-muted-foreground">Maksutapa</Label>
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Maksutapa</Label>
                   <SearchableSelect
                     options={paymentOptions}
                     value={formPaymentMethod}
                     onChange={setFormPaymentMethod}
                     placeholder="Maksutapa"
                     searchPlaceholder="Hae maksutapaa..."
-                    triggerClassName="h-7 text-xs"
+                    triggerClassName="h-9 text-sm"
                   />
                 </div>
               </div>
 
               <div>
-                <Label className="text-[9px] text-muted-foreground">Ohjeet kuljettajalle</Label>
+                <Label className="text-xs font-medium text-foreground/80 mb-1 block">Ohjeet kuljettajalle</Label>
                 <Input
                   value={formNotes}
                   onChange={(e) => setFormNotes(e.target.value)}
                   placeholder="Esim. Soita ennen tuloa, jätä pussi oveen..."
-                  className="h-7 text-xs"
+                  className="h-9 text-sm"
                 />
               </div>
             </div>
 
             {/* YHTEENVETO & LÄHETYS */}
-            <div className="flex items-center justify-between pt-1 gap-2 border-t">
+            <div className="flex items-center justify-between pt-2 gap-3 border-t">
               <div>
-                <span className="text-[10px] text-muted-foreground block">Yhteensä (sis. kuljetus):</span>
-                <span className="text-base font-extrabold text-foreground">{formTotalPrice} €</span>
+                <span className="text-xs text-muted-foreground block">Yhteensä (sis. kuljetus):</span>
+                <span className="text-lg font-black text-foreground">{formTotalPrice} €</span>
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={handleResetForm}
                   disabled={formSubmitting}
-                  className="text-xs h-7 px-2 text-muted-foreground"
+                  className="text-xs h-9 px-3 text-muted-foreground"
                 >
                   Tyhjennä
                 </Button>
 
                 <Button
                   type="submit"
-                  size="sm"
                   disabled={formSubmitting}
-                  className="text-xs h-8 px-4 font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="text-sm h-9 px-6 font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                 >
                   {formSubmitting ? (
-                    <span className="flex items-center gap-1.5">
-                      <RefreshCw className="h-3 w-3 animate-spin" />
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                       Välitetään...
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1.5">
-                      <Check className="h-3.5 w-3.5" />
-                      Luo ja välitä
-                    </span>
+                    "Välitä"
                   )}
                 </Button>
               </div>
