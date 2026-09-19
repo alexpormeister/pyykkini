@@ -8,6 +8,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DispatchMap, MapTaskItem } from "./DispatchMap";
+import { AddressAutocomplete } from "./AddressAutocomplete";
+import { parseStructuredAddress } from "@/lib/addressUtils";
 import { cn } from "@/lib/utils";
 import {
   Clock,
@@ -383,6 +385,8 @@ export const DispatchTaskBoard: React.FC = () => {
   const [formNotes, setFormNotes] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
 
+  const [dbTimeSlots, setDbTimeSlots] = useState<{ id: string; label: string; slot_type: string }[]>([]);
+
   // Dynamiset pesulakohtaiset tuotehinnat ja haitarin tila (oletuksena kiinni)
   const [laundryPrices, setLaundryPrices] = useState<LaundryProductPrice[]>([]);
   const [isPriceBreakdownOpen, setIsPriceBreakdownOpen] = useState(false);
@@ -412,7 +416,7 @@ export const DispatchTaskBoard: React.FC = () => {
   const fetchAll = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
-      const [tasksRes, rolesRes, shiftsRes, laundriesRes, productsRes] = await Promise.all([
+      const [tasksRes, rolesRes, shiftsRes, laundriesRes, productsRes, slotsRes] = await Promise.all([
         supabase
           .from("delivery_tasks")
           .select("*, orders(*)")
@@ -422,6 +426,7 @@ export const DispatchTaskBoard: React.FC = () => {
         supabase.from("driver_shifts").select("driver_id").eq("is_active", true),
         supabase.from("laundries").select("id, name, address, city, contact_phone").order("name"),
         supabase.from("products").select("id, product_id, name, base_price, platform_fee_value, driver_fee_value").eq("is_active", true).order("sort_order"),
+        supabase.from("time_slots").select("id, label, slot_type, sort_order").eq("is_active", true).order("sort_order"),
       ]);
 
       const taskRows = (tasksRes.data || []) as unknown as TaskRow[];
@@ -435,6 +440,10 @@ export const DispatchTaskBoard: React.FC = () => {
 
       const productRows = (productsRes.data || []) as ProductInfo[];
       setProducts(productRows);
+
+      if (slotsRes.data) {
+        setDbTimeSlots(slotsRes.data as any[]);
+      }
 
       const driverIds = (rolesRes.data || []).map((r: any) => r.user_id as string);
       const activeIds = new Set((shiftsRes.data || []).map((s: any) => s.driver_id as string));
@@ -538,6 +547,30 @@ export const DispatchTaskBoard: React.FC = () => {
     retD.setDate(retD.getDate() + 2);
     setFormReturnDate(retD.toISOString().split("T")[0]);
   };
+
+  const pickupTimeOptions = useMemo(() => {
+    if (dbTimeSlots.length === 0) return TIME_SLOTS;
+    const active = dbTimeSlots.filter((s) => s.slot_type === "pickup" || s.slot_type === "both");
+    return active.length > 0 ? active.map((s) => s.label) : TIME_SLOTS;
+  }, [dbTimeSlots]);
+
+  const returnTimeOptions = useMemo(() => {
+    if (dbTimeSlots.length === 0) return TIME_SLOTS;
+    const active = dbTimeSlots.filter((s) => s.slot_type === "delivery" || s.slot_type === "both");
+    return active.length > 0 ? active.map((s) => s.label) : TIME_SLOTS;
+  }, [dbTimeSlots]);
+
+  useEffect(() => {
+    if (pickupTimeOptions.length > 0 && !pickupTimeOptions.includes(formPickupTime)) {
+      setFormPickupTime(pickupTimeOptions[0]);
+    }
+  }, [pickupTimeOptions]);
+
+  useEffect(() => {
+    if (returnTimeOptions.length > 0 && !returnTimeOptions.includes(formReturnTime)) {
+      setFormReturnTime(returnTimeOptions[0]);
+    }
+  }, [returnTimeOptions]);
 
   // 🧺 Tuoterivien hallinta
   const handleAddProductRow = () => {
@@ -1286,11 +1319,23 @@ export const DispatchTaskBoard: React.FC = () => {
               <div className="grid grid-cols-12 gap-2.5">
                 <div className="col-span-12 sm:col-span-5">
                   <Label className="text-xs font-medium text-foreground/80 mb-1 block">Katuosoite *</Label>
-                  <Input
+                  <AddressAutocomplete
                     value={formStreet}
-                    onChange={(e) => setFormStreet(e.target.value)}
-                    placeholder="Mannerheimintie 10 B"
-                    required
+                    onChange={(val) => {
+                      setFormStreet(val);
+                      const parsed = parseStructuredAddress(val);
+                      if (parsed.streetName) {
+                        const streetFull = [parsed.streetName, parsed.houseNumber, parsed.apartmentNumber].filter(Boolean).join(" ");
+                        setFormStreet(streetFull || val);
+                      }
+                      if (parsed.postalCode) {
+                        setFormPostalCode(parsed.postalCode);
+                      }
+                      if (parsed.city) {
+                        setFormCity(parsed.city);
+                      }
+                    }}
+                    placeholder="Esim. Mannerheimintie 10"
                     className="h-9 text-sm"
                   />
                 </div>
@@ -1321,7 +1366,7 @@ export const DispatchTaskBoard: React.FC = () => {
             <div className="p-3 rounded-lg border bg-muted/20 space-y-2.5">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-xs font-bold text-foreground uppercase tracking-wider">
-                  Aikataulu
+                  Aikataulu (Avoimet ajoajat)
                 </span>
                 <div className="flex items-center gap-1 bg-background border rounded-lg p-0.5">
                   <button
@@ -1367,9 +1412,9 @@ export const DispatchTaskBoard: React.FC = () => {
                     <select
                       value={formPickupTime}
                       onChange={(e) => setFormPickupTime(e.target.value)}
-                      className="col-span-5 h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
+                      className="col-span-5 h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring font-medium"
                     >
-                      {TIME_SLOTS.map((s) => (
+                      {pickupTimeOptions.map((s) => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
@@ -1389,9 +1434,9 @@ export const DispatchTaskBoard: React.FC = () => {
                     <select
                       value={formReturnTime}
                       onChange={(e) => setFormReturnTime(e.target.value)}
-                      className="col-span-5 h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
+                      className="col-span-5 h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring font-medium"
                     >
-                      {TIME_SLOTS.map((s) => (
+                      {returnTimeOptions.map((s) => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>

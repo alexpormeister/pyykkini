@@ -18,8 +18,55 @@ import {
   CheckCircle2,
   X,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { geocodeAddress, getCityCenterCoordinates, CITY_COORDINATES } from "@/lib/addressUtils";
 import { cn } from "@/lib/utils";
+
+const WORLD_OUTER_BOUNDS: [number, number][] = [
+  [58.5, 20.0],
+  [58.5, 29.0],
+  [63.0, 29.0],
+  [63.0, 20.0],
+];
+
+const CITY_SERVICE_POLYGONS: Record<string, [number, number][]> = {
+  helsinki: [
+    [60.13, 24.82], [60.13, 25.25], [60.29, 25.25], [60.29, 24.82]
+  ],
+  espoo: [
+    [60.10, 24.50], [60.10, 24.88], [60.36, 24.88], [60.36, 24.50]
+  ],
+  vantaa: [
+    [60.25, 24.78], [60.25, 25.18], [60.40, 25.18], [60.40, 24.78]
+  ],
+  kauniainen: [
+    [60.20, 24.69], [60.20, 24.74], [60.23, 24.74], [60.23, 24.69]
+  ],
+  kirkkonummi: [
+    [60.00, 24.22], [60.00, 24.62], [60.25, 24.62], [60.25, 24.22]
+  ],
+  kerava: [
+    [60.37, 25.07], [60.37, 25.15], [60.43, 25.15], [60.43, 25.07]
+  ],
+  jarvenpaa: [
+    [60.44, 25.05], [60.44, 25.15], [60.51, 25.15], [60.51, 25.05]
+  ],
+  tuusula: [
+    [60.35, 24.90], [60.35, 25.08], [60.52, 25.08], [60.52, 24.90]
+  ],
+  sipoo: [
+    [60.30, 25.18], [60.30, 25.55], [60.55, 25.55], [60.55, 25.18]
+  ],
+  nurmijarvi: [
+    [60.40, 24.65], [60.40, 24.95], [60.60, 24.95], [60.60, 24.65]
+  ],
+  lohja: [
+    [60.18, 23.90], [60.18, 24.20], [60.35, 24.20], [60.35, 23.90]
+  ],
+  vihti: [
+    [60.30, 24.15], [60.30, 24.50], [60.50, 24.50], [60.50, 24.15]
+  ]
+};
 
 export interface MapTaskItem {
   id: string;
@@ -137,7 +184,9 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
     };
   }, [tasks, laundries]);
 
-  // 2. ALUSTA LEAFLET KARTTA
+  const maskLayerRef = useRef<L.Polygon | null>(null);
+
+  // 2. ALUSTA LEAFLET KARTTA JA PALVELUALUEPEITTO
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
@@ -158,6 +207,57 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
     const markersLayer = L.layerGroup().addTo(map);
     markersLayerRef.current = markersLayer;
     mapInstanceRef.current = map;
+
+    // Haetaan aktiiviset palvelualueet ja piirretään punainen puoliläpinäkyvä peitto alueille, joissa ei toimita
+    const drawServiceMask = async () => {
+      try {
+        const { data } = await supabase
+          .from("service_areas")
+          .select("city, is_active")
+          .eq("is_active", true);
+
+        const activeCities = new Set<string>();
+        if (data && data.length > 0) {
+          data.forEach((sa) => {
+            if (sa.city) activeCities.add(sa.city.toLowerCase().trim());
+          });
+        } else {
+          activeCities.add("helsinki");
+          activeCities.add("espoo");
+          activeCities.add("vantaa");
+          activeCities.add("kauniainen");
+          activeCities.add("kirkkonummi");
+        }
+
+        const holes: [number, number][][] = [];
+        activeCities.forEach((cityName) => {
+          const key = cityName.replace(/ä/g, "a").replace(/ö/g, "o");
+          if (CITY_SERVICE_POLYGONS[key]) {
+            holes.push(CITY_SERVICE_POLYGONS[key]);
+          }
+        });
+
+        if (maskLayerRef.current) {
+          map.removeLayer(maskLayerRef.current);
+        }
+
+        const maskPolygon = L.polygon([WORLD_OUTER_BOUNDS, ...holes], {
+          color: "#dc2626",
+          weight: 1.5,
+          dashArray: "4, 4",
+          fillColor: "#ef4444",
+          fillOpacity: 0.22,
+          interactive: false,
+        });
+
+        maskPolygon.addTo(map);
+        maskLayerRef.current = maskPolygon;
+      } catch (err) {
+        console.error("Error drawing service area mask:", err);
+      }
+    };
+
+    drawServiceMask();
 
     return () => {
       map.remove();

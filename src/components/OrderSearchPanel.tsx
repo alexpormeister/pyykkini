@@ -92,6 +92,8 @@ interface OrderRecord {
   actual_pickup_time?: string | null;
   actual_return_time?: string | null;
   access_code: string | null;
+  payment_method?: string | null;
+  order_type?: string | null;
   order_items?: OrderItem[];
 }
 
@@ -140,6 +142,37 @@ const fullName = (p?: Profile | null) =>
 
 const money = (n: number) => Number(n || 0).toFixed(2).replace(".", ",") + " €";
 
+export function renderPaymentMethodBadge(order: OrderRecord) {
+  const method = (order.payment_method || "").toLowerCase().trim();
+  if (method === "invoice" || method === "lasku") {
+    return (
+      <Badge variant="outline" className="text-[10px] font-semibold bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300">
+        📄 Lasku
+      </Badge>
+    );
+  }
+  if (method === "card" || method === "korttimaksu" || method === "kortti") {
+    return (
+      <Badge variant="outline" className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300">
+        💳 Kortti
+      </Badge>
+    );
+  }
+  if (method === "cash" || method === "kateinen") {
+    return (
+      <Badge variant="outline" className="text-[10px] font-semibold bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300">
+        💵 Käteinen
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge variant="outline" className="text-[10px] font-bold bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-300">
+      📱 APP
+    </Badge>
+  );
+}
+
 const PAGE_SIZE = 25;
 
 export const OrderSearchPanel = () => {
@@ -161,6 +194,7 @@ export const OrderSearchPanel = () => {
   const [filterDriver, setFilterDriver] = useState("all");
   const [filterLaundry, setFilterLaundry] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState("all");
 
   // Date Filter States: Oletuksena tämän päivän tilaukset
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
@@ -347,6 +381,7 @@ export const OrderSearchPanel = () => {
     setFilterDriver("all");
     setFilterLaundry("all");
     setFilterStatus("all");
+    setFilterPaymentMethod("all");
     setStartDate("");
     setEndDate("");
     setQuickDatePreset("all");
@@ -362,6 +397,7 @@ export const OrderSearchPanel = () => {
     filterDriver !== "all" ||
     filterLaundry !== "all" ||
     filterStatus !== "all" ||
+    filterPaymentMethod !== "all" ||
     Boolean(startDate) ||
     Boolean(endDate);
 
@@ -434,6 +470,20 @@ export const OrderSearchPanel = () => {
         if (filterStatus !== "all") {
           if ((order.status || "").toLowerCase() !== filterStatus.toLowerCase()) {
             return false;
+          }
+        }
+
+        // 9. Maksutapa
+        if (filterPaymentMethod !== "all") {
+          const pm = (order.payment_method || "").toLowerCase().trim();
+          if (filterPaymentMethod === "app") {
+            if (pm === "invoice" || pm === "card" || pm === "cash") return false;
+          } else if (filterPaymentMethod === "invoice") {
+            if (pm !== "invoice" && pm !== "lasku") return false;
+          } else if (filterPaymentMethod === "card") {
+            if (pm !== "card" && pm !== "korttimaksu" && pm !== "kortti") return false;
+          } else if (filterPaymentMethod === "cash") {
+            if (pm !== "cash" && pm !== "kateinen") return false;
           }
         }
 
@@ -870,6 +920,31 @@ export const OrderSearchPanel = () => {
               </Select>
             </div>
 
+            {/* 9. Maksutapa */}
+            <div className="space-y-1">
+              <Label className="text-[11px] font-semibold flex items-center gap-1">
+                <CreditCard className="h-3 w-3 text-emerald-500" /> Maksutapa
+              </Label>
+              <Select
+                value={filterPaymentMethod}
+                onValueChange={(val) => {
+                  setFilterPaymentMethod(val);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Kaikki maksutavat" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">Kaikki maksutavat</SelectItem>
+                  <SelectItem value="app" className="text-xs font-bold text-purple-700">📱 APP (Applikaatio)</SelectItem>
+                  <SelectItem value="invoice" className="text-xs">📄 Lasku</SelectItem>
+                  <SelectItem value="card" className="text-xs">💳 Korttimaksu</SelectItem>
+                  <SelectItem value="cash" className="text-xs">💵 Käteinen</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* 9. Aikasuodatustyyppi */}
             <div className="space-y-1">
               <Label className="text-[11px] font-semibold flex items-center gap-1">
@@ -1048,6 +1123,7 @@ export const OrderSearchPanel = () => {
                 <TableHead className="font-bold">Kuljettaja</TableHead>
                 <TableHead className="font-bold">Pesula</TableHead>
                 <TableHead className="font-bold">Summa</TableHead>
+                <TableHead className="font-bold">Maksutapa</TableHead>
                 <TableHead className="font-bold">Tila</TableHead>
                 <TableHead className="text-right font-bold w-[140px]">Toiminnot</TableHead>
               </TableRow>
@@ -1055,7 +1131,7 @@ export const OrderSearchPanel = () => {
             <TableBody>
               {paginatedOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="h-32 text-center text-muted-foreground text-sm">
+                  <TableCell colSpan={12} className="h-32 text-center text-muted-foreground text-sm">
                     Ei hakuehtoja vastaavia tilauksia. Kokeile muuttaa suodattimia tai tyhjentää ne.
                   </TableCell>
                 </TableRow>
@@ -1151,14 +1227,19 @@ export const OrderSearchPanel = () => {
                         {money(priceVal)}
                       </TableCell>
 
-                      {/* 10. Tila (Puhdas suomenkielinen teksti) */}
+                      {/* 10. Maksutapa */}
+                      <TableCell className="whitespace-nowrap">
+                        {renderPaymentMethodBadge(order)}
+                      </TableCell>
+
+                      {/* 11. Tila */}
                       <TableCell className="whitespace-nowrap">
                         <Badge variant="outline" className={"text-[10px] font-bold uppercase " + statusMeta.badgeClass}>
                           {statusMeta.label}
                         </Badge>
                       </TableCell>
 
-                      {/* 11. Toiminnot */}
+                      {/* 12. Toiminnot */}
                       <TableCell className="text-right whitespace-nowrap space-x-1" onClick={(e) => e.stopPropagation()}>
                         <Button
                           size="sm"
@@ -1280,6 +1361,9 @@ export const OrderSearchPanel = () => {
                     </p>
                     <p className="text-muted-foreground">
                       <strong className="text-foreground">Pesula:</strong> {laundryOf(selectedOrder.laundry_id)?.name || "Ei määritetty"}
+                    </p>
+                    <p className="text-muted-foreground flex items-center gap-1.5">
+                      <strong className="text-foreground">Maksutapa:</strong> {renderPaymentMethodBadge(selectedOrder)}
                     </p>
                     <p className="text-muted-foreground">
                       <strong className="text-foreground">PIN-koodi:</strong>{" "}
