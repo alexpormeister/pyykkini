@@ -29,42 +29,124 @@ const WORLD_OUTER_BOUNDS: [number, number][] = [
   [63.0, 20.0],
 ];
 
+// Saumaton yhtenäinen Pääkaupunkiseutu (Espoo + Helsinki + Vantaa + Kauniainen)
+const PK_SEUTU_UNIFIED_POLYGON: [number, number][] = [
+  [60.125, 24.530], // Soukka / Kivenlahti SW
+  [60.155, 24.490], // Kivenlahti / Saunalahti W
+  [60.210, 24.470], // Kauklahti / Espoonkartano W
+  [60.270, 24.490], // Nuuksio S
+  [60.335, 24.530], // Bodom / Nuuksio N
+  [60.355, 24.640], // Vantaankoski / Luukukki NW
+  [60.370, 24.750], // Kivistö / Klaukkalan raja N
+  [60.400, 24.880], // Seutula / Lentoasema N
+  [60.395, 25.040], // Korson pohjoinen N
+  [60.365, 25.170], // Hakunila / Sipooseen NE
+  [60.285, 25.260], // Landbo / Östersundom NE
+  [60.220, 25.220], // Vuosaaren satama SE
+  [60.170, 25.120], // Santahamina / Laajasalo S
+  [60.138, 24.980], // Harakka / Kaivopuisto S
+  [60.132, 24.880], // Lauttasaari S
+  [60.145, 24.800], // Westend S
+  [60.140, 24.700], // Haukilahti / Matinkylä S
+  [60.125, 24.600], // Espoonlahti S
+];
+
 const CITY_SERVICE_POLYGONS: Record<string, [number, number][]> = {
   helsinki: [
-    [60.13, 24.82], [60.13, 25.25], [60.29, 25.25], [60.29, 24.82]
+    [60.135, 24.830],
+    [60.210, 24.840],
+    [60.260, 24.840],
+    [60.280, 24.950],
+    [60.290, 25.080],
+    [60.285, 25.260],
+    [60.220, 25.220],
+    [60.170, 25.120],
+    [60.138, 24.980],
+    [60.132, 24.880]
   ],
   espoo: [
-    [60.10, 24.50], [60.10, 24.88], [60.36, 24.88], [60.36, 24.50]
+    [60.125, 24.530],
+    [60.155, 24.490],
+    [60.210, 24.470],
+    [60.270, 24.490],
+    [60.335, 24.530],
+    [60.350, 24.680],
+    [60.320, 24.780],
+    [60.260, 24.840],
+    [60.210, 24.840],
+    [60.150, 24.820],
+    [60.140, 24.700],
+    [60.125, 24.600]
   ],
   vantaa: [
-    [60.25, 24.78], [60.25, 25.18], [60.40, 25.18], [60.40, 24.78]
+    [60.250, 24.780],
+    [60.320, 24.780],
+    [60.355, 24.640],
+    [60.370, 24.750],
+    [60.400, 24.880],
+    [60.395, 25.040],
+    [60.365, 25.170],
+    [60.280, 25.120],
+    [60.260, 24.950]
   ],
   kauniainen: [
-    [60.20, 24.69], [60.20, 24.74], [60.23, 24.74], [60.23, 24.69]
+    [60.200, 24.690],
+    [60.225, 24.690],
+    [60.225, 24.745],
+    [60.200, 24.745]
   ],
   kirkkonummi: [
-    [60.00, 24.22], [60.00, 24.62], [60.25, 24.62], [60.25, 24.22]
+    [60.000, 24.220],
+    [60.080, 24.180],
+    [60.180, 24.250],
+    [60.230, 24.450],
+    [60.170, 24.510],
+    [60.120, 24.500],
+    [60.000, 24.450]
   ],
   kerava: [
-    [60.37, 25.07], [60.37, 25.15], [60.43, 25.15], [60.43, 25.07]
+    [60.370, 25.070],
+    [60.420, 25.070],
+    [60.430, 25.140],
+    [60.380, 25.150]
   ],
   jarvenpaa: [
-    [60.44, 25.05], [60.44, 25.15], [60.51, 25.15], [60.51, 25.05]
+    [60.440, 25.050],
+    [60.500, 25.040],
+    [60.510, 25.130],
+    [60.450, 25.140]
   ],
   tuusula: [
-    [60.35, 24.90], [60.35, 25.08], [60.52, 25.08], [60.52, 24.90]
+    [60.350, 24.900],
+    [60.430, 24.900],
+    [60.520, 24.950],
+    [60.520, 25.080],
+    [60.380, 25.080]
   ],
   sipoo: [
-    [60.30, 25.18], [60.30, 25.55], [60.55, 25.55], [60.55, 25.18]
+    [60.280, 25.160],
+    [60.380, 25.160],
+    [60.500, 25.250],
+    [60.450, 25.480],
+    [60.280, 25.400]
   ],
   nurmijarvi: [
-    [60.40, 24.65], [60.40, 24.95], [60.60, 24.95], [60.60, 24.65]
+    [60.400, 24.650],
+    [60.550, 24.650],
+    [60.600, 24.900],
+    [60.420, 24.900]
   ],
   lohja: [
-    [60.18, 23.90], [60.18, 24.20], [60.35, 24.20], [60.35, 23.90]
+    [60.180, 23.900],
+    [60.300, 23.900],
+    [60.350, 24.200],
+    [60.200, 24.200]
   ],
   vihti: [
-    [60.30, 24.15], [60.30, 24.50], [60.50, 24.50], [60.50, 24.15]
+    [60.300, 24.150],
+    [60.480, 24.150],
+    [60.500, 24.450],
+    [60.330, 24.450]
   ]
 };
 
@@ -229,11 +311,26 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
           activeCities.add("kirkkonummi");
         }
 
+        const hasCapitalRegion =
+          activeCities.has("helsinki") ||
+          activeCities.has("espoo") ||
+          activeCities.has("vantaa") ||
+          activeCities.has("kauniainen");
+
         const holes: [number, number][][] = [];
+
+        if (hasCapitalRegion) {
+          // Yhtenäinen saumaton Pääkaupunkiseudun rajus – ei sisäisiä laatikkoviivoja eikä leikkauksia!
+          holes.push(PK_SEUTU_UNIFIED_POLYGON);
+        }
+
         activeCities.forEach((cityName) => {
-          const key = cityName.replace(/ä/g, "a").replace(/ö/g, "o");
-          if (CITY_SERVICE_POLYGONS[key]) {
-            holes.push(CITY_SERVICE_POLYGONS[key]);
+          const norm = cityName.replace(/ä/g, "a").replace(/ö/g, "o");
+          if (hasCapitalRegion && ["helsinki", "espoo", "vantaa", "kauniainen"].includes(norm)) {
+            return;
+          }
+          if (CITY_SERVICE_POLYGONS[norm]) {
+            holes.push(CITY_SERVICE_POLYGONS[norm]);
           }
         });
 
@@ -246,7 +343,7 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
           weight: 1.5,
           dashArray: "4, 4",
           fillColor: "#ef4444",
-          fillOpacity: 0.22,
+          fillOpacity: 0.18,
           interactive: false,
         });
 
