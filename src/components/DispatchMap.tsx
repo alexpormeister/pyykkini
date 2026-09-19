@@ -95,6 +95,60 @@ const CITY_SERVICE_POLYGONS: Record<string, [number, number][]> = {
     [60.225, 24.745],
     [60.200, 24.745]
   ],
+  turku: [
+    [60.380, 22.120],
+    [60.530, 22.120],
+    [60.540, 22.420],
+    [60.380, 22.420]
+  ],
+  tampere: [
+    [61.430, 23.580],
+    [61.560, 23.580],
+    [61.560, 23.950],
+    [61.430, 23.950]
+  ],
+  oulu: [
+    [64.920, 25.250],
+    [65.100, 25.250],
+    [65.100, 25.700],
+    [64.920, 25.700]
+  ],
+  jyvaskyla: [
+    [62.150, 25.600],
+    [62.330, 25.600],
+    [62.330, 25.900],
+    [62.150, 25.900]
+  ],
+  lahti: [
+    [60.920, 25.500],
+    [61.050, 25.500],
+    [61.050, 25.800],
+    [60.920, 25.800]
+  ],
+  kuopio: [
+    [62.800, 27.500],
+    [62.980, 27.500],
+    [62.980, 27.850],
+    [62.800, 27.850]
+  ],
+  pori: [
+    [61.400, 21.650],
+    [61.560, 21.650],
+    [61.560, 21.950],
+    [61.400, 21.950]
+  ],
+  salo: [
+    [60.300, 23.000],
+    [60.450, 23.000],
+    [60.450, 23.300],
+    [60.300, 23.300]
+  ],
+  porvoo: [
+    [60.320, 25.520],
+    [60.450, 25.520],
+    [60.450, 25.800],
+    [60.320, 25.800]
+  ],
   kirkkonummi: [
     [60.000, 24.220],
     [60.080, 24.180],
@@ -149,6 +203,32 @@ const CITY_SERVICE_POLYGONS: Record<string, [number, number][]> = {
     [60.330, 24.450]
   ]
 };
+
+function getCityPolygonHole(cityName: string): [number, number][] {
+  const norm = cityName.replace(/ä/g, "a").replace(/ö/g, "o").toLowerCase().trim();
+  if (CITY_SERVICE_POLYGONS[norm]) {
+    return CITY_SERVICE_POLYGONS[norm];
+  }
+
+  // Fallback: Generate 12-point circular cutout polygon based on city coordinates
+  const coords = getCityCenterCoordinates(cityName);
+  if (!coords) return [];
+
+  const lat = coords.lat;
+  const lng = coords.lng;
+  const latRadius = 0.07;
+  const lngRadius = 0.13;
+
+  const points: [number, number][] = [];
+  const numPoints = 12;
+  for (let i = 0; i < numPoints; i++) {
+    const angle = (i * 2 * Math.PI) / numPoints;
+    const pLat = lat + Math.sin(angle) * latRadius;
+    const pLng = lng + Math.cos(angle) * lngRadius;
+    points.push([Math.round(pLat * 10000) / 10000, Math.round(pLng * 10000) / 10000]);
+  }
+  return points;
+}
 
 export interface MapTaskItem {
   id: string;
@@ -405,7 +485,9 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
         if (hasHelsinki && CITY_SERVICE_POLYGONS.helsinki) holes.push(CITY_SERVICE_POLYGONS.helsinki);
         if (hasEspoo && CITY_SERVICE_POLYGONS.espoo) holes.push(CITY_SERVICE_POLYGONS.espoo);
         if (hasVantaa && CITY_SERVICE_POLYGONS.vantaa) holes.push(CITY_SERVICE_POLYGONS.vantaa);
-        if (hasKauniainen && CITY_SERVICE_POLYGONS.kauniainen) holes.push(CITY_SERVICE_POLYGONS.kauniainen);
+        if (!hasEspoo && hasKauniainen && CITY_SERVICE_POLYGONS.kauniainen) {
+          holes.push(CITY_SERVICE_POLYGONS.kauniainen);
+        }
       }
 
       activeCities.forEach((cityName) => {
@@ -413,8 +495,9 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
         if (["helsinki", "espoo", "vantaa", "kauniainen"].includes(norm)) {
           return;
         }
-        if (CITY_SERVICE_POLYGONS[norm]) {
-          holes.push(CITY_SERVICE_POLYGONS[norm]);
+        const hole = getCityPolygonHole(cityName);
+        if (hole && hole.length > 0) {
+          holes.push(hole);
         }
       });
 

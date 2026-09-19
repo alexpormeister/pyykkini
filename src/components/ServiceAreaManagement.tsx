@@ -16,9 +16,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronDown, ChevronRight, MapPin, Plus, Search, Trash2, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ChevronDown, ChevronRight, MapPin, Plus, Search, Trash2, Loader2, ChevronsUpDown, Check, Building2, X } from "lucide-react";
 
 const WEEKDAYS = [
   "Maanantai",
@@ -29,6 +31,142 @@ const WEEKDAYS = [
   "Lauantai",
   "Sunnuntai",
 ] as const;
+
+export const FINNISH_MUNICIPALITIES = [
+  "Akaa", "Alajärvi", "Alavus", "Asikkala", "Askola", "Aura",
+  "Brändö", "Eckerö", "Enonkoski", "Enontekiö", "Espoo", "Eura", "Eurajoki", "Evijärvi",
+  "Finström", "Forssa", "Föglö", "Haapajärvi", "Haapavesi", "Hailuoto", "Halsua", "Hamina",
+  "Hammarland", "Hankasalmi", "Hanko", "Harjavalta", "Hartola", "Hattula", "Hausjärvi", "Heinävesi",
+  "Helsinki", "Hirvensalmi", "Hollola", "Honkajoki", "Huittinen", "Humppila", "Hyrynsalmi", "Hyvinkää",
+  "Hämeenkyrö", "Hämeenlinna", "Ii", "Iisalmi", "Iitti", "Ikaalinen", "Ilmajoki", "Ilomantsi",
+  "Imatra", "Inari", "Inkoo", "Isojoki", "Isokyrö", "Janakkala", "Joensuu", "Jokioinen",
+  "Jomala", "Joroinen", "Joutsa", "Juuka", "Juupajoki", "Juva", "Jyväskylä", "Jämijärvi",
+  "Jämsä", "Järvenpää", "Kaarina", "Kaavi", "Kajaani", "Kalajoki", "Kangasala", "Kangasniemi",
+  "Kankaanpää", "Kannonkoski", "Kannus", "Karijoki", "Karkkila", "Karstula", "Karvia", "Kaskinen",
+  "Kauhajoki", "Kauhava", "Kauniainen", "Kaustinen", "Keitele", "Kemi", "Kemijärvi", "Keminmaa",
+  "Kemiönsaari", "Kempele", "Kerava", "Keuruu", "Kihniö", "Kinnula", "Kirkkonummi", "Kitee",
+  "Kittilä", "Kiuruvesi", "Kivijärvi", "Kokemäki", "Kokkola", "Kolari", "Konnevesi", "Kontiolahti",
+  "Korsnäs", "Koski Tl", "Kotka", "Kouvola", "Kristiinankaupunki", "Kruunupyy", "Kuhmo", "Kuhmoinen",
+  "Kuopio", "Kuortane", "Kurikka", "Kustavi", "Kuusamo", "Kyyjärvi", "Kärkölä", "Kärsämäki",
+  "Kökar", "Lahti", "Laihia", "Laitila", "Lapinjärvi", "Lapinlahti", "Lappajärvi", "Lappeenranta",
+  "Lapua", "Laukaa", "Lemi", "Lemland", "Lempäälä", "Leppävirta", "Lestijärvi", "Lieksa",
+  "Lieto", "Liminka", "Liperi", "Lohja", "Loimaa", "Loppi", "Loviisa", "Luhanka",
+  "Lumijoki", "Lumparland", "Luoto", "Luumäki", "Maalahti", "Maarianhamina", "Marttila", "Masku",
+  "Merijärvi", "Merikarvia", "Miehikkälä", "Mikkeli", "Muhos", "Multia", "Muonio", "Mustasaari",
+  "Muurame", "Mänttä-Vilppula", "Mäntyharju", "Naantali", "Nakkila", "Nivala", "Nokia", "Nousiainen",
+  "Nurmes", "Nurmijärvi", "Närpiö", "Orimattila", "Oripää", "Orivesi", "Oulainen", "Oulu",
+  "Outokumpu", "Padasjoki", "Paimio", "Paltamo", "Parainen", "Parikkala", "Parkano", "Pedersöre",
+  "Pelkosenniemi", "Pello", "Perho", "Pertunmaa", "Petäjävesi", "Pieksämäki", "Pielavesi", "Pietarsaari",
+  "Pihtipudas", "Pirkkala", "Polvijärvi", "Pori", "Porvoo", "Posio", "Pudasjärvi", "Pukkila",
+  "Punkalaidun", "Puolanka", "Puumala", "Pyhtää", "Pyhäjoki", "Pyhäjärvi", "Pyhäntä", "Pyhäranta",
+  "Pälkäne", "Raahe", "Raasepori", "Raisio", "Rantasalmi", "Ranua", "Rauma", "Rautalampi",
+  "Rautavaara", "Rautjärvi", "Reisjärvi", "Riihimäki", "Ristijärvi", "Rovaniemi", "Ruokolahti", "Ruovesi",
+  "Rusko", "Rääkkylä", "Saarijärvi", "Salla", "Salo", "Saltvik", "Sastamala", "Sauvo",
+  "Savitaipale", "Savonlinna", "Seinäjoki", "Sievi", "Siikajoki", "Siikalatva", "Siuntio", "Sodankylä",
+  "Soini", "Somero", "Sonkajärvi", "Sotkamo", "Sottunga", "Sulkava", "Sund", "Suomussalmi",
+  "Suonenjoki", "Sysmä", "Säkylä", "Taipalsaari", "Taivalkoski", "Taivassalo", "Tammela", "Tampere",
+  "Tervo", "Tervola", "Teuva", "Tohmajärvi", "Toholampi", "Toivakka", "Tornio", "Turku",
+  "Tuusula", "Tyrnävä", "Ulvila", "Urjala", "Utajärvi", "Utsjoki", "Uurainen", "Uusikaarlepyy",
+  "Uusikaupunki", "Vaasa", "Valkeakoski", "Valtimo", "Vantaa", "Varkaus", "Vehmaa", "Vesanto",
+  "Vesilahti", "Veteli", "Vieremä", "Vihti", "Viitasaari", "Vimpeli", "Virolahti", "Virrat",
+  "Vårdö", "Vöyri", "Ylitornio", "Ylivieska", "Ylöjärvi", "Ypäjä", "Ähtäri", "Äänekoski"
+];
+
+const MunicipalitySelect: React.FC<{
+  value: string;
+  onChange: (val: string) => void;
+}> = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return FINNISH_MUNICIPALITIES;
+    return FINNISH_MUNICIPALITIES.filter((m) => m.toLowerCase().includes(q));
+  }, [search]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-xs transition-colors hover:bg-accent/40 focus:outline-none focus:ring-1 focus:ring-ring"
+        >
+          <span className="truncate text-left font-medium">
+            {value ? (
+              <span className="flex items-center gap-2 truncate">
+                <Building2 className="h-4 w-4 text-primary shrink-0" />
+                <span className="truncate font-semibold">{value}</span>
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Valitse kunta alasvetovalikosta...</span>
+            )}
+          </span>
+          <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0 shadow-xl rounded-xl border bg-popover z-50" align="start">
+        <div className="flex items-center border-b px-2.5 py-1.5 bg-muted/20">
+          <Search className="mr-1.5 h-3.5 w-3.5 shrink-0 opacity-50 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Hae kuntaa (esim. Turku)..."
+            className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+            autoFocus
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch("")} className="text-muted-foreground hover:text-foreground">
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+        <div className="max-h-[220px] overflow-y-auto p-1 space-y-0.5">
+          {filtered.length === 0 ? (
+            <div className="p-3 text-center text-xs text-muted-foreground">
+              <p>Ei kuntaa nimellä "{search}".</p>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(search.trim());
+                  setOpen(false);
+                }}
+                className="mt-2 inline-flex items-center px-2 py-1 rounded bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90"
+              >
+                Käytä nimellä "{search.trim()}"
+              </button>
+            </div>
+          ) : (
+            filtered.map((m) => {
+              const isSelected = m.toLowerCase() === value.toLowerCase();
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    onChange(m);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                  className={cn(
+                    "w-full flex items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-left transition-colors",
+                    isSelected ? "bg-primary/10 text-primary font-semibold" : "hover:bg-muted text-foreground"
+                  )}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="truncate">{m}</span>
+                  </div>
+                  {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const DEFAULT_CITIES = ["Helsinki", "Espoo", "Vantaa", "Kauniainen", "Kirkkonummi"];
 
@@ -416,13 +554,10 @@ export const ServiceAreaManagement = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="sa-city">Kunta *</Label>
-              <Input
-                id="sa-city"
+              <Label htmlFor="sa-city">Kunta / Kaupunki *</Label>
+              <MunicipalitySelect
                 value={form.city}
-                maxLength={100}
-                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                placeholder="Esim. Helsinki"
+                onChange={(val) => setForm((f) => ({ ...f, city: val }))}
               />
             </div>
             <div className="space-y-1.5">
