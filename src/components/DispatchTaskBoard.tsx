@@ -109,6 +109,8 @@ interface ProductInfo {
   product_id?: string;
   name: string;
   base_price: number;
+  platform_fee_value?: number | string | null;
+  driver_fee_value?: number | string | null;
 }
 
 interface LaundryProductPrice {
@@ -419,7 +421,7 @@ export const DispatchTaskBoard: React.FC = () => {
         supabase.from("user_roles").select("user_id, role").eq("role", "driver"),
         supabase.from("driver_shifts").select("driver_id").eq("is_active", true),
         supabase.from("laundries").select("id, name, address, city, contact_phone").order("name"),
-        supabase.from("products").select("id, product_id, name, base_price").eq("is_active", true).order("sort_order"),
+        supabase.from("products").select("id, product_id, name, base_price, platform_fee_value, driver_fee_value").eq("is_active", true).order("sort_order"),
       ]);
 
       const taskRows = (tasksRes.data || []) as unknown as TaskRow[];
@@ -643,14 +645,43 @@ export const DispatchTaskBoard: React.FC = () => {
   }, [formProducts, laundryPrices, products]);
 
   const formPriceSplit = useMemo(() => {
-    const itemsTotal = formSubtotal;
     const delFee = parseFloat(formDeliveryFee) || 0;
     const srvFee = parseFloat(formServiceFee) || 0;
     const laundry = formLaundryItemPrices;
-    const platform = Math.max(0, itemsTotal - laundry) + srvFee + formMinOrderSurcharge;
-    const pickupDriver = delFee / 2;
-    const deliveryDriver = delFee / 2;
-    const totalNum = parseFloat(formTotalPrice);
+
+    let platformMarginShare = 0;
+    let driverMarginShare = 0;
+
+    formProducts.forEach((fp) => {
+      const targetProdId = fp.product_id || fp.id;
+      const prodObj = products.find(
+        (p) => p.product_id === targetProdId || p.id === targetProdId || p.name === fp.name
+      );
+      const actualProdId = prodObj?.product_id || prodObj?.id || targetProdId;
+      const lp = laundryPrices.find((r) => r.product_id === actualProdId && r.is_active);
+      const itemLaundryPrice = (lp && typeof lp.price === "number") ? lp.price : fp.unit_price * 0.7;
+
+      const itemMargin = Math.max(0, fp.unit_price - itemLaundryPrice);
+
+      const pFeePct = prodObj?.platform_fee_value != null && !isNaN(Number(prodObj.platform_fee_value))
+        ? Number(prodObj.platform_fee_value)
+        : 15;
+      const dFeePct = prodObj?.driver_fee_value != null && !isNaN(Number(prodObj.driver_fee_value))
+        ? Number(prodObj.driver_fee_value)
+        : (100 - pFeePct);
+
+      const itemPlatformShare = (itemMargin * (pFeePct / 100)) * fp.quantity;
+      const itemDriverShare = (itemMargin * (dFeePct / 100)) * fp.quantity;
+
+      platformMarginShare += itemPlatformShare;
+      driverMarginShare += itemDriverShare;
+    });
+
+    const platform = Math.round((platformMarginShare + srvFee + formMinOrderSurcharge) * 100) / 100;
+    const driverTotal = Math.round((driverMarginShare + delFee) * 100) / 100;
+    const pickupDriver = Math.round((driverTotal / 2) * 100) / 100;
+    const deliveryDriver = Math.round((driverTotal / 2) * 100) / 100;
+    const totalNum = parseFloat(formTotalPrice) || 0;
     const vatRate = 25.5;
     const vatAmount = totalNum - totalNum / (1 + vatRate / 100);
     const netAmount = totalNum - vatAmount;
@@ -665,7 +696,7 @@ export const DispatchTaskBoard: React.FC = () => {
       vatAmount,
       netAmount,
     };
-  }, [formSubtotal, formDeliveryFee, formServiceFee, formMinOrderSurcharge, formTotalPrice, formLaundryItemPrices]);
+  }, [formProducts, laundryPrices, products, formDeliveryFee, formServiceFee, formMinOrderSurcharge, formTotalPrice, formLaundryItemPrices]);
 
   // Lomakkeen tyhjennys
   const handleResetForm = () => {
