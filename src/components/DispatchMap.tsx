@@ -358,70 +358,6 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
     markersLayerRef.current = markersLayer;
     mapInstanceRef.current = map;
 
-    // Haetaan aktiiviset palvelualueet ja piirretään punainen puoliläpinäkyvä peitto alueille, joissa ei toimita
-    const drawServiceMask = async () => {
-      try {
-        const { data } = await supabase
-          .from("service_areas")
-          .select("city, is_active")
-          .eq("is_active", true);
-
-        const activeCities = new Set<string>();
-        if (data && data.length > 0) {
-          data.forEach((sa) => {
-            if (sa.city) activeCities.add(sa.city.toLowerCase().trim());
-          });
-        } else {
-          activeCities.add("helsinki");
-          activeCities.add("espoo");
-          activeCities.add("vantaa");
-          activeCities.add("kauniainen");
-          activeCities.add("kirkkonummi");
-        }
-
-        const hasCapitalRegion =
-          activeCities.has("helsinki") ||
-          activeCities.has("espoo") ||
-          activeCities.has("vantaa") ||
-          activeCities.has("kauniainen");
-
-        const holes: [number, number][][] = [];
-
-        if (hasCapitalRegion) {
-          // Yhtenäinen saumaton Pääkaupunkiseudun rajus – ei sisäisiä laatikkoviivoja eikä leikkauksia!
-          holes.push(PK_SEUTU_UNIFIED_POLYGON);
-        }
-
-        activeCities.forEach((cityName) => {
-          const norm = cityName.replace(/ä/g, "a").replace(/ö/g, "o");
-          if (hasCapitalRegion && ["helsinki", "espoo", "vantaa", "kauniainen"].includes(norm)) {
-            return;
-          }
-          if (CITY_SERVICE_POLYGONS[norm]) {
-            holes.push(CITY_SERVICE_POLYGONS[norm]);
-          }
-        });
-
-        if (maskLayerRef.current) {
-          map.removeLayer(maskLayerRef.current);
-        }
-
-        const maskPolygon = L.polygon([WORLD_OUTER_BOUNDS, ...holes], {
-          color: "#dc2626",
-          weight: 1.5,
-          dashArray: "4, 4",
-          fillColor: "#ef4444",
-          fillOpacity: 0.18,
-          interactive: false,
-        });
-
-        maskPolygon.addTo(map);
-        maskLayerRef.current = maskPolygon;
-      } catch (err) {
-        console.error("Error drawing service area mask:", err);
-      }
-    };
-
     drawServiceMask();
 
     return () => {
@@ -429,6 +365,95 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
       mapInstanceRef.current = null;
     };
   }, []);
+
+  // 2b. REAALIAIKAINEN PALVELUALUEPEITTO JA SYNKRONOINTI
+  const drawServiceMask = useCallback(async () => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    try {
+      const { data } = await supabase
+        .from("service_areas")
+        .select("city, is_active")
+        .eq("is_active", true);
+
+      const activeCities = new Set<string>();
+      if (data && data.length > 0) {
+        data.forEach((sa) => {
+          if (sa.city) activeCities.add(sa.city.toLowerCase().trim());
+        });
+      } else {
+        activeCities.add("helsinki");
+        activeCities.add("espoo");
+        activeCities.add("vantaa");
+        activeCities.add("kauniainen");
+        activeCities.add("kirkkonummi");
+      }
+
+      const hasHelsinki = activeCities.has("helsinki");
+      const hasEspoo = activeCities.has("espoo");
+      const hasVantaa = activeCities.has("vantaa");
+      const hasKauniainen = activeCities.has("kauniainen");
+
+      const allFourPK = hasHelsinki && hasEspoo && hasVantaa && hasKauniainen;
+
+      const holes: [number, number][][] = [];
+
+      if (allFourPK) {
+        holes.push(PK_SEUTU_UNIFIED_POLYGON);
+      } else {
+        if (hasHelsinki && CITY_SERVICE_POLYGONS.helsinki) holes.push(CITY_SERVICE_POLYGONS.helsinki);
+        if (hasEspoo && CITY_SERVICE_POLYGONS.espoo) holes.push(CITY_SERVICE_POLYGONS.espoo);
+        if (hasVantaa && CITY_SERVICE_POLYGONS.vantaa) holes.push(CITY_SERVICE_POLYGONS.vantaa);
+        if (hasKauniainen && CITY_SERVICE_POLYGONS.kauniainen) holes.push(CITY_SERVICE_POLYGONS.kauniainen);
+      }
+
+      activeCities.forEach((cityName) => {
+        const norm = cityName.replace(/ä/g, "a").replace(/ö/g, "o").toLowerCase().trim();
+        if (["helsinki", "espoo", "vantaa", "kauniainen"].includes(norm)) {
+          return;
+        }
+        if (CITY_SERVICE_POLYGONS[norm]) {
+          holes.push(CITY_SERVICE_POLYGONS[norm]);
+        }
+      });
+
+      if (maskLayerRef.current) {
+        map.removeLayer(maskLayerRef.current);
+        maskLayerRef.current = null;
+      }
+
+      const maskPolygon = L.polygon([WORLD_OUTER_BOUNDS, ...holes], {
+        color: "#dc2626",
+        weight: 1.5,
+        dashArray: "4, 4",
+        fillColor: "#ef4444",
+        fillOpacity: 0.18,
+        interactive: false,
+      });
+
+      maskPolygon.addTo(map);
+      maskLayerRef.current = maskPolygon;
+    } catch (err) {
+      console.error("Error drawing service area mask:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    drawServiceMask();
+
+    const channel = supabase
+      .channel("dispatch_map_service_areas_live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "service_areas" }, () => {
+        drawServiceMask();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [drawServiceMask]);
 
   // 3. IKKUNAN KOON MUUTOSTEN KÄSITTELY
   useEffect(() => {
