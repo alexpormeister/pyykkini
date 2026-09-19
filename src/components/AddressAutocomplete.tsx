@@ -3,12 +3,15 @@ import { Input } from '@/components/ui/input';
 import { MapPin, Loader2 } from 'lucide-react';
 import { searchAddressPhoton } from '@/lib/addressUtils';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export interface AddressSuggestion {
   address: string;
   street: string;
   city: string;
   postcode: string;
+  isOutOfService?: boolean;
   coordinates?: {
     lat: number;
     lng: number;
@@ -25,6 +28,11 @@ interface AddressAutocompleteProps {
   showHelperText?: boolean;
 }
 
+interface ServiceAreaRecord {
+  city: string;
+  postal_code: string | null;
+}
+
 export const AddressAutocomplete = ({
   value,
   onChange,
@@ -34,12 +42,37 @@ export const AddressAutocomplete = ({
   className,
   showHelperText = true,
 }: AddressAutocompleteProps) => {
+  const { toast } = useToast();
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [activeServiceAreas, setActiveServiceAreas] = useState<ServiceAreaRecord[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Load active service areas
+  useEffect(() => {
+    let cancelled = false;
+    const loadServiceAreas = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("service_areas")
+          .select("city, postal_code")
+          .eq("is_active", true);
+
+        if (!cancelled && !error && data) {
+          setActiveServiceAreas(data as ServiceAreaRecord[]);
+        }
+      } catch (err) {
+        console.error("Error fetching active service areas:", err);
+      }
+    };
+    loadServiceAreas();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const fetchSuggestions = async () => {
@@ -52,14 +85,38 @@ export const AddressAutocomplete = ({
       try {
         const results = await searchAddressPhoton(value);
         if (results && results.length > 0) {
-          setSuggestions(
-            results.map((r) => ({
+          const defaultCities = ["helsinki", "espoo", "vantaa", "kauniainen", "kirkkonummi"];
+          
+          const processed: AddressSuggestion[] = results.map((r) => {
+            const city = (r.city || "").trim();
+            const postcode = (r.postcode || "").trim();
+            const cityNorm = city.toLowerCase();
+
+            let isSupported = false;
+            if (activeServiceAreas.length > 0) {
+              isSupported = activeServiceAreas.some((area) => {
+                const areaCityNorm = (area.city || "").trim().toLowerCase();
+                if (areaCityNorm === cityNorm) {
+                  if (!area.postal_code) return true;
+                  return area.postal_code.trim() === postcode;
+                }
+                return false;
+              });
+            } else {
+              isSupported = defaultCities.includes(cityNorm);
+            }
+
+            return {
               address: r.formatted,
               street: r.street + (r.housenumber ? ` ${r.housenumber}` : ''),
-              city: r.city || '',
-              postcode: r.postcode || '',
-            }))
-          );
+              city,
+              postcode,
+              isOutOfService: city.length > 0 ? !isSupported : false,
+              coordinates: r.coordinates,
+            };
+          });
+
+          setSuggestions(processed);
           setShowSuggestions(true);
         } else {
           setSuggestions([]);
@@ -77,7 +134,7 @@ export const AddressAutocomplete = ({
     }, 280);
 
     return () => clearTimeout(debounceTimer);
-  }, [value]);
+  }, [value, activeServiceAreas]);
 
   // Handle click outside to close suggestions
   useEffect(() => {
@@ -97,6 +154,15 @@ export const AddressAutocomplete = ({
   }, []);
 
   const handleSelectSuggestion = (suggestion: AddressSuggestion) => {
+    if (suggestion.isOutOfService) {
+      toast({
+        title: "Ei palvelualueella",
+        description: `Osoite ${suggestion.city ? "(" + suggestion.city + ")" : ""} on Pesunin palvelualueen ulkopuolella.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const chosenStreet = suggestion.street || suggestion.address;
     onChange(chosenStreet, suggestion.coordinates);
     if (onSelect) {
@@ -173,17 +239,24 @@ export const AddressAutocomplete = ({
               type="button"
               onClick={() => handleSelectSuggestion(suggestion)}
               className={cn(
-                "w-full px-4 py-3 text-left hover:bg-accent transition-colors",
-                "border-b last:border-b-0",
-                selectedIndex === index && "bg-accent"
+                "w-full px-4 py-3 text-left transition-colors border-b last:border-b-0",
+                suggestion.isOutOfService ? "bg-red-50/40 hover:bg-red-50 dark:bg-red-950/20 dark:hover:bg-red-950/40" : "hover:bg-accent",
+                selectedIndex === index && (suggestion.isOutOfService ? "bg-red-100 dark:bg-red-950/50" : "bg-accent")
               )}
             >
               <div className="flex items-start gap-2">
-                <MapPin className="h-4 w-4 mt-1 flex-shrink-0 text-primary" />
+                <MapPin className={cn("h-4 w-4 mt-1 flex-shrink-0", suggestion.isOutOfService ? "text-destructive" : "text-primary")} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {suggestion.street}
-                  </p>
+                  <div className="flex items-center justify-between gap-1">
+                    <p className="text-sm font-medium truncate">
+                      {suggestion.street}
+                    </p>
+                    {suggestion.isOutOfService && (
+                      <span className="text-[10px] bg-red-100 text-red-700 dark:bg-red-950/70 dark:text-red-300 border border-red-200 dark:border-red-800 px-1.5 py-0.5 rounded font-semibold shrink-0">
+                        Ei palvelualueella
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {suggestion.postcode} {suggestion.city}
                   </p>

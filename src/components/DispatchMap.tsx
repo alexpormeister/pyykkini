@@ -181,6 +181,7 @@ export interface MapLaundryItem {
 interface DispatchMapProps {
   tasks: MapTaskItem[];
   laundries: MapLaundryItem[];
+  customerAddress?: string;
   selectedTaskId?: string | null;
   onSelectTask?: (taskId: string) => void;
   onAssignDriver?: (taskId: string) => void;
@@ -191,6 +192,7 @@ interface DispatchMapProps {
 export const DispatchMap: React.FC<DispatchMapProps> = ({
   tasks,
   laundries,
+  customerAddress,
   selectedTaskId,
   onSelectTask,
   onAssignDriver,
@@ -200,12 +202,78 @@ export const DispatchMap: React.FC<DispatchMapProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const homeMarkerRef = useRef<L.Marker | null>(null);
 
   const [mapFilter, setMapFilter] = useState<"all" | "pickup" | "delivery">("all");
   const [selectedTask, setSelectedTask] = useState<MapTaskItem | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [coordsMap, setCoordsMap] = useState<Record<string, [number, number]>>({});
   const [isGeocoding, setIsGeocoding] = useState(false);
+
+  // 0. REAALIAIKAINEN KOTIKUVAKE SYÖTETYLLE/VALITULLE OSOITTEELLE
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (!customerAddress || customerAddress.trim().length < 4) {
+      if (homeMarkerRef.current) {
+        map.removeLayer(homeMarkerRef.current);
+        homeMarkerRef.current = null;
+      }
+      return;
+    }
+
+    const updateHomeMarker = async () => {
+      try {
+        const coords = await geocodeAddress(customerAddress, "Espoo");
+        if (!coords || !mapInstanceRef.current) return;
+
+        const homeIconHtml = `
+          <div class="relative flex flex-col items-center group cursor-pointer animate-pulse">
+            <div class="w-9 h-9 rounded-full bg-amber-500 text-white shadow-2xl border-2 border-white flex items-center justify-center font-bold text-base transition-transform hover:scale-125">
+              🏠
+            </div>
+            <div class="mt-1 bg-slate-900/90 text-[10px] text-amber-300 px-2 py-0.5 rounded-full shadow-lg whitespace-nowrap font-bold border border-amber-400/40">
+              Nouto-osoite (Asiakas)
+            </div>
+          </div>
+        `;
+
+        const homeIcon = L.divIcon({
+          html: homeIconHtml,
+          className: "custom-leaflet-home-pin",
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+        });
+
+        if (homeMarkerRef.current) {
+          mapInstanceRef.current.removeLayer(homeMarkerRef.current);
+        }
+
+        const marker = L.marker([coords.lat, coords.lng], { icon: homeIcon, zIndexOffset: 1000 });
+        marker.bindPopup(`
+          <div style="font-family: sans-serif; font-size: 12px; line-height: 1.4; min-width: 180px;">
+            <div style="font-weight: bold; color: #d97706; font-size: 11px; text-transform: uppercase; margin-bottom: 2px;">
+              🏠 Nouto-osoite (Asiakas)
+            </div>
+            <div style="font-weight: 600; font-size: 13px; color: #1e293b;">
+              ${customerAddress}
+            </div>
+          </div>
+        `);
+
+        marker.addTo(mapInstanceRef.current);
+        homeMarkerRef.current = marker;
+
+        mapInstanceRef.current.panTo([coords.lat, coords.lng], { animate: true });
+      } catch (err) {
+        console.error("Error placing home marker:", err);
+      }
+    };
+
+    const timer = setTimeout(updateHomeMarker, 400);
+    return () => clearTimeout(timer);
+  }, [customerAddress]);
 
   // 1. ASYNC GEOCODING: Tarkat oikeat koordinaatit pesuloille ja tilauksille
   useEffect(() => {

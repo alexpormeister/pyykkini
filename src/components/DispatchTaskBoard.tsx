@@ -416,7 +416,7 @@ export const DispatchTaskBoard: React.FC = () => {
   const fetchAll = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
-      const [tasksRes, rolesRes, shiftsRes, laundriesRes, productsRes, slotsRes] = await Promise.all([
+      const [tasksRes, rolesRes, shiftsRes, laundriesRes, productsRes, slotsRes, settingsRes] = await Promise.all([
         supabase
           .from("delivery_tasks")
           .select("*, orders(*)")
@@ -427,7 +427,20 @@ export const DispatchTaskBoard: React.FC = () => {
         supabase.from("laundries").select("id, name, address, city, contact_phone").order("name"),
         supabase.from("products").select("id, product_id, name, base_price, platform_fee_value, driver_fee_value").eq("is_active", true).order("sort_order"),
         supabase.from("time_slots").select("id, label, slot_type, sort_order").eq("is_active", true).order("sort_order"),
+        supabase.from("app_settings").select("min_order_amount, service_fee, delivery_fee").eq("id", "global").maybeSingle(),
       ]);
+
+      if (settingsRes.data) {
+        if (settingsRes.data.min_order_amount != null) {
+          setFormMinThreshold(String(settingsRes.data.min_order_amount));
+        }
+        if (settingsRes.data.service_fee != null) {
+          setFormServiceFee(String(settingsRes.data.service_fee));
+        }
+        if (settingsRes.data.delivery_fee != null) {
+          setFormDeliveryFee(String(settingsRes.data.delivery_fee));
+        }
+      }
 
       const taskRows = (tasksRes.data || []) as unknown as TaskRow[];
       setTasks(taskRows);
@@ -1240,6 +1253,11 @@ export const DispatchTaskBoard: React.FC = () => {
     }));
   }, []);
 
+  const customerAddressForMap = useMemo(() => {
+    if (!formStreet.trim()) return "";
+    return `${formStreet.trim()}, ${formCity.trim()}`;
+  }, [formStreet, formCity]);
+
   const paymentOptions: SearchableOption[] = useMemo(() => {
     return PAYMENT_METHODS.map((p) => ({
       value: p.value,
@@ -1525,7 +1543,7 @@ export const DispatchTaskBoard: React.FC = () => {
                 ))}
               </div>
 
-              {/* PESULA, KULJETUSMAKSU JA PALVELUMAKSU */}
+              {/* PESULA, KULJETUSMAKSU, PALVELUMAKSU JA MINIMIHINTA */}
               <div className="pt-2 border-t grid grid-cols-12 gap-2.5 items-end">
                 <div className="col-span-12 sm:col-span-6">
                   <Label className="text-xs font-medium text-foreground/80 mb-1 block">Kumppanipesula</Label>
@@ -1538,7 +1556,7 @@ export const DispatchTaskBoard: React.FC = () => {
                     triggerClassName="h-9 text-sm"
                   />
                 </div>
-                <div className="col-span-6 sm:col-span-3">
+                <div className="col-span-4 sm:col-span-2">
                   <Label className="text-xs font-medium text-foreground/80 mb-1 block">Kuljetus (€)</Label>
                   <Input
                     type="number"
@@ -1548,7 +1566,7 @@ export const DispatchTaskBoard: React.FC = () => {
                     className="h-9 text-sm font-semibold"
                   />
                 </div>
-                <div className="col-span-6 sm:col-span-3">
+                <div className="col-span-4 sm:col-span-2">
                   <Label className="text-xs font-medium text-foreground/80 mb-1 block">Palvelumaksu (€)</Label>
                   <Input
                     type="number"
@@ -1556,6 +1574,17 @@ export const DispatchTaskBoard: React.FC = () => {
                     value={formServiceFee}
                     onChange={(e) => setFormServiceFee(e.target.value)}
                     className="h-9 text-sm font-semibold"
+                  />
+                </div>
+                <div className="col-span-4 sm:col-span-2">
+                  <Label className="text-xs font-medium text-foreground/80 mb-1 block">Minimihinta (€)</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={formMinThreshold}
+                    onChange={(e) => setFormMinThreshold(e.target.value)}
+                    className="h-9 text-sm font-semibold"
+                    placeholder="0"
                   />
                 </div>
               </div>
@@ -1771,6 +1800,7 @@ export const DispatchTaskBoard: React.FC = () => {
             <DispatchMap
               tasks={mapTasks}
               laundries={laundries}
+              customerAddress={customerAddressForMap}
               selectedTaskId={selectedMapTaskId}
               onSelectTask={(taskId) => setSelectedMapTaskId(taskId)}
               onAssignDriver={(taskId) => {
