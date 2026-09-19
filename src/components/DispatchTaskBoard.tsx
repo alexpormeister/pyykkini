@@ -1323,31 +1323,30 @@ export const DispatchTaskBoard: React.FC = () => {
                     value={formStreet}
                     onChange={(val) => {
                       setFormStreet(val);
-                      const parsed = parseStructuredAddress(val);
-                      if (parsed.streetName) {
-                        const streetFull = [parsed.streetName, parsed.houseNumber, parsed.apartmentNumber].filter(Boolean).join(" ");
-                        setFormStreet(streetFull || val);
+                    }}
+                    onSelect={(suggestion) => {
+                      const chosenStreet = suggestion.street || suggestion.address;
+                      setFormStreet(chosenStreet);
+                      if (suggestion.postcode) {
+                        setFormPostalCode(suggestion.postcode);
                       }
-                      if (parsed.postalCode) {
-                        setFormPostalCode(parsed.postalCode);
-                      }
-                      if (parsed.city) {
-                        setFormCity(parsed.city);
+                      if (suggestion.city) {
+                        setFormCity(suggestion.city);
                       }
                     }}
-                    placeholder="Esim. Mannerheimintie 10"
+                    placeholder="Esim. Meijerinkatu 5"
                     className="h-9 text-sm"
+                    showHelperText={false}
                   />
                 </div>
                 <div className="col-span-6 sm:col-span-4">
                   <Label className="text-xs font-medium text-foreground/80 mb-1 block">Kaupunki</Label>
-                  <SearchableSelect
-                    options={cityOptions}
+                  <Input
                     value={formCity}
-                    onChange={setFormCity}
+                    readOnly
+                    disabled
                     placeholder="Kaupunki"
-                    searchPlaceholder="Hae kaupunkia..."
-                    triggerClassName="h-9 text-sm"
+                    className="h-9 text-sm font-medium bg-muted/40 cursor-not-allowed text-foreground opacity-80"
                   />
                 </div>
                 <div className="col-span-6 sm:col-span-3">

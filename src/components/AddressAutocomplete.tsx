@@ -4,7 +4,7 @@ import { MapPin, Loader2 } from 'lucide-react';
 import { searchAddressPhoton } from '@/lib/addressUtils';
 import { cn } from '@/lib/utils';
 
-interface AddressSuggestion {
+export interface AddressSuggestion {
   address: string;
   street: string;
   city: string;
@@ -18,17 +18,21 @@ interface AddressSuggestion {
 interface AddressAutocompleteProps {
   value: string;
   onChange: (value: string, coordinates?: { lat: number; lng: number }) => void;
+  onSelect?: (suggestion: AddressSuggestion) => void;
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  showHelperText?: boolean;
 }
 
 export const AddressAutocomplete = ({
   value,
   onChange,
+  onSelect,
   disabled = false,
   placeholder = "Kirjoita osoite, esim. Arvelantie 5",
-  className
+  className,
+  showHelperText = true,
 }: AddressAutocompleteProps) => {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -93,7 +97,11 @@ export const AddressAutocomplete = ({
   }, []);
 
   const handleSelectSuggestion = (suggestion: AddressSuggestion) => {
-    onChange(suggestion.address, suggestion.coordinates);
+    const chosenStreet = suggestion.street || suggestion.address;
+    onChange(chosenStreet, suggestion.coordinates);
+    if (onSelect) {
+      onSelect(suggestion);
+    }
     setShowSuggestions(false);
     setSuggestions([]);
     setSelectedIndex(-1);
@@ -187,9 +195,11 @@ export const AddressAutocomplete = ({
       )}
 
       {/* Helper text */}
-      <p className="text-xs text-muted-foreground mt-1">
-        Kirjoita osoite, esim. "Arvelantie" tai "Arvelantie 5, Helsinki"
-      </p>
+      {showHelperText && (
+        <p className="text-xs text-muted-foreground mt-1">
+          Kirjoita osoite, esim. "Arvelantie" tai "Arvelantie 5, Helsinki"
+        </p>
+      )}
     </div>
   );
 };
