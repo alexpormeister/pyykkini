@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "cd apps/web && vite",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "build:dev": "npm run build:dev --workspace=web"
