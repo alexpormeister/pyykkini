@@ -36,6 +36,8 @@ import {
   Plus,
   ArrowRight,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 // Interfaces removed, using @pesuni/shared
@@ -257,6 +259,18 @@ export const DispatchTaskBoard: React.FC = () => {
   const [assignModalTask, setAssignModalTask] = useState<TaskRow | null>(null);
   const [assignLaundryModalTask, setAssignLaundryModalTask] = useState<TaskRow | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // 🔍 Kuljettajan & Pesulan päiväkohtainen haku & aikataulukortti
+  const [scheduleSearchQuery, setScheduleSearchQuery] = useState("");
+  const [showScheduleDropdown, setShowScheduleDropdown] = useState(false);
+  const [selectedScheduleEntity, setSelectedScheduleEntity] = useState<{
+    id: string;
+    type: 'driver' | 'laundry';
+    name: string;
+    subtext?: string;
+    phone?: string;
+  } | null>(null);
+  const [scheduleDate, setScheduleDate] = useState(() => new Date().toISOString().split("T")[0]);
 
   // 📝 TILAUSLOMAKKEEN TILA
   const [formDateType, setFormDateType] = useState<"today" | "tomorrow" | "custom">("today");
@@ -1132,6 +1146,65 @@ export const DispatchTaskBoard: React.FC = () => {
     };
   }, [activeTasks]);
 
+  // 🔍 Kuljettajan / Pesulan hakuohjeiden ehdotukset (MAX 3)
+  const scheduleEntitySuggestions = useMemo(() => {
+    const q = scheduleSearchQuery.trim().toLowerCase();
+    if (!q) return [];
+    const results: Array<{
+      id: string;
+      type: 'driver' | 'laundry';
+      name: string;
+      subtext?: string;
+      phone?: string;
+    }> = [];
+
+    drivers.forEach((d) => {
+      const fullName = getDriverFullName(d);
+      if (fullName.toLowerCase().includes(q) || (d.phone && d.phone.includes(q))) {
+        results.push({
+          id: d.user_id,
+          type: 'driver',
+          name: fullName,
+          subtext: d.phone ? `Puh: ${d.phone}` : "Kuljettaja",
+          phone: d.phone || "",
+        });
+      }
+    });
+
+    laundries.forEach((l) => {
+      if (l.name.toLowerCase().includes(q) || (l.address && l.address.toLowerCase().includes(q))) {
+        results.push({
+          id: l.id,
+          type: 'laundry',
+          name: l.name,
+          subtext: l.address || l.city || "Pesula",
+          phone: l.contact_phone || "",
+        });
+      }
+    });
+
+    return results.slice(0, 3); // Max 3 ehdotusta
+  }, [scheduleSearchQuery, drivers, laundries]);
+
+  // 📅 Valitun Kuljettajan / Pesulan päiväkohtaiset keikat
+  const scheduleEntityTasks = useMemo(() => {
+    if (!selectedScheduleEntity) return [];
+    return activeTasks.filter((t) => {
+      const isTargetMatch = selectedScheduleEntity.type === 'driver'
+        ? t.driver_id === selectedScheduleEntity.id
+        : t.laundry_id === selectedScheduleEntity.id;
+
+      if (!isTargetMatch) return false;
+
+      const taskDate = t.scheduled_date || (t.task_type === 'pickup' ? t.orders?.pickup_date : t.orders?.return_date);
+      return taskDate === scheduleDate;
+    }).sort((a, b) => {
+      const timeA = a.scheduled_time_slot || a.orders?.pickup_time || "";
+      const timeB = b.scheduled_time_slot || b.orders?.pickup_time || "";
+      return timeA.localeCompare(timeB);
+    });
+  }, [selectedScheduleEntity, activeTasks, scheduleDate]);
+
   // Muunnetaan kartan muotoon
   const mapTasks: MapTaskItem[] = useMemo(() => {
     return filteredTasks.map((t) => {
@@ -1892,6 +1965,260 @@ export const DispatchTaskBoard: React.FC = () => {
               <p className="text-[10px] text-muted-foreground">Palautuksessa</p>
               <h5 className="text-sm font-bold text-purple-600">{stats.returning} kpl</h5>
             </button>
+          </div>
+
+          {/* 🔍 KULJETTAJAN / PESULAN PÄIVÄKOHTAINEN HAKU JA AIKATAULUKORTTI */}
+          <div className="mt-2.5 space-y-2">
+            {/* Hakukenttä */}
+            <div className="relative">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={scheduleSearchQuery}
+                  onChange={(e) => {
+                    setScheduleSearchQuery(e.target.value);
+                    setShowScheduleDropdown(true);
+                  }}
+                  onFocus={() => {
+                    if (scheduleSearchQuery.trim().length > 0) setShowScheduleDropdown(true);
+                  }}
+                  placeholder="Hae kuljettajan tai pesulan nimellä tarkastellaksesi aikataulua..."
+                  className="h-9 text-xs sm:text-sm pl-8 pr-8 rounded-lg bg-card shadow-2xs border-input font-medium"
+                />
+                {scheduleSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScheduleSearchQuery("");
+                      setShowScheduleDropdown(false);
+                    }}
+                    className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Autocomplete Dropdown (max 3kpl) */}
+              {showScheduleDropdown && scheduleEntitySuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-popover text-popover-foreground rounded-xl border shadow-xl overflow-hidden divide-y divide-border/40">
+                  <div className="p-1.5 bg-muted/40 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2.5 flex items-center justify-between">
+                    <span>Valitse tarkasteltava kohde (max 3)</span>
+                    <button type="button" onClick={() => setShowScheduleDropdown(false)} className="hover:text-foreground">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                  {scheduleEntitySuggestions.map((item) => (
+                    <button
+                      key={`${item.type}_${item.id}`}
+                      type="button"
+                      onClick={() => {
+                        setSelectedScheduleEntity(item);
+                        setScheduleSearchQuery(item.name);
+                        setShowScheduleDropdown(false);
+                      }}
+                      className="w-full text-left p-2.5 hover:bg-accent/60 transition-colors flex items-center justify-between gap-2 group"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {item.type === 'driver' ? (
+                          <div className="p-1 rounded bg-blue-100 dark:bg-blue-950 text-blue-600 shrink-0">
+                            <Truck className="h-3.5 w-3.5" />
+                          </div>
+                        ) : (
+                          <div className="p-1 rounded bg-purple-100 dark:bg-purple-950 text-purple-600 shrink-0">
+                            <Building2 className="h-3.5 w-3.5" />
+                          </div>
+                        )}
+                        <div className="truncate">
+                          <p className="text-xs font-bold truncate text-foreground group-hover:text-primary transition-colors">{item.name}</p>
+                          {item.subtext && <p className="text-[10px] text-muted-foreground truncate">{item.subtext}</p>}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0.2 shrink-0">
+                        {item.type === 'driver' ? 'Kuljettaja' : 'Pesula'}
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Valitun Kuljettajan / Pesulan Aikataulukortti */}
+            {selectedScheduleEntity && (
+              <div className="p-3 rounded-xl border bg-card shadow-xs space-y-2.5 animate-fade-in border-primary/20">
+                {/* Header & Sulkeminen */}
+                <div className="flex items-center justify-between border-b pb-2">
+                  <div className="flex items-center gap-2">
+                    {selectedScheduleEntity.type === 'driver' ? (
+                      <div className="p-1.5 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400">
+                        <Truck className="h-4 w-4" />
+                      </div>
+                    ) : (
+                      <div className="p-1.5 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400">
+                        <Building2 className="h-4 w-4" />
+                      </div>
+                    )}
+                    <div>
+                      <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        {selectedScheduleEntity.name}
+                        <span className="text-[10px] font-normal text-muted-foreground border px-1.5 py-0.2 rounded-md bg-muted">
+                          {selectedScheduleEntity.type === 'driver' ? 'Kuljettaja' : 'Pesula'}
+                        </span>
+                      </h4>
+                      {selectedScheduleEntity.phone && (
+                        <p className="text-[10px] text-muted-foreground">{selectedScheduleEntity.phone}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setSelectedScheduleEntity(null);
+                      setScheduleSearchQuery("");
+                    }}
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    title="Sulje aikataulukortti"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+
+                {/* Päivämäärän navigaatio: Eilen | Tänään | Huomenna & Nuolet */}
+                <div className="flex items-center justify-between gap-2 bg-muted/40 p-1.5 rounded-lg border">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() - 1);
+                        setScheduleDate(d.toISOString().split("T")[0]);
+                      }}
+                      className={cn(
+                        "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
+                        scheduleDate === new Date(Date.now() - 86400000).toISOString().split("T")[0]
+                          ? "bg-primary text-primary-foreground font-bold"
+                          : "hover:bg-muted text-muted-foreground"
+                      )}
+                    >
+                      Eilen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleDate(new Date().toISOString().split("T")[0])}
+                      className={cn(
+                        "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
+                        scheduleDate === new Date().toISOString().split("T")[0]
+                          ? "bg-primary text-primary-foreground font-bold"
+                          : "hover:bg-muted text-muted-foreground"
+                      )}
+                    >
+                      Tänään
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 1);
+                        setScheduleDate(d.toISOString().split("T")[0]);
+                      }}
+                      className={cn(
+                        "px-2 py-0.5 rounded text-[11px] font-medium transition-colors",
+                        scheduleDate === new Date(Date.now() + 86400000).toISOString().split("T")[0]
+                          ? "bg-primary text-primary-foreground font-bold"
+                          : "hover:bg-muted text-muted-foreground"
+                      )}
+                    >
+                      Huomenna
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date(scheduleDate);
+                        d.setDate(d.getDate() - 1);
+                        setScheduleDate(d.toISOString().split("T")[0]);
+                      }}
+                      className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
+                      title="Edellinen päivä"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <Input
+                      type="date"
+                      value={scheduleDate}
+                      onChange={(e) => setScheduleDate(e.target.value)}
+                      className="h-6 text-[11px] px-1.5 py-0 w-28 bg-background border font-medium"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date(scheduleDate);
+                        d.setDate(d.getDate() + 1);
+                        setScheduleDate(d.toISOString().split("T")[0]);
+                      }}
+                      className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
+                      title="Seuraava päivä"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Aikataulun keikat tälle päivälle */}
+                <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                  {scheduleEntityTasks.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground text-xs bg-muted/20 rounded-lg border border-dashed">
+                      Ei keikkoja valitulle päivämäärälle ({formatSafeDate(scheduleDate)})
+                    </div>
+                  ) : (
+                    scheduleEntityTasks.map((t) => {
+                      const isPickup = t.task_type === 'pickup';
+                      const slot = t.scheduled_time_slot || (isPickup ? t.orders?.pickup_time : t.orders?.return_time) || "Aika ei valittu";
+                      const custName = `${t.orders?.first_name || t.pickup_name || "Asiakas"} ${t.orders?.last_name || ""}`.trim();
+                      const address = isPickup
+                        ? (t.pickup_address || t.origin_address || t.orders?.address || "")
+                        : (t.delivery_address || t.destination_address || t.orders?.address || "");
+
+                      return (
+                        <div
+                          key={t.id}
+                          onClick={() => setSelectedMapTaskId(t.id)}
+                          className={cn(
+                            "p-2 rounded-lg border text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors hover:bg-accent/50",
+                            selectedMapTaskId === t.id ? "bg-primary/10 border-primary font-semibold" : "bg-card"
+                          )}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-mono text-[11px] font-bold text-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
+                              <Clock className="h-3 w-3 inline mr-1 opacity-70" />
+                              {slot}
+                            </span>
+                            <div className="truncate">
+                              <p className="font-bold text-foreground truncate">{custName}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{address}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Badge variant={isPickup ? "default" : "secondary"} className="text-[9px] px-1.5 py-0.2">
+                              {isPickup ? "Nouto" : "Palautus"}
+                            </Badge>
+                            <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1 rounded">
+                              {shortOrderId(t.order_id)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
         </div>

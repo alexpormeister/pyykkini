@@ -134,26 +134,6 @@ export const Landing = () => {
                   className="justify-center lg:justify-start"
                   onBadgeClick={() => setDownloadModalOpen(true)}
                 />
-
-                <form onSubmit={handleSms} className="mt-5 flex flex-col gap-3 sm:flex-row sm:max-w-md">
-                  <Input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Syötä puhelinnumero"
-                    aria-label="Puhelinnumero"
-                    className="h-12 rounded-2xl bg-card/80"
-                  />
-                  <Button type="submit" variant="hero" className="h-12 shrink-0 rounded-2xl">
-                    <Send className="mr-2 h-4 w-4" />
-                    Lähetä latauslinkki
-                  </Button>
-                </form>
-
-                <p className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground lg:justify-start">
-                  <Clock className="h-3.5 w-3.5" /> Iltanoudot samana päivänä, toimitus 48 tunnissa
-                </p>
               </div>
             </div>
 
