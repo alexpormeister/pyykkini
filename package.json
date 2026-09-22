@@ -22,6 +22,8 @@
   "overrides": {
     "strip-ansi-cjs": "strip-ansi@^6.0.1",
     "string-width-cjs": "string-width@^4.2.0",
-    "wrap-ansi-cjs": "wrap-ansi@^7.0.0"
+    "wrap-ansi-cjs": "wrap-ansi@^7.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   }
 }
