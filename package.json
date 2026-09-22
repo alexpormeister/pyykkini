@@ -13,6 +13,7 @@
     "lint": "turbo run lint"
   },
   "devDependencies": {
+    "@esbuild/linux-x64": "^0.28.2",
     "@rollup/rollup-linux-x64-gnu": "^4.63.4",
     "turbo": "^2.0.0"
   },
