@@ -53,6 +53,12 @@ function shortOrderId(id?: string | null): string {
   return `#${clean.slice(0, 8).toUpperCase()}`;
 }
 
+function extractStartTime(timeStr?: string | null, fallback: string = "10:00"): string {
+  if (!timeStr) return fallback;
+  const match = timeStr.match(/(\d{1,2}:\d{2})/);
+  return match ? match[1] : fallback;
+}
+
 function formatSafeDate(dateStr?: string | null): string {
   if (!dateStr) return "-";
   try {
@@ -327,11 +333,6 @@ export const DispatchTaskBoard: React.FC = () => {
     }
   }, [dispatchData?.settings]);
 
-  useEffect(() => {
-    if (laundries.length > 0 && !formLaundryId) {
-      setFormLaundryId(laundries[0].id);
-    }
-  }, [laundries, formLaundryId]);
 
   const { data: laundryPricesData } = useQuery({
     queryKey: ['laundryPrices', formLaundryId],
@@ -712,6 +713,7 @@ export const DispatchTaskBoard: React.FC = () => {
     setFormAccessCode("");
     setFormNotes("");
     setMatchedUserId(null);
+    setFormLaundryId("");
     setFormSelectedDriverId("unassigned");
     const defaultProd = products[0] || { name: "Pesuni-Kassi (9 kg)", base_price: 35.90, product_id: "prod_kassi_9kg" };
     setFormProducts([
@@ -762,11 +764,12 @@ export const DispatchTaskBoard: React.FC = () => {
       const deliveryFeeNum = parseFloat(formDeliveryFee) || 0;
       const finalPriceNum = parseFloat(formTotalPrice);
 
+      const selectedLaundryId = formLaundryId.trim() || null;
       const assignedDriver = formSelectedDriverId !== "unassigned" ? formSelectedDriverId : null;
-      const chosenLaundry = laundries.find((l) => l.id === formLaundryId) || laundries[0];
-      const laundryAddress = chosenLaundry?.address || "Siltakatu 11, 02770 Espoo";
-      const laundryPhone = chosenLaundry?.contact_phone || "+358401422449";
-      const laundryName = chosenLaundry?.name || "24Pesula Entresse";
+      const chosenLaundry = selectedLaundryId ? laundries.find((l) => l.id === selectedLaundryId) : null;
+      const laundryAddress = chosenLaundry?.address || "Yleinen jako";
+      const laundryPhone = chosenLaundry?.contact_phone || "";
+      const laundryName = chosenLaundry?.name || "Yleinen jako";
 
       const summaryServiceName = formProducts.map((p) => `${p.name} x ${p.quantity}`).join(", ");
 
@@ -781,10 +784,10 @@ export const DispatchTaskBoard: React.FC = () => {
           address: fullAddress,
           access_code: formAccessCode.trim() || null,
           pickup_date: formPickupDate,
-          pickup_time: formPickupTime.split("-")[0]?.trim() || "10:00",
+          pickup_time: extractStartTime(formPickupTime, "10:00"),
           pickup_slot: formPickupTime,
           return_date: formReturnDate,
-          return_time: formReturnTime.split("-")[0]?.trim() || "18:00",
+          return_time: extractStartTime(formReturnTime, "18:00"),
           delivery_slot: formReturnTime,
           service_name: summaryServiceName || "Pesupalvelu",
           service_type: formProducts.length > 1 ? "multiple" : "standard",
@@ -793,7 +796,8 @@ export const DispatchTaskBoard: React.FC = () => {
           service_fee: parseFloat(formServiceFee) || 0,
           final_price: finalPriceNum,
           payment_amount: finalPriceNum,
-          laundry_id: formLaundryId || null,
+          laundry_id: selectedLaundryId,
+          laundry_status: selectedLaundryId ? "accepted" : "pending",
           driver_id: assignedDriver,
           status: assignedDriver ? ("accepted" as any) : ("pending" as any),
           tracking_status: assignedDriver ? ("DRIVER_ASSIGNED" as any) : ("ORDER_PLACED" as any),
@@ -814,7 +818,7 @@ export const DispatchTaskBoard: React.FC = () => {
         order_id: newOrder.id,
         task_type: "pickup",
         driver_id: assignedDriver,
-        laundry_id: formLaundryId || null,
+        laundry_id: selectedLaundryId,
         origin_name: fullCustomerName,
         origin_address: fullAddress,
         origin_phone: formPhone.trim(),
@@ -831,7 +835,7 @@ export const DispatchTaskBoard: React.FC = () => {
         order_id: newOrder.id,
         task_type: "delivery",
         driver_id: null,
-        laundry_id: formLaundryId || null,
+        laundry_id: selectedLaundryId,
         origin_name: laundryName,
         origin_address: laundryAddress,
         origin_phone: laundryPhone,
@@ -854,7 +858,7 @@ export const DispatchTaskBoard: React.FC = () => {
         quantity: p.quantity,
         unit_price: p.unit_price,
         total_price: p.unit_price * p.quantity,
-        laundry_id: formLaundryId || null,
+        laundry_id: selectedLaundryId,
       }));
 
       await supabase.from("order_items").insert(itemRows);
@@ -1172,12 +1176,24 @@ export const DispatchTaskBoard: React.FC = () => {
   }, [products]);
 
   const laundryOptions: SearchableOption[] = useMemo(() => {
-    return laundries.map((l) => ({
-      value: l.id,
-      label: l.name,
-      sublabel: l.address || l.city || undefined,
-      icon: <Building2 className="h-3 w-3 text-primary" />,
-    }));
+    const opts: SearchableOption[] = [
+      {
+        value: "",
+        label: "Yleinen jako",
+        sublabel: "Avoin kaikille pesuloille",
+        badge: "Avoin",
+        icon: <Building2 className="h-3.5 w-3.5 text-primary" />,
+      },
+    ];
+    laundries.forEach((l) => {
+      opts.push({
+        value: l.id,
+        label: l.name,
+        sublabel: l.address || l.city || undefined,
+        icon: <Building2 className="h-3 w-3 text-muted-foreground" />,
+      });
+    });
+    return opts;
   }, [laundries]);
 
   const driverOptions: SearchableOption[] = useMemo(() => {
