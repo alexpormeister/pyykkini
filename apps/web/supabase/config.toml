@@ -1,0 +1,13 @@
+project_id = "mgdvyfvcdivwzjxgrggv"
+
+[functions.validate-order]
+verify_jwt = true
+
+[functions.create-order]
+verify_jwt = true
+
+[functions.create-product]
+verify_jwt = true
+
+[functions.create-user]
+verify_jwt = true
