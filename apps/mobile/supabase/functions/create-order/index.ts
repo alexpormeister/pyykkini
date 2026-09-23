@@ -26,6 +26,21 @@ serve(async (req) => {
       userId 
     } = await req.json();
 
+    const extractStartTime = (timeStr?: string | null, fallback: string = "10:00"): string => {
+      if (!timeStr) return fallback;
+      const match = String(timeStr).match(/(\d{1,2}:\d{2})/);
+      return match ? match[1] : fallback;
+    };
+
+    if (baseOrderPayload) {
+      if (baseOrderPayload.pickup_time) {
+        baseOrderPayload.pickup_time = extractStartTime(baseOrderPayload.pickup_time, "10:00");
+      }
+      if (baseOrderPayload.return_time) {
+        baseOrderPayload.return_time = extractStartTime(baseOrderPayload.return_time, "18:00");
+      }
+    }
+
     // 1. Insert Order
     const { data: order, error: orderError } = await supabaseClient
       .from('orders')

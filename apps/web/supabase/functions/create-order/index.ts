@@ -7,6 +7,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function extractStartTime(timeStr?: string | null, fallback: string = "10:00"): string {
+  if (!timeStr) return fallback;
+  const match = String(timeStr).match(/(\d{1,2}:\d{2})/);
+  return match ? match[1] : fallback;
+}
+
 const createOrderSchema = z.object({
   validatedOrder: z.object({
     validatedItems: z.array(z.any()),
@@ -97,10 +103,10 @@ Deno.serve(async (req) => {
         special_instructions: formData.specialInstructions || null,
         pickup_option: formData.pickupOption,
         pickup_date: formData.selectedTimeSlot?.date || currentDate,
-        pickup_time: formData.selectedTimeSlot?.start || currentTime,
+        pickup_time: extractStartTime(formData.selectedTimeSlot?.start || currentTime, "10:00"),
         return_option: 'automatic',
         return_date: formData.estimatedReturnSlot?.date || currentDate,
-        return_time: formData.estimatedReturnSlot?.start || currentTime,
+        return_time: extractStartTime(formData.estimatedReturnSlot?.start || currentTime, "18:00"),
         discount_code: validatedOrder.coupon?.code || null,
         terms_accepted: true,
         status: 'pending',
