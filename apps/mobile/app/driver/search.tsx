@@ -222,7 +222,7 @@ export default function DriverSearchScreen() {
             const { data: taskData, error: taskError } = await supabase
                 .from('delivery_tasks')
                 .select('*, orders(*)')
-                .eq('status', 'unassigned')
+                .or('status.eq.unassigned,and(task_type.eq.delivery,status.eq.pending)')
                 .is('driver_id', null)
                 .order('scheduled_date', { ascending: true });
 
@@ -230,8 +230,9 @@ export default function DriverSearchScreen() {
                 const ordStatus = (t.orders?.status || '').toLowerCase();
                 const laundryStatus = (t.orders?.laundry_status || '').toLowerCase();
                 if (ordStatus === 'cancelled' || ordStatus === 'rejected') return false;
-                // Keikka tulee kuljettajille jakoon VASTA JA AINOASTAAN kun pesula on hyväksynyt tilauksen
-                if (laundryStatus !== 'accepted') return false;
+                // Keikka tulee kuljettajille jakoon kun pesula on hyväksynyt tilauksen
+                const isAccepted = ['accepted', 'washing', 'ready', 'packaging'].includes(laundryStatus) || ['washing', 'returning', 'ready_for_delivery'].includes(ordStatus);
+                if (!isAccepted) return false;
                 return true;
             });
 
