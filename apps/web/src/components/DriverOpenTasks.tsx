@@ -49,10 +49,78 @@ export const DriverOpenTasks = ({ onClaimed }: { onClaimed?: () => void }) => {
   const [askPickup, setAskPickup] = useState<OpenTask | null>(null);
 
   const fetchTasks = useCallback(async () => {
-    const { data, error } = await supabase.rpc("get_open_delivery_tasks" as never);
-    if (error) console.error("Open tasks error:", error);
-    setTasks(((data || []) as unknown as OpenTask[]));
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.rpc("get_open_delivery_tasks" as never);
+      if (!error && Array.isArray(data) && data.length > 0) {
+        setTasks((data as unknown as OpenTask[]));
+        setLoading(false);
+        return;
+      }
+
+      // 🔄 Fallback: Haetaan suoraan Supabasesta jos RPC ei palauta tietoja
+      const { data: rawTasks } = await supabase
+        .from("delivery_tasks")
+        .select("*, orders(*)")
+        .is("driver_id", null)
+        .not("status", "in", '("completed","cancelled","failed","delivered")');
+
+      const { data: rawOrders } = await supabase
+        .from("orders")
+        .select("*")
+        .not("status", "in", '("cancelled","rejected","completed","delivered")');
+
+      const tasksList: any[] = [...(rawTasks || [])];
+      const existingKeys = new Set(tasksList.map(t => `${t.order_id || t.id}_${t.task_type}`));
+
+      (rawOrders || []).forEach((ord: any) => {
+        const isLaundryConfirmed = Boolean(ord.laundry_id) || (ord.laundry_status && ord.laundry_status !== 'pending' && ord.laundry_status !== 'rejected') || ['laundry_accepted', 'washing', 'picked_up', 'ready_for_delivery'].includes(String(ord.status || '').toLowerCase());
+        if (isLaundryConfirmed && !existingKeys.has(`${ord.id}_delivery`)) {
+          tasksList.push({
+            id: `virtual_delivery_${ord.id}`,
+            order_id: ord.id,
+            task_type: "delivery",
+            driver_id: null,
+            laundry_id: ord.laundry_id,
+            origin_name: "Pesulakeskus",
+            scheduled_date: ord.return_date || ord.pickup_date,
+            scheduled_time_slot: ord.return_time || "18:00",
+            status: "unassigned",
+            driver_payout: 15.0,
+            orders: ord,
+          });
+        }
+      });
+
+      const formatted: OpenTask[] = tasksList
+        .filter((t) => {
+          const ordObj = Array.isArray(t.orders) ? (t.orders[0] || {}) : (t.orders || {});
+          const ordSt = String(ordObj.status || "").toLowerCase();
+          if (ordSt === "cancelled" || ordSt === "rejected") return false;
+          return true;
+        })
+        .map((t) => {
+          const ordObj = Array.isArray(t.orders) ? (t.orders[0] || {}) : (t.orders || {});
+          return {
+            id: String(t.id),
+            order_id: String(t.order_id || ordObj.id),
+            task_type: String(t.task_type),
+            area: ordObj.address ? ordObj.address.split(",")[1]?.trim() || "Pääkaupunkiseutu" : "Pääkaupunkiseutu",
+            laundry_name: t.origin_name || t.destination_name || "Pesula",
+            scheduled_date: t.scheduled_date || ordObj.return_date || ordObj.pickup_date,
+            scheduled_time_slot: t.scheduled_time_slot || ordObj.return_time || ordObj.pickup_time,
+            driver_payout: Number(t.driver_payout) || 15.0,
+            pickup_done: ordObj.status === "washing" || ordObj.tracking_status === "WASHING" || t.task_type === "delivery",
+            pickup_claimed: Boolean(ordObj.driver_id),
+            items: [ordObj.service_name || "Pyykkipalvelu"],
+          };
+        });
+
+      setTasks(formatted);
+    } catch (err) {
+      console.error("Open tasks fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
