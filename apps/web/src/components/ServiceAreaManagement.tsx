@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,95 +76,116 @@ const MunicipalitySelect: React.FC<{
   value: string;
   onChange: (val: string) => void;
 }> = ({ value, onChange }) => {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [inputValue, setInputValue] = useState(value);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, []);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = inputValue.trim().toLowerCase();
     if (!q) return FINNISH_MUNICIPALITIES;
     return FINNISH_MUNICIPALITIES.filter((m) => m.toLowerCase().includes(q));
-  }, [search]);
+  }, [inputValue]);
+
+  const handleSelect = (m: string) => {
+    setInputValue(m);
+    onChange(m);
+    setIsOpen(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInputValue(val);
+    onChange(val);
+    setIsOpen(true);
+  };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-xs transition-colors hover:bg-accent/40 focus:outline-none focus:ring-1 focus:ring-ring"
-        >
-          <span className="truncate text-left font-medium">
-            {value ? (
-              <span className="flex items-center gap-2 truncate">
-                <Building2 className="h-4 w-4 text-primary shrink-0" />
-                <span className="truncate font-semibold">{value}</span>
-              </span>
-            ) : (
-              <span className="text-muted-foreground">Valitse kunta alasvetovalikosta...</span>
-            )}
-          </span>
-          <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0 shadow-xl rounded-xl border bg-popover z-50" align="start">
-        <div className="flex items-center border-b px-2.5 py-1.5 bg-muted/20">
-          <Search className="mr-1.5 h-3.5 w-3.5 shrink-0 opacity-50 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Hae kuntaa (esim. Turku)..."
-            className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
-            autoFocus
-          />
-          {search && (
-            <button type="button" onClick={() => setSearch("")} className="text-muted-foreground hover:text-foreground">
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-        <div className="max-h-[220px] overflow-y-auto p-1 space-y-0.5">
+    <div ref={containerRef} className="relative w-full">
+      <div className="relative flex items-center">
+        <Building2 className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <Input
+          id="sa-city"
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onFocus={() => setIsOpen(true)}
+          placeholder="Kirjoita tai valitse kunta (esim. Turku)..."
+          className="pl-9 pr-8 text-sm"
+          autoComplete="off"
+        />
+        {inputValue ? (
+          <button
+            type="button"
+            onClick={() => {
+              setInputValue("");
+              onChange("");
+              setIsOpen(true);
+            }}
+            className="absolute right-2.5 text-muted-foreground hover:text-foreground p-0.5 rounded-full"
+            aria-label="Tyhjennä kunta"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        ) : (
+          <ChevronDown className="absolute right-2.5 h-4 w-4 text-muted-foreground pointer-events-none opacity-50" />
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-[100] max-h-56 overflow-y-auto rounded-lg border bg-popover text-popover-foreground shadow-xl p-1">
           {filtered.length === 0 ? (
             <div className="p-3 text-center text-xs text-muted-foreground">
-              <p>Ei kuntaa nimellä "{search}".</p>
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(search.trim());
-                  setOpen(false);
-                }}
-                className="mt-2 inline-flex items-center px-2 py-1 rounded bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90"
-              >
-                Käytä nimellä "{search.trim()}"
-              </button>
+              <p>Ei kuntaa nimellä "{inputValue}".</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">Syötetty nimi jää voimaan automaattisesti.</p>
             </div>
           ) : (
-            filtered.map((m) => {
-              const isSelected = m.toLowerCase() === value.toLowerCase();
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => {
-                    onChange(m);
-                    setOpen(false);
-                    setSearch("");
-                  }}
-                  className={cn(
-                    "w-full flex items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-left transition-colors",
-                    isSelected ? "bg-primary/10 text-primary font-semibold" : "hover:bg-muted text-foreground"
-                  )}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="truncate">{m}</span>
-                  </div>
-                  {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
-                </button>
-              );
-            })
+            <div>
+              {filtered.map((m) => {
+                const isSelected = m.toLowerCase() === inputValue.trim().toLowerCase();
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleSelect(m);
+                    }}
+                    className={cn(
+                      "w-full flex items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-left transition-colors cursor-pointer",
+                      isSelected ? "bg-primary/10 text-primary font-semibold" : "hover:bg-muted text-foreground"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="truncate">{m}</span>
+                    </div>
+                    {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
-      </PopoverContent>
-    </Popover>
+      )}
+    </div>
   );
 };
 
