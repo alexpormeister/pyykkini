@@ -56,9 +56,13 @@ function shortOrderId(id?: string | null): string {
 }
 
 function extractStartTime(timeStr?: string | null, fallback: string = "10:00"): string {
-  if (!timeStr) return fallback;
-  const match = timeStr.match(/(\d{1,2}:\d{2})/);
-  return match ? match[1] : fallback;
+  if (!timeStr) return `${fallback.slice(0, 5)}:00`;
+  const clean = String(timeStr).trim();
+  const match = clean.match(/(\d{1,2})[:.](\d{2})/);
+  if (!match) return `${fallback.slice(0, 5)}:00`;
+  const hours = match[1].padStart(2, "0");
+  const minutes = match[2];
+  return `${hours}:${minutes}:00`;
 }
 
 function formatSafeDate(dateStr?: string | null): string {
