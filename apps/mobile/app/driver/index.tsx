@@ -120,6 +120,7 @@ export default function DriverDrivesScreen() {
 
     const [drives, setDrives] = useState<DriverDrive[]>([]);
     const drivesRef = useRef<DriverDrive[]>(drives);
+    const arrivedStatusesRef = useRef<Map<string, 'arrived_pickup' | 'arrived_delivery'>>(new Map());
     useEffect(() => {
         drivesRef.current = drives;
     }, [drives]);
@@ -278,13 +279,33 @@ export default function DriverDrivesScreen() {
                     const wasArrivedPickup = prevDrive?.status === 'arrived_pickup';
                     const wasArrivedDelivery = prevDrive?.status === 'arrived_delivery';
 
+                    const driveKey = String(t.id);
+                    const orderKey = String(t.order_id || '');
+                    const activeArrivedStatus = arrivedStatusesRef.current.get(driveKey) || (orderKey ? arrivedStatusesRef.current.get(orderKey) : undefined);
+
+                    const isArrivedPickup = 
+                        activeArrivedStatus === 'arrived_pickup' || 
+                        wasArrivedPickup || 
+                        orderTracking === 'ARRIVED_PICKUP' || 
+                        Boolean(ordActualPickup);
+
+                    const isArrivedDelivery = 
+                        activeArrivedStatus === 'arrived_delivery' || 
+                        wasArrivedDelivery || 
+                        orderTracking === 'ARRIVED_DELIVERY' || 
+                        Boolean(ordActualReturn);
+
                     let taskStatus = t.status || 'assigned';
                     if (isPickup) {
-                        if (t.status === 'completed' || t.status === 'delivered' || orderStatus === 'washing') {
+                        if (t.status === 'completed' || t.status === 'delivered' || orderStatus === 'washing' || orderStatus === 'completed') {
                             taskStatus = 'completed';
+                            arrivedStatusesRef.current.delete(driveKey);
+                            if (orderKey) arrivedStatusesRef.current.delete(orderKey);
                         } else if (orderTracking === 'PICKED_UP' || t.pickup_weight_kg || (t.pickup_photos && t.pickup_photos.length > 0)) {
                             taskStatus = 'in_transit_to_laundry';
-                        } else if (orderTracking === 'ARRIVED_PICKUP' || Boolean(ordActualPickup) || wasArrivedPickup) {
+                            arrivedStatusesRef.current.delete(driveKey);
+                            if (orderKey) arrivedStatusesRef.current.delete(orderKey);
+                        } else if (isArrivedPickup) {
                             taskStatus = 'arrived_pickup';
                         } else if (orderStatus === 'picking_up' || t.status === 'in_progress') {
                             taskStatus = 'picking_up';
@@ -295,12 +316,13 @@ export default function DriverDrivesScreen() {
                         // Palautus/Delivery-tehtävä
                         if (t.status === 'completed' || t.status === 'delivered' || orderStatus === 'delivered' || orderTracking === 'COMPLETED') {
                             taskStatus = 'completed';
-                        } else if (orderTracking === 'ARRIVED_DELIVERY' || Boolean(ordActualReturn) || wasArrivedDelivery) {
+                            arrivedStatusesRef.current.delete(driveKey);
+                            if (orderKey) arrivedStatusesRef.current.delete(orderKey);
+                        } else if (isArrivedDelivery) {
                             taskStatus = 'arrived_delivery';
                         } else if (orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY' || t.status === 'in_progress') {
                             taskStatus = 'in_progress';
                         } else {
-                            // Ei ole vielä toimitusvaiheessa (nouto/pesu kesken)
                             taskStatus = 'assigned';
                         }
                     }
@@ -441,17 +463,22 @@ export default function DriverDrivesScreen() {
                     const wasArrivedPickup = prevDrive?.status === 'arrived_pickup';
                     const wasArrivedDelivery = prevDrive?.status === 'arrived_delivery';
 
+                    const activeArrivedStatus = arrivedStatusesRef.current.get(String(o.id));
+                    const isArrivedPickup = activeArrivedStatus === 'arrived_pickup' || wasArrivedPickup || orderTracking === 'ARRIVED_PICKUP' || Boolean(o.actual_pickup_time);
+                    const isArrivedDelivery = activeArrivedStatus === 'arrived_delivery' || wasArrivedDelivery || orderTracking === 'ARRIVED_DELIVERY' || Boolean(o.actual_return_time);
+
                     let taskStatus = 'assigned';
                     if (isCompleted) {
                         taskStatus = 'completed';
+                        arrivedStatusesRef.current.delete(String(o.id));
+                    } else if (isArrivedDelivery) {
+                        taskStatus = 'arrived_delivery';
+                    } else if (isArrivedPickup) {
+                        taskStatus = 'arrived_pickup';
                     } else if (orderTracking === 'PICKED_UP' || o.pickup_weight_kg || (o.pickup_photos && o.pickup_photos.length > 0)) {
                         taskStatus = 'in_transit_to_laundry';
-                    } else if (orderTracking === 'ARRIVED_PICKUP' || Boolean(o.actual_pickup_time) || wasArrivedPickup) {
-                        taskStatus = 'arrived_pickup';
                     } else if (orderStatus === 'picking_up') {
                         taskStatus = 'picking_up';
-                    } else if (orderTracking === 'ARRIVED_DELIVERY' || Boolean(o.actual_return_time) || wasArrivedDelivery) {
-                        taskStatus = 'arrived_delivery';
                     } else if (orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY') {
                         taskStatus = 'in_progress';
                     } else {
@@ -655,6 +682,11 @@ export default function DriverDrivesScreen() {
             taskType: drive.taskType,
             newStatus,
         });
+
+        arrivedStatusesRef.current.set(String(drive.id), newStatus as any);
+        if (targetOrderId) {
+            arrivedStatusesRef.current.set(String(targetOrderId), newStatus as any);
+        }
 
         // Optimistinen päivitys
         setDrives(prev => prev.map(d => {
