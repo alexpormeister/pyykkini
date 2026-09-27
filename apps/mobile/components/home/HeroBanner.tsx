@@ -127,8 +127,9 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ onOpenDetail }) => {
 
         fetchBanners();
 
+        const channelName = `app-banners-carousel-${Math.random().toString(36).substring(7)}`;
         const channel = supabase
-            .channel('app-banners-carousel')
+            .channel(channelName)
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'app_banners' },

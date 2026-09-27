@@ -60,8 +60,9 @@ export function useSystemSettings(): SystemSettings {
         });
 
         // Kuunnellaan reaaliaikaisia päivityksiä Admin-paneelista
+        const channelName = `app_settings_realtime_${Math.random().toString(36).substring(7)}`;
         const subscription = supabase
-            .channel('app_settings_realtime')
+            .channel(channelName)
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'app_settings', filter: 'id=eq.global' },

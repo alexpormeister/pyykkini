@@ -264,6 +264,38 @@ export const DispatchTaskBoard: React.FC = () => {
   const [assignLaundryModalTask, setAssignLaundryModalTask] = useState<TaskRow | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // 📂 TILAUSKOHTAINEN LAAJENNUS JA MODAALI
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Set<string>>(new Set());
+  const [orderDetailsOrder, setOrderDetailsOrder] = useState<any | null>(null);
+  const [orderDetailsItems, setOrderDetailsItems] = useState<any[]>([]);
+  const [loadingDetailsItems, setLoadingDetailsItems] = useState(false);
+
+  const toggleExpandOrder = (orderId: string) => {
+    setExpandedOrderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  };
+
+  const handleOpenOrderDetails = async (order: any) => {
+    if (!order) return;
+    setOrderDetailsOrder(order);
+    setLoadingDetailsItems(true);
+    try {
+      const { data } = await supabase
+        .from("order_items")
+        .select("*")
+        .eq("order_id", order.id);
+      setOrderDetailsItems(data || []);
+    } catch {
+      setOrderDetailsItems([]);
+    } finally {
+      setLoadingDetailsItems(false);
+    }
+  };
+
   // 🔍 Kuljettajan & Pesulan päiväkohtainen haku & aikataulukortti
   const [scheduleSearchQuery, setScheduleSearchQuery] = useState("");
   const [showScheduleDropdown, setShowScheduleDropdown] = useState(false);
@@ -1118,6 +1150,39 @@ export const DispatchTaskBoard: React.FC = () => {
       return activeTasks;
     }
   }, [activeTasks, searchQuery, cityFilter, tabFilter, drivers, laundries]);
+
+  const groupedOrders = useMemo(() => {
+    const map = new Map<string, {
+      orderId: string;
+      order: any;
+      pickupTask?: TaskRow;
+      deliveryTask?: TaskRow;
+      tasks: TaskRow[];
+    }>();
+
+    filteredTasks.forEach((task) => {
+      const oId = task.order_id || task.id;
+      if (!map.has(oId)) {
+        map.set(oId, {
+          orderId: oId,
+          order: task.orders || null,
+          tasks: [],
+        });
+      }
+      const entry = map.get(oId)!;
+      entry.tasks.push(task);
+      if (task.task_type === "pickup") {
+        entry.pickupTask = task;
+      } else {
+        entry.deliveryTask = task;
+      }
+      if (!entry.order && task.orders) {
+        entry.order = task.orders;
+      }
+    });
+
+    return Array.from(map.values());
+  }, [filteredTasks]);
 
   const stats = useMemo(() => {
     let unassigned = 0;
@@ -2297,135 +2362,272 @@ export const DispatchTaskBoard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredTasks.length === 0 ? (
+                {groupedOrders.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="p-8 text-center text-muted-foreground text-xs">
-                      Ei aktiivisia keikkoja hakuehdoilla.
+                      Ei aktiivisia tilauksia hakuehdoilla.
                     </td>
                   </tr>
                 ) : (
-                  filteredTasks.map((task) => {
-                    const isPickup = task.task_type === "pickup";
-                    const customerName = isPickup
-                      ? `${task.orders?.first_name || task.pickup_name || "Asiakas"} ${task.orders?.last_name || ""}`.trim()
-                      : `${task.orders?.first_name || task.delivery_name || "Asiakas"} ${task.orders?.last_name || ""}`.trim();
+                  groupedOrders.map((group) => {
+                    const { orderId, order, pickupTask, deliveryTask, tasks: groupTasks } = group;
+                    const isExpanded = expandedOrderIds.has(orderId);
 
-                    const phone = task.pickup_phone || task.delivery_phone || task.orders?.phone || "";
-                    const address = isPickup
-                      ? (task.pickup_address || task.origin_address || task.orders?.address || "-")
-                      : (task.delivery_address || task.destination_address || task.orders?.address || "-");
+                    const firstTask = pickupTask || deliveryTask || groupTasks[0];
+                    const customerName = `${order?.first_name || firstTask?.pickup_name || "Asiakas"} ${order?.last_name || ""}`.trim();
+                    const phone = order?.phone || firstTask?.pickup_phone || firstTask?.delivery_phone || "";
+                    const price = Number(order?.final_price || order?.price || 0);
 
-                    const dateStr = task.scheduled_date || (isPickup ? task.orders?.pickup_date : task.orders?.return_date);
-                    const timeWindow = task.scheduled_time_slot || (isPickup ? task.orders?.pickup_time : task.orders?.return_time) || "10-12";
-                    const price = task.orders?.final_price || task.orders?.price || 0;
-                    const driver = findDriver(task.driver_id);
-                    const laundry = findLaundry(task.laundry_id);
+                    const pAddr = pickupTask?.pickup_address || order?.address || "-";
+                    const dAddr = deliveryTask?.delivery_address || order?.address || "-";
 
-                    const orderSt = String(task.orders?.status || "").toLowerCase();
-                    const taskSt = String(task.status || "").toLowerCase();
-                    const isLaundry = orderSt === "washing" || taskSt === "washing" || taskSt === "awaiting_laundry";
+                    const pDate = pickupTask?.scheduled_date || order?.pickup_date;
+                    const pTime = pickupTask?.scheduled_time_slot || order?.pickup_time || "08-10";
+                    const dDate = deliveryTask?.scheduled_date || order?.return_date;
+                    const dTime = deliveryTask?.scheduled_time_slot || order?.return_time || "18-20";
+
+                    const currentLaundryId = order?.laundry_id || pickupTask?.laundry_id || deliveryTask?.laundry_id;
+
+                    const orderSt = String(order?.status || "").toLowerCase();
+                    const isWashing = orderSt === "washing" || groupTasks.some((t) => String(t.status).toLowerCase() === "washing");
+                    const isCompleted = orderSt === "delivered" || orderSt === "completed";
 
                     let statusBadge = (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground">
-                        {task.status}
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                        Jaossa
                       </span>
                     );
 
-                    if (isLaundry) {
+                    if (isCompleted) {
                       statusBadge = (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                          Valmis
+                        </span>
+                      );
+                    } else if (isWashing) {
+                      statusBadge = (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300">
                           Pesulassa
                         </span>
                       );
-                    } else if (!task.driver_id || taskSt === "unassigned" || taskSt === "pending") {
-                      statusBadge = (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-                          Jaossa
-                        </span>
-                      );
-                    } else {
+                    } else if (groupTasks.some((t) => t.driver_id)) {
                       statusBadge = (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
-                          {isPickup ? "Noudossa" : "Palautuksessa"}
+                          Aktiivinen
                         </span>
                       );
                     }
 
                     return (
-                      <tr key={task.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="p-2.5 font-mono text-[11px] font-semibold text-foreground">
-                          {shortOrderId(task.order_id)}
-                        </td>
+                      <React.Fragment key={orderId}>
+                        {/* 🌟 PÄÄRIVI: TILAUS */}
+                        <tr className="hover:bg-muted/40 transition-colors bg-card font-medium border-b border-border/60">
+                          {/* ID & laajennusnappi */}
+                          <td className="p-2.5">
+                            <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-foreground">
+                              <button
+                                type="button"
+                                onClick={() => toggleExpandOrder(orderId)}
+                                className="p-0.5 hover:bg-muted rounded text-muted-foreground transition-transform"
+                                title={isExpanded ? "Sulje meno & paluu" : "Avaa meno & paluu"}
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4 text-primary" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 opacity-70" />
+                                )}
+                              </button>
+                              <span>{shortOrderId(orderId)}</span>
+                            </div>
+                          </td>
 
-                        <td className="p-2.5">
-                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                            isPickup ? "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300" : "bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300"
-                          }`}>
-                            {isPickup ? "Nouto" : "Palautus"}
-                          </span>
-                        </td>
+                          {/* TYYPPI */}
+                          <td className="p-2.5">
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-foreground border">
+                              Nouto & Palautus
+                            </span>
+                          </td>
 
-                        <td className="p-2.5">
-                          {statusBadge}
-                        </td>
+                          {/* TILA */}
+                          <td className="p-2.5">{statusBadge}</td>
 
-                        <td className="p-2.5">
-                          <span className="font-medium text-foreground block">{customerName}</span>
-                          {phone && <span className="text-[10px] text-muted-foreground">{phone}</span>}
-                        </td>
+                          {/* ASIAKAS */}
+                          <td className="p-2.5">
+                            <span className="font-bold text-foreground block">{customerName}</span>
+                            {phone && (
+                              <a href={`tel:${phone}`} className="text-[10px] text-primary hover:underline block">
+                                {phone}
+                              </a>
+                            )}
+                          </td>
 
-                        <td className="p-2.5 max-w-[180px] truncate text-muted-foreground" title={address}>
-                          {address}
-                        </td>
+                          {/* OSOITE (NOUTO -> TOIMITUS) */}
+                          <td className="p-2.5 max-w-[200px] truncate text-muted-foreground text-[11px]" title={`Nouto: ${pAddr} | Palautus: ${dAddr}`}>
+                            <div><span className="text-[10px] font-bold text-foreground">Nouto:</span> {pAddr}</div>
+                            {dAddr !== pAddr && <div><span className="text-[10px] font-bold text-foreground">Palautus:</span> {dAddr}</div>}
+                          </td>
 
-                        <td className="p-2.5 text-muted-foreground whitespace-nowrap">
-                          {formatSafeDate(dateStr)} {timeWindow}
-                        </td>
+                          {/* AIKATAULU SUMMARY */}
+                          <td className="p-2.5 text-muted-foreground whitespace-nowrap text-[11px]">
+                            <div><span className="font-semibold text-blue-600 dark:text-blue-400">Meno:</span> {formatSafeDate(pDate)} {pTime}</div>
+                            <div><span className="font-semibold text-purple-600 dark:text-purple-400">Paluu:</span> {formatSafeDate(dDate)} {dTime}</div>
+                          </td>
 
-                        {/* 🏢 PESULAN VALINTA SUORAAN TAULUKOSTA */}
-                        <td className="p-2.5 w-[160px]">
-                          <SearchableSelect
-                            options={laundryOptions}
-                            value={task.laundry_id || ""}
-                            onChange={(val) => handleAssignLaundry(task, val)}
-                            placeholder="Määritä pesula"
-                            searchPlaceholder="Hae pesulaa..."
-                            triggerClassName="h-6 text-[11px] py-0 w-[150px]"
-                          />
-                        </td>
+                          {/* PESULA (KOKO TILAUKSELLE) */}
+                          <td className="p-2.5 w-[160px]">
+                            <SearchableSelect
+                              options={laundryOptions}
+                              value={currentLaundryId || ""}
+                              onChange={(val) => {
+                                if (pickupTask) handleAssignLaundry(pickupTask, val);
+                                if (deliveryTask) handleAssignLaundry(deliveryTask, val);
+                              }}
+                              placeholder="Määritä pesula"
+                              searchPlaceholder="Hae pesulaa..."
+                              triggerClassName="h-6 text-[11px] py-0 w-[150px]"
+                            />
+                          </td>
 
-                        {/* 🚘 KUSKIN VALINTA SUORAAN TAULUKOSTA */}
-                        <td className="p-2.5 w-[160px]">
-                          <SearchableSelect
-                            options={driverOptions}
-                            value={task.driver_id || "unassigned"}
-                            onChange={(val) => handleAssignDriver(task, val === "unassigned" ? null : val)}
-                            placeholder="Määritä kuski"
-                            searchPlaceholder="Hae kuskia..."
-                            triggerClassName="h-6 text-[11px] py-0 w-[150px]"
-                          />
-                        </td>
+                          {/* KULJETTAJAT SUMMARY */}
+                          <td className="p-2.5 text-[11px]">
+                            <div className="truncate max-w-[140px]">
+                              <span className="text-muted-foreground">M: </span>
+                              <span className="font-medium text-foreground">{getDriverFullName(findDriver(pickupTask?.driver_id))}</span>
+                            </div>
+                            <div className="truncate max-w-[140px]">
+                              <span className="text-muted-foreground">P: </span>
+                              <span className="font-medium text-foreground">{getDriverFullName(findDriver(deliveryTask?.driver_id))}</span>
+                            </div>
+                          </td>
 
-                        <td className="p-2.5 font-semibold text-foreground whitespace-nowrap">
-                          {price.toFixed(2)} €
-                        </td>
+                          {/* HINTA */}
+                          <td className="p-2.5 font-bold text-foreground whitespace-nowrap text-xs">
+                            {price.toFixed(2)} €
+                          </td>
 
-                        <td className="p-2.5 text-right">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedMapTaskId(task.id);
-                              window.scrollTo({ top: 0, behavior: "smooth" });
-                            }}
-                            className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
-                            title="Näytä kartalla"
-                          >
-                            <MapPin className="h-3 w-3 mr-1" />
-                            Kartta
-                          </Button>
-                        </td>
-                      </tr>
+                          {/* TOIMINNOT: TILAUKSEN TIEDOT -NAPPI */}
+                          <td className="p-2.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => handleOpenOrderDetails(order || firstTask?.orders)}
+                                className="h-6 text-[10px] px-2 font-semibold shadow-2xs"
+                                title="Katso tilauksen tiedot & hinnastoerittely"
+                              >
+                                <FileText className="h-3 w-3 mr-1" />
+                                Tiedot
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  if (firstTask) setSelectedMapTaskId(firstTask.id);
+                                  window.scrollTo({ top: 0, behavior: "smooth" });
+                                }}
+                                className="h-6 text-[10px] px-1.5 text-muted-foreground hover:text-foreground"
+                                title="Näytä kartalla"
+                              >
+                                <MapPin className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* 🚗/📦 ALARIVIT: MENO JA PALUU ERITELTYNÄ (KUN LAADITUSSA TILASSA) */}
+                        {isExpanded && (
+                          <>
+                            {/* MENO (NOUTO) */}
+                            {pickupTask && (
+                              <tr className="bg-blue-50/40 dark:bg-blue-950/20 text-xs border-t border-blue-100 dark:border-blue-900/40">
+                                <td className="p-2 pl-8 font-mono text-[10px] text-muted-foreground">
+                                  └─ Meno
+                                </td>
+                                <td className="p-2">
+                                  <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                                    🚗 Nouto
+                                  </span>
+                                </td>
+                                <td className="p-2">
+                                  <span className="text-[10px] font-semibold text-muted-foreground">{pickupTask.status}</span>
+                                </td>
+                                <td className="p-2 text-[11px] text-muted-foreground">{customerName}</td>
+                                <td className="p-2 text-[11px] text-muted-foreground truncate max-w-[180px]">{pickupTask.pickup_address || order?.address}</td>
+                                <td className="p-2 text-[11px] font-medium text-foreground whitespace-nowrap">
+                                  {formatSafeDate(pickupTask.scheduled_date)} {pickupTask.scheduled_time_slot || "08-10"}
+                                </td>
+                                <td className="p-2 text-[11px] text-muted-foreground">
+                                  {findLaundry(pickupTask.laundry_id)?.name || "-"}
+                                </td>
+                                <td className="p-2 w-[160px]" colSpan={2}>
+                                  <SearchableSelect
+                                    options={driverOptions}
+                                    value={pickupTask.driver_id || "unassigned"}
+                                    onChange={(val) => handleAssignDriver(pickupTask, val === "unassigned" ? null : val)}
+                                    placeholder="Määritä noutokuski"
+                                    triggerClassName="h-6 text-[10px] py-0 w-[150px]"
+                                  />
+                                </td>
+                                <td className="p-2 text-right">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setSelectedMapTaskId(pickupTask.id)}
+                                    className="h-5 text-[10px] px-1.5 text-blue-600"
+                                  >
+                                    <MapPin className="h-3 w-3 mr-0.5" /> Noutopiste
+                                  </Button>
+                                </td>
+                              </tr>
+                            )}
+
+                            {/* PALUU (TOIMITUS) */}
+                            {deliveryTask && (
+                              <tr className="bg-purple-50/40 dark:bg-purple-950/20 text-xs border-t border-purple-100 dark:border-purple-900/40">
+                                <td className="p-2 pl-8 font-mono text-[10px] text-muted-foreground">
+                                  └─ Paluu
+                                </td>
+                                <td className="p-2">
+                                  <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                                    📦 Palautus
+                                  </span>
+                                </td>
+                                <td className="p-2">
+                                  <span className="text-[10px] font-semibold text-muted-foreground">{deliveryTask.status}</span>
+                                </td>
+                                <td className="p-2 text-[11px] text-muted-foreground">{customerName}</td>
+                                <td className="p-2 text-[11px] text-muted-foreground truncate max-w-[180px]">{deliveryTask.delivery_address || order?.address}</td>
+                                <td className="p-2 text-[11px] font-medium text-foreground whitespace-nowrap">
+                                  {formatSafeDate(deliveryTask.scheduled_date)} {deliveryTask.scheduled_time_slot || "18-20"}
+                                </td>
+                                <td className="p-2 text-[11px] text-muted-foreground">
+                                  {findLaundry(deliveryTask.laundry_id)?.name || "-"}
+                                </td>
+                                <td className="p-2 w-[160px]" colSpan={2}>
+                                  <SearchableSelect
+                                    options={driverOptions}
+                                    value={deliveryTask.driver_id || "unassigned"}
+                                    onChange={(val) => handleAssignDriver(deliveryTask, val === "unassigned" ? null : val)}
+                                    placeholder="Määritä palautuskuski"
+                                    triggerClassName="h-6 text-[10px] py-0 w-[150px]"
+                                  />
+                                </td>
+                                <td className="p-2 text-right">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setSelectedMapTaskId(deliveryTask.id)}
+                                    className="h-5 text-[10px] px-1.5 text-purple-600"
+                                  >
+                                    <MapPin className="h-3 w-3 mr-0.5" /> Palautuspiste
+                                  </Button>
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        )}
+                      </React.Fragment>
                     );
                   })
                 )}
@@ -2537,6 +2739,163 @@ export const DispatchTaskBoard: React.FC = () => {
 
             <DialogFooter>
               <Button variant="ghost" size="sm" className="text-xs h-8" onClick={() => setAssignLaundryModalTask(null)}>
+                Sulje
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 📄 TILAUKSEN TIEDOT & HINNASTOERITTELY -MODAALI */}
+      {orderDetailsOrder && (
+        <Dialog open={!!orderDetailsOrder} onOpenChange={() => setOrderDetailsOrder(null)}>
+          <DialogContent className="max-w-2xl rounded-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Tilauksen tiedot – #{shortOrderId(orderDetailsOrder.id)}
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Kattava yhteenveto asiakastiedoista, tilatuista tuotteista ja hinnastoerittelystä.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              {/* 1. ASIAKASTIEDOT */}
+              <div className="p-3.5 rounded-xl border bg-muted/20 space-y-2 text-xs">
+                <h4 className="font-bold text-foreground flex items-center gap-1.5 uppercase text-[11px] tracking-wider text-muted-foreground">
+                  <User className="h-3.5 w-3.5 text-primary" /> Asiakkaan tiedot
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Nimi:</span>
+                    <span className="font-semibold text-foreground text-sm">
+                      {orderDetailsOrder.first_name} {orderDetailsOrder.last_name || ""}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Puhelin:</span>
+                    {orderDetailsOrder.phone ? (
+                      <a href={`tel:${orderDetailsOrder.phone}`} className="font-semibold text-primary hover:underline">
+                        {orderDetailsOrder.phone}
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="text-muted-foreground block text-[10px]">Osoite:</span>
+                    <span className="font-semibold text-foreground">{orderDetailsOrder.address || "-"}</span>
+                  </div>
+                  {orderDetailsOrder.access_code && (
+                    <div>
+                      <span className="text-muted-foreground block text-[10px]">Ovikoodi / Koodi:</span>
+                      <span className="font-mono font-bold text-foreground bg-muted px-1.5 py-0.5 rounded">
+                        {orderDetailsOrder.access_code}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {orderDetailsOrder.special_instructions && (
+                  <div className="mt-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 text-xs">
+                    <strong>Erityisohjeet:</strong> {orderDetailsOrder.special_instructions}
+                  </div>
+                )}
+              </div>
+
+              {/* 2. TILATUT TUOTTEET */}
+              <div className="p-3.5 rounded-xl border bg-card space-y-2 text-xs">
+                <h4 className="font-bold text-foreground flex items-center gap-1.5 uppercase text-[11px] tracking-wider text-muted-foreground">
+                  <Package className="h-3.5 w-3.5 text-primary" /> Tilatut tuotteet & palvelut
+                </h4>
+
+                {loadingDetailsItems ? (
+                  <div className="py-4 text-center text-muted-foreground">Ladataan tuotteita...</div>
+                ) : orderDetailsItems.length === 0 ? (
+                  <div className="p-3 rounded-lg border bg-muted/20 text-muted-foreground text-center font-medium">
+                    {orderDetailsOrder.service_name || "Pesupalvelu"}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground">
+                        <tr>
+                          <th className="p-2 text-left">Tuote / Palvelu</th>
+                          <th className="p-2 text-center">Määrä</th>
+                          <th className="p-2 text-right">Yksikköhinta</th>
+                          <th className="p-2 text-right">Yhteensä</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {orderDetailsItems.map((item: any) => (
+                          <tr key={item.id} className="hover:bg-muted/20">
+                            <td className="p-2 font-medium">{item.service_name || item.product_name}</td>
+                            <td className="p-2 text-center font-bold">{item.quantity} kpl</td>
+                            <td className="p-2 text-right text-muted-foreground">{Number(item.unit_price || 0).toFixed(2)} €</td>
+                            <td className="p-2 text-right font-bold text-foreground">{Number(item.total_price || (item.unit_price * item.quantity) || 0).toFixed(2)} €</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. HINNASTOERITTELY & MAKSUTIEDOT */}
+              <div className="p-3.5 rounded-xl border bg-card space-y-2 text-xs">
+                <h4 className="font-bold text-foreground flex items-center gap-1.5 uppercase text-[11px] tracking-wider text-muted-foreground">
+                  <Euro className="h-3.5 w-3.5 text-emerald-600" /> Hinnastoerittely & Maksutiedot
+                </h4>
+
+                <div className="rounded-lg border bg-muted/20 p-3 space-y-1.5 text-xs">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Tuotteet yhteensä:</span>
+                    <span className="font-semibold text-foreground">{Number(orderDetailsOrder.price || 0).toFixed(2)} €</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Palvelumaksu:</span>
+                    <span className="font-semibold text-foreground">{Number(orderDetailsOrder.service_fee || 0).toFixed(2)} €</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Toimitusmaksu (nouto & palautus):</span>
+                    <span className="font-semibold text-foreground">{Number(orderDetailsOrder.delivery_fee || 0).toFixed(2)} €</span>
+                  </div>
+                  {orderDetailsOrder.coupon_discount > 0 && (
+                    <div className="flex justify-between text-emerald-600 font-medium">
+                      <span>Kuponkialennus:</span>
+                      <span>-{Number(orderDetailsOrder.coupon_discount).toFixed(2)} €</span>
+                    </div>
+                  )}
+
+                  <div className="border-t pt-2 mt-2 flex justify-between items-center text-sm font-bold text-foreground">
+                    <span>Lopullinen hinta (Yhteensä):</span>
+                    <span className="text-base text-emerald-600 font-black">{Number(orderDetailsOrder.final_price || orderDetailsOrder.price || 0).toFixed(2)} €</span>
+                  </div>
+
+                  <div className="flex justify-between text-[11px] text-muted-foreground border-t pt-1.5">
+                    <span>Sisältää ALV ({Number(orderDetailsOrder.vat_rate || 25.5)}%):</span>
+                    <span>{Number(orderDetailsOrder.vat_amount || 0).toFixed(2)} €</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-lg border bg-muted/40 text-xs">
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Maksutapa:</span>
+                    <span className="font-bold text-foreground uppercase">{orderDetailsOrder.payment_method || "Stripe / Kortti"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px] text-right">Maksun tila:</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded font-bold text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      {orderDetailsOrder.payment_status === "paid" ? "Maksettu" : orderDetailsOrder.payment_status || "Odottaa"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setOrderDetailsOrder(null)}>
                 Sulje
               </Button>
             </DialogFooter>

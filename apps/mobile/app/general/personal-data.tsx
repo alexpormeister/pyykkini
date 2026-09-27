@@ -192,12 +192,21 @@ export default function PersonalInfoScreen() {
             const user = session?.user;
             if (!user) throw new Error('Ei käyttäjää');
 
+            // Muunnetaan suomalainen pvm-muoto (DD.MM.YYYY) PostgreSQL ISO-muotoon (YYYY-MM-DD)
+            let isoDate = formattedDate;
+            if (formattedDate.includes('.')) {
+                const parts = formattedDate.split('.');
+                if (parts.length === 3) {
+                    isoDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                }
+            }
+
             const updates: Partial<UserProfile> = {
-                birth_date: formattedDate,
+                birth_date: isoDate,
                 age: age,
             };
 
-            const dbUpdates = { birth_date: formattedDate };
+            const dbUpdates = { birth_date: isoDate };
             const { error } = await supabase
                 .from('profiles')
                 .update({ updated_at: new Date().toISOString(), ...dbUpdates })

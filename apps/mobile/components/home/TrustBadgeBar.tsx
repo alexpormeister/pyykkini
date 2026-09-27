@@ -64,8 +64,9 @@ const TrustBadgeBar: React.FC = () => {
 
         fetchBadges();
 
+        const channelName = `app-trust-badges-realtime-${Math.random().toString(36).substring(7)}`;
         const channel = supabase
-            .channel('app-trust-badges-realtime')
+            .channel(channelName)
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'app_trust_badges' },

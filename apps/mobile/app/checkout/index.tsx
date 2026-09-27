@@ -343,18 +343,73 @@ export default function CheckoutScreen() {
             };
 
             // Edge Function Call for creating the order safely
-            const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-order', {
-                body: {
-                    baseOrderPayload,
-                    cartItems,
-                    saveToMyTextiles,
-                    pointsToUse,
-                    userId: user.id
-                }
-            });
+            let orderCreated = false;
+            try {
+                const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-order', {
+                    body: {
+                        baseOrderPayload,
+                        cartItems,
+                        saveToMyTextiles,
+                        pointsToUse,
+                        userId: user.id
+                    }
+                });
 
-            if (edgeError || edgeData?.error) {
-                throw new Error(edgeError?.message || edgeData?.error || "Tilauksen luonti epäonnistui");
+                if (!edgeError && edgeData?.success) {
+                    orderCreated = true;
+                }
+            } catch (efErr) {
+                console.warn("Edge function create-order failed, using direct client fallback:", efErr);
+            }
+
+            if (!orderCreated) {
+                // Suora tietokantatallennus varalla (Direct fallback)
+                const { data: order, error: orderError } = await supabase
+                    .from('orders')
+                    .insert([baseOrderPayload])
+                    .select('id')
+                    .single();
+
+                if (orderError) throw orderError;
+
+                if (cartItems && cartItems.length > 0) {
+                    const orderItemsToInsert = cartItems.map((item: any) => ({
+                        order_id: order.id,
+                        service_type: 'laundry',
+                        service_name: item.name,
+                        quantity: item.quantity,
+                        unit_price: item.price,
+                        total_price: item.price * item.quantity,
+                    }));
+
+                    const { error: itemsError } = await supabase
+                        .from('order_items')
+                        .insert(orderItemsToInsert);
+
+                    if (itemsError) console.warn("Could not insert order items:", itemsError);
+
+                    if (saveToMyTextiles) {
+                        const savedTextilesPayload = cartItems.map((item: any) => {
+                            const lowerName = item.name.toLowerCase();
+                            let cat = 'Muu';
+                            if (lowerName.includes('matto')) cat = 'Matto';
+                            else if (lowerName.includes('puku') || lowerName.includes('juhla')) cat = 'Puku / Juhlavaate';
+                            else if (lowerName.includes('takki') || lowerName.includes('untuva')) cat = 'Takki / Untuvatuote';
+                            else if (lowerName.includes('verho') || lowerName.includes('peitto') || lowerName.includes('lakana') || lowerName.includes('tyyny')) cat = 'Kodintekstiili / Verhot';
+
+                            return {
+                                user_id: user.id,
+                                name: item.name,
+                                category: cat,
+                                product_id: String(item.id),
+                                last_washed_at: new Date().toISOString(),
+                                last_order_id: order.id,
+                            };
+                        });
+
+                        await supabase.from('customer_saved_textiles').insert(savedTextilesPayload);
+                    }
+                }
             }
 
             setIsProcessing(false);

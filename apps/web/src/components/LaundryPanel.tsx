@@ -148,20 +148,30 @@ export const LaundryPanel = () => {
         .eq("laundry_id", laundryId)
         .eq("is_active", true),
     ]);
-    const rawOrders = [...(unclaimed.data || []), ...(o.data || [])];
+    const activePrices = ((p.data || []) as unknown as { product_id: string; price: number; products?: { name?: string } | null }[]).map(
+      (row) => ({
+        product_id: row.product_id,
+        price: row.price,
+        name: row.products?.name || row.product_id,
+      })
+    );
+
+    // Suodatetaan avoimet tilaukset: pesulalle näytetään vain tilaukset, joiden tuotteet kuuluvat pesulan aktiivisiin palveluihin
+    const activeProductNames = new Set(activePrices.map(pr => (pr.name || "").toLowerCase().trim()));
+    const validUnclaimed = (unclaimed.data || []).filter((ord: any) => {
+      if (!ord.order_items || ord.order_items.length === 0) return true;
+      return ord.order_items.some((item: any) => {
+        const iName = (item.product_name || item.service_name || ord.service_name || "").toLowerCase().trim();
+        return Array.from(activeProductNames).some(pName => pName && (iName.includes(pName) || pName.includes(iName)));
+      });
+    });
+
+    const rawOrders = [...validUnclaimed, ...(o.data || [])];
     const uniqueOrders = Array.from(new Map(rawOrders.map((item) => [item.id, item])).values());
     setOrders(uniqueOrders as unknown as LaundryOrder[]);
     setSettlements((s.data || []) as Settlement[]);
     setContracts((c.data || []) as Contract[]);
-    setPrices(
-      ((p.data || []) as unknown as { product_id: string; price: number; products?: { name?: string } | null }[]).map(
-        (row) => ({
-          product_id: row.product_id,
-          price: row.price,
-          name: row.products?.name || row.product_id,
-        })
-      )
-    );
+    setPrices(activePrices);
     setLoading(false);
   }, [laundryId]);
 
