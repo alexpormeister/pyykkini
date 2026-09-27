@@ -678,7 +678,7 @@ export const LaundryPanel = () => {
                     extra={
                       !isPickedUp ? (
                         <p className="rounded-lg bg-amber-500/10 text-amber-900 dark:text-amber-200 border border-amber-500/20 p-2.5 text-xs font-medium">
-                          ⏳ Odottaa kuljettajan noutoa asiakkaalta. Pesulavastaanotto-nappi ilmestyy näkyviin vasta, kun kuljettaja on noutanut pyykin.
+                          ⏳ Odottaa kuljettajaa
                         </p>
                       ) : (
                         <p className="rounded-lg bg-emerald-500/10 text-emerald-900 dark:text-emerald-200 border border-emerald-500/20 p-2.5 text-xs font-medium">

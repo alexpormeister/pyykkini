@@ -119,6 +119,10 @@ export default function DriverDrivesScreen() {
     const [pageIndex, setPageIndex] = useState(0);
 
     const [drives, setDrives] = useState<DriverDrive[]>([]);
+    const drivesRef = useRef<DriverDrive[]>(drives);
+    useEffect(() => {
+        drivesRef.current = drives;
+    }, [drives]);
     const [completedPage, setCompletedPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -270,7 +274,7 @@ export default function DriverDrivesScreen() {
                     const ordActualReturn = ordObj.actual_return_time;
                     const isCompleted = t.status === 'completed' || t.status === 'delivered' || orderStatus === 'delivered' || orderTracking === 'COMPLETED' || (isPickup && orderStatus === 'washing');
 
-                    const prevDrive = drives.find(d => String(d.id) === String(t.id) || String(d.orderId) === orderIdStr);
+                    const prevDrive = drivesRef.current.find(d => String(d.id) === String(t.id) || String(d.orderId) === orderIdStr);
                     const wasArrivedPickup = prevDrive?.status === 'arrived_pickup';
                     const wasArrivedDelivery = prevDrive?.status === 'arrived_delivery';
 
@@ -422,7 +426,7 @@ export default function DriverDrivesScreen() {
                     const isDeliveryType = orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY' || orderTracking === 'PACKAGING';
                     const orderDateOnly = normalizeDateStr(isDeliveryType ? (o.return_date || o.pickup_date) : o.pickup_date);
 
-                    const prevDrive = drives.find(d => String(d.id) === String(o.id) || String(d.orderId) === String(o.id));
+                    const prevDrive = drivesRef.current.find(d => String(d.id) === String(o.id) || String(d.orderId) === String(o.id));
                     const wasArrivedPickup = prevDrive?.status === 'arrived_pickup';
                     const wasArrivedDelivery = prevDrive?.status === 'arrived_delivery';
 
@@ -659,14 +663,13 @@ export default function DriverDrivesScreen() {
 
             // 1. Päivitetään delivery_tasks (käytetään 'in_progress', joka läpäisee Postgres-tarkistuksen)
             if (drive.id) {
-                const { error: taskErr } = await supabase
+                const { error: taskErr, data: taskDataRes } = await supabase
                     .from('delivery_tasks')
                     .update({ status: 'in_progress', updated_at: nowIso, driver_id: currentUserId })
-                    .eq('id', drive.id);
+                    .eq('id', drive.id)
+                    .select();
 
-                if (taskErr) {
-                    console.error('[DRIVE_ARRIVED] delivery_tasks update error:', taskErr);
-                }
+                console.log('[DRIVE_ARRIVED] delivery_tasks update res:', { taskErr, taskDataRes });
             }
 
             // 2. Päivitetään orders (tracking_status ARRIVED_PICKUP / ARRIVED_DELIVERY)
@@ -685,14 +688,13 @@ export default function DriverDrivesScreen() {
                     ordPayload.actual_return_time = nowIso;
                 }
 
-                const { error: ordErr } = await supabase
+                const { error: ordErr, data: ordDataRes } = await supabase
                     .from('orders')
                     .update(ordPayload)
-                    .eq('id', targetOrderId);
+                    .eq('id', targetOrderId)
+                    .select();
 
-                if (ordErr) {
-                    console.error('[DRIVE_ARRIVED] orders update error:', ordErr);
-                }
+                console.log('[DRIVE_ARRIVED] orders update res:', { ordErr, ordDataRes });
             }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
