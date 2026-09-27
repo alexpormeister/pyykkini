@@ -252,6 +252,7 @@ export default function DriverDrivesScreen() {
             if (taskData && taskData.length > 0) {
                 taskData.forEach((t: any) => {
                     const ordObj = Array.isArray(t.orders) ? (t.orders[0] || {}) : (t.orders || {});
+                    const orderIdStr = String(t.order_id || t.id || '');
                     const orderStatus = (ordObj.status || '').toLowerCase();
                     const taskStatusRaw = (t.status || '').toLowerCase();
 
@@ -269,7 +270,7 @@ export default function DriverDrivesScreen() {
                     const ordActualReturn = ordObj.actual_return_time;
                     const isCompleted = t.status === 'completed' || t.status === 'delivered' || orderStatus === 'delivered' || orderTracking === 'COMPLETED' || (isPickup && orderStatus === 'washing');
 
-                    const prevDrive = drives.find(d => String(d.id) === String(t.id) || String(d.orderId) === String(orderIdStr));
+                    const prevDrive = drives.find(d => String(d.id) === String(t.id) || String(d.orderId) === orderIdStr);
                     const wasArrivedPickup = prevDrive?.status === 'arrived_pickup';
                     const wasArrivedDelivery = prevDrive?.status === 'arrived_delivery';
 
@@ -335,7 +336,6 @@ export default function DriverDrivesScreen() {
                     const distKm = Math.max(3.2, calculateDistance(cStart.latitude, cStart.longitude, cEnd.latitude, cEnd.longitude));
                     const estMin = Math.max(12, Math.round(distKm * 2.6));
 
-                    const orderIdStr = String(t.order_id || t.id);
                     seenOrderIds.add(orderIdStr);
                     if (t.order_id) seenOrderIds.add(String(t.order_id));
 
@@ -515,7 +515,8 @@ export default function DriverDrivesScreen() {
             }
 
             setDrives(allDrives);
-        } catch {
+        } catch (err: any) {
+            console.error('[fetchDrives] ERROR:', err);
             setDrives([]);
         } finally {
             setLoading(false);
