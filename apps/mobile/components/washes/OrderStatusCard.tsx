@@ -391,7 +391,7 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                     }}
                     activeOpacity={0.75}
                 >
-                    <Feather name="package" size={16} color="#00C2FF" style={{ marginRight: 8 }} />
+                    <Feather name="package" size={15} color="#00C2FF" style={{ marginRight: 8 }} />
                     <Text style={styles.pillButtonText}>
                         {itemsCount === 1
                             ? `1 tuote • ${finalPrice} €`
@@ -399,7 +399,6 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                             ? `${itemsCount} tuotetta • ${finalPrice} €`
                             : `Tilaus • ${finalPrice} €`}
                     </Text>
-                    <Feather name="chevron-right" size={15} color="#94A3B8" style={{ marginLeft: 6 }} />
                 </TouchableOpacity>
             </View>
 
@@ -647,6 +646,18 @@ const styles = StyleSheet.create({
         borderRadius: 14,
         paddingVertical: 11,
         paddingHorizontal: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    pillButtonFullWidth: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F8FAFC',
+        borderRadius: 14,
+        paddingVertical: 11,
+        paddingHorizontal: 16,
         borderWidth: 1,
         borderColor: '#E2E8F0',
     },
