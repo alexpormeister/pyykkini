@@ -46,6 +46,7 @@ export default function DriverProfileScreen() {
     const [todayCount, setTodayCount] = useState<number>(0);
     const [weekEarnings, setWeekEarnings] = useState<number>(0);
     const [driverRating, setDriverRating] = useState<string>('5.0');
+    const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
 
     const fetchProfileData = useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -94,6 +95,34 @@ export default function DriverProfileScreen() {
 
             const totalEarned = (weekTasks || []).reduce((sum, t) => sum + (Number(t.driver_payout) || 0), 0);
             setWeekEarnings(Math.round(totalEarned * 10) / 10);
+
+            // Haetaan lukemattomien keskustelujen määrä (unread threads count)
+            const { data: userThreads } = await supabase
+                .from('support_chats')
+                .select('id, is_read')
+                .eq('user_id', session.user.id);
+
+            if (userThreads && userThreads.length > 0) {
+                let unreadCount = 0;
+                await Promise.all(
+                    userThreads.map(async (t) => {
+                        const { data: lastMsg } = await supabase
+                            .from('chat_messages')
+                            .select('sender_id')
+                            .eq('chat_id', t.id)
+                            .order('created_at', { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+
+                        if (!t.is_read && lastMsg?.sender_id !== session.user.id) {
+                            unreadCount++;
+                        }
+                    })
+                );
+                setUnreadChatCount(unreadCount);
+            } else {
+                setUnreadChatCount(0);
+            }
         }
 
         // Haetaan valitut toimialueet
@@ -137,6 +166,16 @@ export default function DriverProfileScreen() {
 
     useEffect(() => {
         fetchProfileData();
+
+        const channel = supabase
+            .channel('driver_profile_realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'support_chats' }, () => fetchProfileData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, () => fetchProfileData())
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [fetchProfileData]);
 
     const openChat = (topic?: string) => {
@@ -308,9 +347,11 @@ export default function DriverProfileScreen() {
                                 <Text style={styles.itemTitle}>Keskustelut</Text>
                                 <Text style={styles.itemSubtitle}>Avoimet ja suljetut tukipyynnöt</Text>
                             </View>
-                            <View style={styles.badgeCount}>
-                                <Text style={styles.badgeCountText}>2 avointa</Text>
-                            </View>
+                            {unreadChatCount > 0 ? (
+                                <View style={styles.unreadRedBadge}>
+                                    <Text style={styles.unreadRedBadgeText}>{unreadChatCount}</Text>
+                                </View>
+                            ) : null}
                             <Feather name="chevron-right" size={16} color="#94A3B8" style={{ marginLeft: 4 }} />
                         </TouchableOpacity>
 
@@ -580,6 +621,21 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontWeight: '800',
         color: '#0284C7',
+    },
+    unreadRedBadge: {
+        backgroundColor: '#EF4444',
+        minWidth: 22,
+        height: 22,
+        borderRadius: 11,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 6,
+        marginRight: 4,
+    },
+    unreadRedBadgeText: {
+        color: '#FFFFFF',
+        fontSize: 12,
+        fontWeight: '800',
     },
     logoutBtn: {
         flexDirection: 'row',
