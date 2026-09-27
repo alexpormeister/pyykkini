@@ -398,7 +398,18 @@ export default function DriverDrivesScreen() {
                         laundryName,
                         laundryPhone,
                         laundryAddress: laundryFullDisplay,
-                        isLaundryReady: isPickup || ['PACKAGING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'COMPLETED'].includes(orderTracking) || ordObj.status === 'returning' || ordObj.status === 'ready_for_delivery',
+                        isLaundryReady: ((): boolean => {
+                            if (isPickup) return true;
+                            const laundryStat = (ordObj.laundry_status || '').toLowerCase();
+                            const ordStat = (ordObj.status || '').toLowerCase();
+                            return (
+                                Boolean(ordObj.laundry_id) ||
+                                (Boolean(laundryStat) && laundryStat !== 'pending' && laundryStat !== 'rejected') ||
+                                ['laundry_accepted', 'washing', 'picked_up', 'ready_for_delivery', 'returning', 'completed', 'delivered', 'packaged', 'ready'].includes(ordStat) ||
+                                ['PACKAGING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'WASHING', 'PICKED_UP', 'READY', 'WASHED'].includes(orderTracking) ||
+                                (t.task_type === 'delivery' && t.status !== 'pending' && t.status !== 'cancelled')
+                            );
+                        })(),
                         completedAtRaw: t.completed_at || t.updated_at || ordObj.actual_return_time || ordObj.actual_pickup_time || ordObj.updated_at || ordObj.created_at,
                         rawDate: t.scheduled_date || ordObj.pickup_date || ordObj.created_at,
                     });
