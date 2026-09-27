@@ -218,30 +218,73 @@ export default function DriverSearchScreen() {
             const laundryName = laundryData?.name || 'Pesuni Pesulakeskus';
             const laundryCity = laundryData?.city || parsedLaundry.city || 'Espoo';
 
-            // 1. Haetaan delivery_tasks yhdessä orders-taulun kanssa (kaikki vapaat keikat, kun pesula on hyväksynyt tilauksen)
-            const { data: taskData, error: taskError } = await supabase
+            // 1. Haetaan delivery_tasks yhdessä orders-taulun kanssa (kaikki vapaat keikat ilman kuljettajaa)
+            const { data: taskData } = await supabase
                 .from('delivery_tasks')
                 .select('*, orders(*)')
-                .in('status', ['unassigned', 'pending'])
                 .is('driver_id', null)
+                .not('status', 'in', '("completed","cancelled","failed","delivered")')
                 .order('scheduled_date', { ascending: true });
 
-            const validTasks = (taskData || []).filter((t: any) => {
+            // 2. Haetaan lisäksi kaikki aktiiviset tilaukset, joille pesula on kuitattu tai määritetty
+            const { data: activeOrders } = await supabase
+                .from('orders')
+                .select('*')
+                .not('status', 'in', '("cancelled","rejected","completed","delivered")');
+
+            const tasksList: any[] = [...(taskData || [])];
+            const existingTaskKeys = new Set(
+                tasksList.map((t) => `${t.order_id || t.id}_${t.task_type}`)
+            );
+
+            // Jos aktiiviselle tilaukselle pesula on valittu/kuitattu, mutta palautustehtävää ei vielä ole delivery_tasks-taulussa, lisätään se
+            (activeOrders || []).forEach((ord: any) => {
+                const laundryStatus = (ord.laundry_status || '').toLowerCase();
+                const ordStatus = (ord.status || '').toLowerCase();
+                const isLaundryConfirmed = Boolean(ord.laundry_id) || (Boolean(laundryStatus) && laundryStatus !== 'pending' && laundryStatus !== 'rejected') || ['laundry_accepted', 'washing', 'picked_up', 'ready_for_delivery'].includes(ordStatus);
+
+                if (isLaundryConfirmed) {
+                    const deliveryKey = `${ord.id}_delivery`;
+                    if (!existingTaskKeys.has(deliveryKey)) {
+                        tasksList.push({
+                            id: `virtual_delivery_${ord.id}`,
+                            order_id: ord.id,
+                            task_type: 'delivery',
+                            driver_id: null,
+                            laundry_id: ord.laundry_id,
+                            origin_name: laundryName,
+                            origin_address: laundryData?.address || 'Pesulakeskus',
+                            destination_name: `${ord.first_name || 'Asiakas'} ${ord.last_name || ''}`.trim(),
+                            destination_address: ord.address,
+                            scheduled_date: ord.return_date || ord.pickup_date,
+                            scheduled_time: ord.return_time || ord.delivery_slot || '18:00',
+                            status: 'unassigned',
+                            driver_payout: 15.0,
+                            orders: ord,
+                        });
+                    }
+                }
+            });
+
+            const validTasks = tasksList.filter((t: any) => {
                 const ordObj = Array.isArray(t.orders) ? (t.orders[0] || {}) : (t.orders || {});
                 const ordStatus = (ordObj.status || '').toLowerCase();
                 const laundryStatus = (ordObj.laundry_status || '').toLowerCase();
+                const laundryId = ordObj.laundry_id || t.laundry_id;
+
                 if (ordStatus === 'cancelled' || ordStatus === 'rejected') return false;
-                
+
                 // LOGIIKKA:
-                // 1. Jos pesula ei ole kuitannut tilausta (laundryStatus on 'pending' tai tyhjä) -> näkyy VAIN pesulalle.
-                // 2. Jos pesula on kuitannut tilauksen (laundryStatus != 'pending') -> meno- ja palautuskeikka tulevat kuljettajille jaettaviksi erillisinä vapaana keikkoina.
-                const isLaundryConfirmed = Boolean(laundryStatus) && laundryStatus !== 'pending' && laundryStatus !== 'rejected';
+                // 1. Jos pesula ei ole kuitannut tilausta (laundryStatus on 'pending' eikä laundry_id ole valittu) -> näkyy VAIN pesulalle.
+                // 2. Jos pesula on kuitannut tai määritetty (laundry_id löytyy tai laundryStatus != 'pending') -> keikat tulevat kuljettajille jaettaviksi.
+                const isLaundryConfirmed = Boolean(laundryId) || (Boolean(laundryStatus) && laundryStatus !== 'pending' && laundryStatus !== 'rejected') || ['laundry_accepted', 'washing', 'picked_up', 'ready_for_delivery'].includes(ordStatus);
+
                 if (!isLaundryConfirmed) return false;
 
                 return true;
             });
 
-            if (!taskError && validTasks.length > 0) {
+            if (validTasks.length > 0) {
                 const formatted: GigItem[] = validTasks.map((t: any) => {
                     const ordObj = Array.isArray(t.orders) ? (t.orders[0] || {}) : (t.orders || {});
                     const isPickup = t.task_type === 'pickup';
@@ -257,7 +300,7 @@ export default function DriverSearchScreen() {
                     const customerCity = parsedCustomer.city || 'Espoo';
 
                     // Lähtö ja määränpää (hyväksyneen pesulan nimi & osoite):
-                    const activeLaundryName = isPickup ? (t.destination_name || 'Pesula') : (t.origin_name || 'Pesula');
+                    const activeLaundryName = isPickup ? (t.destination_name || laundryName) : (t.origin_name || laundryName);
                     const pStreet = isPickup ? customerStreet : activeLaundryName;
                     const pCity = isPickup ? customerCity : 'Espoo';
                     const dStreet = isPickup ? activeLaundryName : customerStreet;
