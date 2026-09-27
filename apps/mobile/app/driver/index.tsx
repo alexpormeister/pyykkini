@@ -275,7 +275,7 @@ export default function DriverDrivesScreen() {
                             taskStatus = 'completed';
                         } else if (orderTracking === 'PICKED_UP' || t.pickup_weight_kg || (t.pickup_photos && t.pickup_photos.length > 0)) {
                             taskStatus = 'in_transit_to_laundry';
-                        } else if (orderStatus === 'picking_up' && (ordActualPickup || t.status === 'arrived_pickup')) {
+                        } else if (t.status === 'arrived_pickup' || orderTracking === 'ARRIVED_PICKUP' || (orderStatus === 'picking_up' && ordActualPickup)) {
                             taskStatus = 'arrived_pickup';
                         } else if (orderStatus === 'picking_up' || t.status === 'in_progress') {
                             taskStatus = 'picking_up';
@@ -286,7 +286,7 @@ export default function DriverDrivesScreen() {
                         // Palautus/Delivery-tehtävä
                         if (t.status === 'completed' || t.status === 'delivered' || orderStatus === 'delivered' || orderTracking === 'COMPLETED') {
                             taskStatus = 'completed';
-                        } else if ((orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY') && (ordActualReturn || t.status === 'arrived_delivery')) {
+                        } else if (t.status === 'arrived_delivery' || orderTracking === 'ARRIVED_DELIVERY' || ((orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY') && ordActualReturn)) {
                             taskStatus = 'arrived_delivery';
                         } else if (orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY' || t.status === 'in_progress') {
                             taskStatus = 'in_progress';
@@ -421,13 +421,13 @@ export default function DriverDrivesScreen() {
                     let taskStatus = 'assigned';
                     if (isCompleted) {
                         taskStatus = 'completed';
-                    } else if (orderStatus === 'picking_up' && o.actual_pickup_time) {
+                    } else if (orderTracking === 'ARRIVED_PICKUP' || (orderStatus === 'picking_up' && o.actual_pickup_time)) {
                         taskStatus = 'arrived_pickup';
                     } else if (orderStatus === 'picking_up') {
                         taskStatus = 'picking_up';
                     } else if (orderTracking === 'PICKED_UP' || o.pickup_weight_kg || (o.pickup_photos && o.pickup_photos.length > 0)) {
                         taskStatus = 'in_transit_to_laundry';
-                    } else if ((orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY') && o.actual_return_time) {
+                    } else if (orderTracking === 'ARRIVED_DELIVERY' || ((orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY') && o.actual_return_time)) {
                         taskStatus = 'arrived_delivery';
                     } else if (orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY') {
                         taskStatus = 'in_progress';
@@ -644,7 +644,7 @@ export default function DriverDrivesScreen() {
             if (drive.id) {
                 await supabase
                     .from('delivery_tasks')
-                    .update({ status: 'in_progress', updated_at: nowIso, driver_id: currentUserId })
+                    .update({ status: newStatus, updated_at: nowIso, driver_id: currentUserId })
                     .eq('id', drive.id)
                     .select();
             }
@@ -656,10 +656,11 @@ export default function DriverDrivesScreen() {
                 };
                 if (isPickup) {
                     ordPayload.status = 'picking_up';
+                    ordPayload.tracking_status = 'ARRIVED_PICKUP';
                     ordPayload.actual_pickup_time = nowIso;
                 } else {
                     ordPayload.status = 'returning';
-                    ordPayload.tracking_status = 'OUT_FOR_DELIVERY';
+                    ordPayload.tracking_status = 'ARRIVED_DELIVERY';
                     ordPayload.actual_return_time = nowIso;
                 }
 

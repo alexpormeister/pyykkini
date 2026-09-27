@@ -269,6 +269,18 @@ export const LaundryPanel = () => {
   };
 
   const setStatus = async (order: LaundryOrder, status: "WASHING" | "PACKAGING") => {
+    if (status === "WASHING") {
+      const currentTrack = track(order);
+      const isPickedUp = ["PICKED_UP", "WASHING"].includes(currentTrack) || Boolean(order.pickup_weight_kg);
+      if (!isPickedUp) {
+        toast({
+          title: "Vastaanotto ei ole vielä mahdollista",
+          description: "Kuljettaja ei ole vielä noutanut pyykkiä asiakkaalta.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     const nowIso = new Date().toISOString();
     const { error } = await supabase
       .from("orders")
@@ -655,22 +667,29 @@ export const LaundryPanel = () => {
               title="Saapuvat"
               icon={<Truck className="h-5 w-5 text-primary" />}
               items={incoming}
-              action={(o) => setStatus(o, "WASHING")}
-              actionLabel="Vastaanota pesulaan"
-              actionIcon={<WashingMachine className="mr-2 h-5 w-5" />}
-              renderCard={(o) => (
-                <OrderCard
-                  order={o}
-                  action={() => setStatus(o, "WASHING")}
-                  actionLabel="Vastaanota pesulaan"
-                  actionIcon={<WashingMachine className="mr-2 h-5 w-5" />}
-                  extra={
-                    <p className="rounded-lg bg-blue-500/10 text-blue-800 dark:text-blue-200 border border-blue-500/20 p-2.5 text-xs">
-                      🚚 Kuljettaja noutamassa asiakkaalta – siirtyy automaattisesti käsittelyyn, kun nouto on toimitettu pesulalle.
-                    </p>
-                  }
-                />
-              )}
+              renderCard={(o) => {
+                const isPickedUp = ["PICKED_UP", "WASHING"].includes(track(o)) || Boolean(o.pickup_weight_kg);
+                return (
+                  <OrderCard
+                    order={o}
+                    action={() => setStatus(o, "WASHING")}
+                    actionLabel="Vastaanota pesulaan"
+                    actionDisabled={!isPickedUp}
+                    actionIcon={<WashingMachine className="mr-2 h-5 w-5" />}
+                    extra={
+                      !isPickedUp ? (
+                        <p className="rounded-lg bg-amber-500/10 text-amber-900 dark:text-amber-200 border border-amber-500/20 p-2.5 text-xs font-medium">
+                          ⏳ Odottaa kuljettajan noutoa asiakkaalta. Pesulavastaanotto aktivoituu, kun kuljettaja on noutanut pyykin.
+                        </p>
+                      ) : (
+                        <p className="rounded-lg bg-emerald-500/10 text-emerald-900 dark:text-emerald-200 border border-emerald-500/20 p-2.5 text-xs font-medium">
+                          🚚 Kuljettaja on noutanut pyykin ja tuo sen pesulalle. Voit vastaanottaa pyykin pesulaan.
+                        </p>
+                      )
+                    }
+                  />
+                );
+              }}
             />
             <Column
               title="Käsittelyssä"
