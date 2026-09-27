@@ -9,6 +9,11 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=web",
+    "web": "npm run dev --workspace=web",
+    "mobile": "npm run start --workspace=mobile",
+    "mobile:android": "npm run android --workspace=mobile",
+    "mobile:ios": "npm run ios --workspace=mobile",
+    "mobile:web": "npm run web --workspace=mobile",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "build:dev": "npm run build:dev --workspace=web"
