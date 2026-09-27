@@ -49,6 +49,74 @@ function getDriverFullName(p?: Profile | null): string {
   return name || "Kuljettaja";
 }
 
+function formatTaskDriverSummary(
+  task?: TaskRow | null,
+  fallbackDriverId?: string | null,
+  drivers: DriverInfo[] = []
+): { text: string; isCompleted: boolean; isUnassigned: boolean } {
+  if (!task) return { text: "Ei keikkaa", isCompleted: false, isUnassigned: false };
+
+  const driverId = task.driver_id || fallbackDriverId;
+  const driverObj = drivers.find((d) => d.user_id === driverId);
+  const driverName = driverObj ? `${driverObj.first_name || ""} ${driverObj.last_name || ""}`.trim() || "Kuljettaja" : null;
+  const st = String(task.status || "").toLowerCase();
+
+  if (st === "completed" || st === "delivered" || st === "picked_up") {
+    return {
+      text: driverName ? `${driverName} (Valmis)` : "Suoritettu (Valmis)",
+      isCompleted: true,
+      isUnassigned: false,
+    };
+  }
+
+  if (driverName) {
+    return { text: driverName, isCompleted: false, isUnassigned: false };
+  }
+
+  if (st === "unassigned" || st === "pending") {
+    return { text: "Ei kuljettajaa (Jaossa)", isCompleted: false, isUnassigned: true };
+  }
+
+  return { text: "Ei kuljettajaa", isCompleted: false, isUnassigned: false };
+}
+
+function renderTaskStatusBadge(status?: string) {
+  const st = String(status || "").toLowerCase();
+  if (st === "completed" || st === "delivered") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+        ✓ Valmis
+      </span>
+    );
+  }
+  if (st === "picked_up" || st === "arrived_pickup" || st === "en_route") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+        🚗 Noudettu
+      </span>
+    );
+  }
+  if (st === "unassigned" || st === "pending") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+        ⏳ Jaossa
+      </span>
+    );
+  }
+  if (st === "assigned") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+        Varattu
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground">
+      {status || "-"}
+    </span>
+  );
+}
+
 function shortOrderId(id?: string | null): string {
   if (!id) return "#------";
   const clean = String(id).replace(/[^a-zA-Z0-9]/g, "");
@@ -1127,9 +1195,11 @@ export const DispatchTaskBoard: React.FC = () => {
       } else if (isCompleted) {
         completed++;
       } else {
-        const hasUnassignedTask = group.tasks.some(
-          (t) => !t.driver_id || ["unassigned", "pending"].includes(String(t.status).toLowerCase())
-        );
+        const hasUnassignedTask = group.tasks.some((t) => {
+          const st = String(t.status || "").toLowerCase();
+          if (["completed", "delivered", "picked_up"].includes(st)) return false;
+          return !t.driver_id || ["unassigned", "pending"].includes(st);
+        });
         if (hasUnassignedTask) {
           dispatch++;
         } else {
@@ -1156,9 +1226,11 @@ export const DispatchTaskBoard: React.FC = () => {
       const orderTracking = String(group.order?.tracking_status || "").toUpperCase();
       const isCancelled = orderSt === "cancelled" || orderSt === "rejected" || group.tasks.every(t => String(t.status).toLowerCase() === "cancelled");
       const isCompleted = orderSt === "delivered" || orderSt === "completed" || orderTracking === "COMPLETED" || (group.tasks.length > 0 && group.tasks.every(t => String(t.status).toLowerCase() === "completed"));
-      const hasUnassignedTask = group.tasks.some(
-        (t) => !t.driver_id || ["unassigned", "pending"].includes(String(t.status).toLowerCase())
-      );
+      const hasUnassignedTask = group.tasks.some((t) => {
+        const st = String(t.status || "").toLowerCase();
+        if (["completed", "delivered", "picked_up"].includes(st)) return false;
+        return !t.driver_id || ["unassigned", "pending"].includes(st);
+      });
 
       // Välilehden suodatus
       if (tabFilter === "dispatch") {
@@ -2603,14 +2675,26 @@ export const DispatchTaskBoard: React.FC = () => {
 
                           {/* KULJETTAJAT SUMMARY */}
                           <td className="p-2.5 text-[11px]">
-                            <div className="truncate max-w-[140px]">
-                              <span className="text-muted-foreground">M: </span>
-                              <span className="font-medium text-foreground">{getDriverFullName(findDriver(pickupTask?.driver_id))}</span>
-                            </div>
-                            <div className="truncate max-w-[140px]">
-                              <span className="text-muted-foreground">P: </span>
-                              <span className="font-medium text-foreground">{getDriverFullName(findDriver(deliveryTask?.driver_id))}</span>
-                            </div>
+                            {(() => {
+                              const pInfo = formatTaskDriverSummary(pickupTask, order?.driver_id, drivers);
+                              const dInfo = formatTaskDriverSummary(deliveryTask, null, drivers);
+                              return (
+                                <>
+                                  <div className="truncate max-w-[140px]">
+                                    <span className="text-muted-foreground">M: </span>
+                                    <span className={pInfo.isCompleted ? "font-semibold text-emerald-600 dark:text-emerald-400" : pInfo.isUnassigned ? "text-amber-600 dark:text-amber-400 font-medium" : "font-medium text-foreground"}>
+                                      {pInfo.text}
+                                    </span>
+                                  </div>
+                                  <div className="truncate max-w-[140px]">
+                                    <span className="text-muted-foreground">P: </span>
+                                    <span className={dInfo.isCompleted ? "font-semibold text-emerald-600 dark:text-emerald-400" : dInfo.isUnassigned ? "text-amber-600 dark:text-amber-400 font-medium" : "font-medium text-foreground"}>
+                                      {dInfo.text}
+                                    </span>
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </td>
 
                           {/* HINTA */}
@@ -2663,7 +2747,7 @@ export const DispatchTaskBoard: React.FC = () => {
                                   </span>
                                 </td>
                                 <td className="p-2">
-                                  <span className="text-[10px] font-semibold text-muted-foreground">{pickupTask.status}</span>
+                                  {renderTaskStatusBadge(pickupTask.status)}
                                 </td>
                                 <td className="p-2 text-[11px] text-muted-foreground">{customerName}</td>
                                 <td className="p-2 text-[11px] text-muted-foreground truncate max-w-[180px]">{pickupTask.pickup_address || order?.address}</td>
@@ -2707,7 +2791,7 @@ export const DispatchTaskBoard: React.FC = () => {
                                   </span>
                                 </td>
                                 <td className="p-2">
-                                  <span className="text-[10px] font-semibold text-muted-foreground">{deliveryTask.status}</span>
+                                  {renderTaskStatusBadge(deliveryTask.status)}
                                 </td>
                                 <td className="p-2 text-[11px] text-muted-foreground">{customerName}</td>
                                 <td className="p-2 text-[11px] text-muted-foreground truncate max-w-[180px]">{deliveryTask.delivery_address || order?.address}</td>
