@@ -275,7 +275,7 @@ export default function DriverDrivesScreen() {
                             taskStatus = 'completed';
                         } else if (orderTracking === 'PICKED_UP' || t.pickup_weight_kg || (t.pickup_photos && t.pickup_photos.length > 0)) {
                             taskStatus = 'in_transit_to_laundry';
-                        } else if (t.status === 'arrived_pickup' || orderTracking === 'ARRIVED_PICKUP' || (orderStatus === 'picking_up' && ordActualPickup)) {
+                        } else if (orderTracking === 'ARRIVED_PICKUP' || Boolean(ordActualPickup)) {
                             taskStatus = 'arrived_pickup';
                         } else if (orderStatus === 'picking_up' || t.status === 'in_progress') {
                             taskStatus = 'picking_up';
@@ -286,7 +286,7 @@ export default function DriverDrivesScreen() {
                         // Palautus/Delivery-tehtävä
                         if (t.status === 'completed' || t.status === 'delivered' || orderStatus === 'delivered' || orderTracking === 'COMPLETED') {
                             taskStatus = 'completed';
-                        } else if (t.status === 'arrived_delivery' || orderTracking === 'ARRIVED_DELIVERY' || ((orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY') && ordActualReturn)) {
+                        } else if (orderTracking === 'ARRIVED_DELIVERY' || Boolean(ordActualReturn)) {
                             taskStatus = 'arrived_delivery';
                         } else if (orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY' || t.status === 'in_progress') {
                             taskStatus = 'in_progress';
@@ -625,6 +625,13 @@ export default function DriverDrivesScreen() {
         const newStatus = isPickup ? 'arrived_pickup' : 'arrived_delivery';
         const targetOrderId = drive.orderId || drive.id;
 
+        console.log('[DRIVE_ARRIVED] Triggered mark arrived:', {
+            driveId: drive.id,
+            targetOrderId,
+            taskType: drive.taskType,
+            newStatus,
+        });
+
         // Optimistinen päivitys
         setDrives(prev => prev.map(d => {
             if (d.id === drive.id) {
@@ -641,14 +648,19 @@ export default function DriverDrivesScreen() {
             const { data: { session } } = await supabase.auth.getSession();
             const currentUserId = session?.user?.id;
 
+            // 1. Päivitetään delivery_tasks (käytetään 'in_progress', joka läpäisee Postgres-tarkistuksen)
             if (drive.id) {
-                await supabase
+                const { error: taskErr } = await supabase
                     .from('delivery_tasks')
-                    .update({ status: newStatus, updated_at: nowIso, driver_id: currentUserId })
-                    .eq('id', drive.id)
-                    .select();
+                    .update({ status: 'in_progress', updated_at: nowIso, driver_id: currentUserId })
+                    .eq('id', drive.id);
+
+                if (taskErr) {
+                    console.error('[DRIVE_ARRIVED] delivery_tasks update error:', taskErr);
+                }
             }
 
+            // 2. Päivitetään orders (tracking_status ARRIVED_PICKUP / ARRIVED_DELIVERY)
             if (targetOrderId) {
                 const ordPayload: any = {
                     driver_id: currentUserId,
@@ -664,11 +676,14 @@ export default function DriverDrivesScreen() {
                     ordPayload.actual_return_time = nowIso;
                 }
 
-                await supabase
+                const { error: ordErr } = await supabase
                     .from('orders')
                     .update(ordPayload)
-                    .eq('id', targetOrderId)
-                    .select();
+                    .eq('id', targetOrderId);
+
+                if (ordErr) {
+                    console.error('[DRIVE_ARRIVED] orders update error:', ordErr);
+                }
             }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
