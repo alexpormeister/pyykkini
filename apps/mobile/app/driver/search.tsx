@@ -2,7 +2,8 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -24,6 +25,7 @@ import { supabase } from '../../lib/supabase';
 import { parseStructuredAddress, formatTimeWindow } from '../../lib/addressUtils';
 import { DriverSwipeButton } from '../../components/DriverSwipeButton';
 
+const DRIVER_ZONES_KEY = 'pesuni_driver_selected_zones';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const COLORS = {
@@ -207,6 +209,10 @@ export default function DriverSearchScreen() {
     // Haetaan vapaat keikat
     const fetchGigs = useCallback(async () => {
         try {
+            // Haetaan kuljettajan valitsemat toimialueet AsyncStorage:sta
+            const savedZonesJson = await AsyncStorage.getItem(DRIVER_ZONES_KEY);
+            const parsedZones: Record<string, boolean> = savedZonesJson ? JSON.parse(savedZonesJson) : {};
+
             // Haetaan pesulan oikeat tiedot tietokannasta
             const { data: laundryData } = await supabase
                 .from('laundries')
@@ -285,7 +291,7 @@ export default function DriverSearchScreen() {
             });
 
             if (validTasks.length > 0) {
-                const formatted: GigItem[] = validTasks.map((t: any) => {
+                const formatted = validTasks.map((t: any) => {
                     const ordObj = Array.isArray(t.orders) ? (t.orders[0] || {}) : (t.orders || {});
                     const isPickup = t.task_type === 'pickup';
                     const orderDate = isPickup ? ordObj.pickup_date : ordObj.return_date;
@@ -298,6 +304,13 @@ export default function DriverSearchScreen() {
                     const parsedCustomer = parseStructuredAddress(customerRawAddress);
                     const customerStreet = parsedCustomer.streetName || parsedCustomer.streetOnly || 'Asiakasosoite';
                     const customerCity = parsedCustomer.city || 'Espoo';
+
+                    // 📍 TOIMIALUEFILTTERÖINTI KULJETTAJAN VALINTOJEN MUKAAN:
+                    // Jos asiakkaan kotiosoitteen kaupunki on kytketty POIS päältä kuljettajan toimialueissa, ei näytetä keikkaa
+                    const cityKey = customerCity.toLowerCase().trim();
+                    if (parsedZones && parsedZones[cityKey] === false) {
+                        return null;
+                    }
 
                     // Lähtö ja määränpää (hyväksyneen pesulan nimi & osoite):
                     const activeLaundryName = isPickup ? (t.destination_name || laundryName) : (t.origin_name || laundryName);
@@ -334,8 +347,8 @@ export default function DriverSearchScreen() {
                         payout: Number(t.driver_payout) || 19,
                         notes: t.notes || ordObj.special_instructions,
                         rawTask: t,
-                    };
-                });
+                    } as GigItem;
+                }).filter((item): item is GigItem => item !== null);
 
                 setGigs(formatted);
                 return;
@@ -350,6 +363,12 @@ export default function DriverSearchScreen() {
             setRefreshing(false);
         }
     }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchGigs();
+        }, [fetchGigs])
+    );
 
     useEffect(() => {
         fetchGigs();
@@ -554,29 +573,13 @@ export default function DriverSearchScreen() {
 
             {/* YLÄPALKKI */}
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.headerCircleBtn}
-                    onPress={() => router.push('/driver/profile')}
-                    activeOpacity={0.7}
-                >
-                    <Feather name="user" size={20} color="#0284C7" />
-                </TouchableOpacity>
+                <View style={{ width: 32 }} />
 
                 <Text style={styles.headerTitle}>
                     ({gigs.length}) Vapaat keikat
                 </Text>
 
-                <TouchableOpacity
-                    style={styles.headerCircleBtn}
-                    onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                        Alert.alert('Suodata keikkoja', 'Voit rajata keikkoja toimialueittain profiilista.');
-                    }}
-                    activeOpacity={0.7}
-                >
-                    <Feather name="filter" size={18} color="#0284C7" />
-                    <View style={styles.filterNotificationDot} />
-                </TouchableOpacity>
+                <View style={{ width: 32 }} />
             </View>
 
             {loading && !refreshing ? (

@@ -2,8 +2,12 @@ import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Alert,
     ScrollView,
@@ -43,56 +47,101 @@ export default function DriverProfileScreen() {
     const [vehicleSubtitle, setVehicleSubtitle] = useState<string>('Pakettiauto (ABC-123)');
     const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
 
-    useEffect(() => {
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
-            if (session?.user) {
-                setUserEmail(session.user.email || '');
-                // Haetaan profiilitiedot
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('first_name, last_name, phone')
-                    .eq('user_id', session.user.id)
-                    .maybeSingle();
+    const [todayCount, setTodayCount] = useState<number>(0);
+    const [weekEarnings, setWeekEarnings] = useState<number>(0);
+    const [driverRating, setDriverRating] = useState<string>('5.0');
 
-                if (profile) {
-                    const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
-                    if (fullName) setUserName(fullName);
-                    if (profile.phone) setUserPhone(profile.phone);
-                }
+    const fetchProfileData = useCallback(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+            setUserEmail(session.user.email || '');
+            // Haetaan profiilitiedot
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('first_name, last_name, phone')
+                .eq('user_id', session.user.id)
+                .maybeSingle();
+
+            if (profile) {
+                const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+                if (fullName) setUserName(fullName);
+                if (profile.phone) setUserPhone(profile.phone);
             }
-        });
+
+            // Haetaan tänään ajetut keikat
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            const todayIso = startOfToday.toISOString();
+
+            const { count: countToday } = await supabase
+                .from('delivery_tasks')
+                .select('*', { count: 'exact', head: true })
+                .eq('driver_id', session.user.id)
+                .gte('updated_at', todayIso);
+
+            setTodayCount(countToday || 0);
+
+            // Haetaan viikon tulot
+            const startOfWeek = new Date();
+            const day = startOfWeek.getDay();
+            const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+            startOfWeek.setDate(diff);
+            startOfWeek.setHours(0, 0, 0, 0);
+            const weekIso = startOfWeek.toISOString();
+
+            const { data: weekTasks } = await supabase
+                .from('delivery_tasks')
+                .select('driver_payout')
+                .eq('driver_id', session.user.id)
+                .in('status', ['completed', 'delivered'])
+                .gte('updated_at', weekIso);
+
+            const totalEarned = (weekTasks || []).reduce((sum, t) => sum + (Number(t.driver_payout) || 15), 0);
+            setWeekEarnings(totalEarned);
+        }
 
         // Haetaan valitut toimialueet
-        AsyncStorage.getItem(DRIVER_ZONES_KEY).then(data => {
-            if (data) {
-                try {
-                    const parsed = JSON.parse(data);
-                    const active = Object.keys(parsed).filter(k => parsed[k]);
-                    if (active.length > 0) {
-                        const formatted = active
-                            .map(c => c.charAt(0).toUpperCase() + c.slice(1))
-                            .slice(0, 2)
-                            .join(', ') + (active.length > 2 ? ` +${active.length - 2}` : '');
-                        setSelectedZonesSubtitle(formatted);
-                    }
-                } catch {}
-            }
-        });
+        const data = await AsyncStorage.getItem(DRIVER_ZONES_KEY);
+        if (data) {
+            try {
+                const parsed = JSON.parse(data);
+                // Suodatetaan pois UUID-avaimet ja jätetään vain puhtaat kaupungin nimet
+                const activeCities = Object.keys(parsed)
+                    .filter(k => parsed[k] && !k.includes('-') && k.length < 25)
+                    .map(c => c.charAt(0).toUpperCase() + c.slice(1));
+
+                if (activeCities.length > 0) {
+                    const formatted = activeCities.slice(0, 2).join(', ') + (activeCities.length > 2 ? ` +${activeCities.length - 2}` : '');
+                    setSelectedZonesSubtitle(formatted);
+                } else {
+                    setSelectedZonesSubtitle('Ei valittuja alueita');
+                }
+            } catch {}
+        }
 
         // Haetaan tallennettu ajoneuvo
-        AsyncStorage.getItem(DRIVER_VEHICLE_KEY).then(data => {
-            if (data) {
-                try {
-                    const parsed = JSON.parse(data);
-                    if (parsed.typeLabel && parsed.plate) {
-                        setVehicleSubtitle(`${parsed.typeLabel} (${parsed.plate})`);
-                    } else if (parsed.plate) {
-                        setVehicleSubtitle(`Ajoneuvo (${parsed.plate})`);
-                    }
-                } catch {}
-            }
-        });
+        const vehicleData = await AsyncStorage.getItem(DRIVER_VEHICLE_KEY);
+        if (vehicleData) {
+            try {
+                const parsed = JSON.parse(vehicleData);
+                if (parsed.typeLabel && parsed.plate) {
+                    setVehicleSubtitle(`${parsed.typeLabel} (${parsed.plate})`);
+                } else if (parsed.plate) {
+                    setVehicleSubtitle(`Ajoneuvo (${parsed.plate})`);
+                }
+            } catch {}
+        }
     }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchProfileData();
+        }, [fetchProfileData])
+    );
+
+    useEffect(() => {
+        fetchProfileData();
+    }, [fetchProfileData]);
 
     const openChat = (topic?: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -153,19 +202,19 @@ export default function DriverProfileScreen() {
                 {/* 🌟 2. TILASTOT & TULOT 🌟 */}
                 <View style={styles.statsContainer}>
                     <View style={styles.statCard}>
-                        <Text style={styles.statValue}>4</Text>
+                        <Text style={styles.statValue}>{todayCount}</Text>
                         <Text style={styles.statLabel}>Tänään ajettu</Text>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statCard}>
-                        <Text style={[styles.statValue, { color: '#0284C7' }]}>124 €</Text>
+                        <Text style={[styles.statValue, { color: '#0284C7' }]}>{weekEarnings} €</Text>
                         <Text style={styles.statLabel}>Viikon tulot</Text>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statCard}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             <Feather name="star" size={14} color="#F59E0B" style={{ marginRight: 4 }} />
-                            <Text style={styles.statValue}>4.95</Text>
+                            <Text style={styles.statValue}>{driverRating}</Text>
                         </View>
                         <Text style={styles.statLabel}>Arvio</Text>
                     </View>

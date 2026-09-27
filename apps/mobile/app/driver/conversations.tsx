@@ -1,9 +1,10 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -13,6 +14,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '../../lib/supabase';
 
 const COLORS = {
     primary: '#00C2FF',
@@ -26,7 +28,7 @@ const COLORS = {
     green: '#10B981',
 };
 
-interface ConversationItem {
+interface RealConversationItem {
     id: string;
     title: string;
     snippet: string;
@@ -36,65 +38,95 @@ interface ConversationItem {
     category: string;
 }
 
-const OPEN_CONVERSATIONS: ConversationItem[] = [
-    {
-        id: '1',
-        title: 'Pesuni Ajojärjestely & Tuki',
-        snippet: 'Moi Timo! Seuraava nouto on valmis Koskelontiellä...',
-        time: '10:14',
-        unreadCount: 1,
-        status: 'open',
-        category: 'Ajo-ohjeet',
-    },
-    {
-        id: '2',
-        title: 'Asiakasnouto: Koskelontie 15',
-        snippet: 'Ovikoodi on 1234, ovi aukeaa automaattisesti.',
-        time: '09:40',
-        status: 'open',
-        category: 'Noutotieto',
-    },
-];
-
-const CLOSED_CONVERSATIONS: ConversationItem[] = [
-    {
-        id: '3',
-        title: 'Palkkiot & Keikkakorvaukset',
-        snippet: 'Korvaus lisätty tilillesi. Kiitos ilmoituksesta!',
-        time: 'Eilen 16:30',
-        status: 'closed',
-        category: 'Palkkiot',
-    },
-    {
-        id: '4',
-        title: 'Osoitteen tarkennus (Vihti)',
-        snippet: 'Asiakas tavoitettu puhelimitse, paketti noudettu.',
-        time: '18.8.2026',
-        status: 'closed',
-        category: 'Noudot',
-    },
-    {
-        id: '5',
-        title: 'Ajoneuvon huoltoilmoitus',
-        snippet: 'Huolto kuitattu ja merkitty ajopäiväkirjaan.',
-        time: '12.8.2026',
-        status: 'closed',
-        category: 'Kalusto',
-    },
-];
-
 export default function DriverConversationsScreen() {
     const router = useRouter();
     const { width: SCREEN_WIDTH } = useWindowDimensions();
     const scrollRef = useRef<ScrollView>(null);
     const [pageIndex, setPageIndex] = useState<number>(0);
 
-    const openChat = (conv?: ConversationItem) => {
+    const [openConversations, setOpenConversations] = useState<RealConversationItem[]>([]);
+    const [closedConversations, setClosedConversations] = useState<RealConversationItem[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+
+    const fetchRealConversations = useCallback(async () => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const currentUserId = session?.user?.id;
+
+            if (!currentUserId) {
+                setLoading(false);
+                return;
+            }
+
+            // Haetaan käyttäjän reaaliaikaiset support_chats -keskustelut
+            const { data: threads } = await supabase
+                .from('support_chats')
+                .select('*')
+                .eq('user_id', currentUserId)
+                .order('last_message_at', { ascending: false });
+
+            if (threads && threads.length > 0) {
+                const enriched: RealConversationItem[] = await Promise.all(
+                    threads.map(async (thread: any) => {
+                        const { data: lastMsg } = await supabase
+                            .from('chat_messages')
+                            .select('content, created_at, sender_id')
+                            .eq('chat_id', thread.id)
+                            .order('created_at', { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+
+                        let formattedTime = 'Tänään';
+                        if (thread.last_message_at) {
+                            try {
+                                const dateObj = new Date(thread.last_message_at);
+                                formattedTime = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+                            } catch {}
+                        }
+
+                        return {
+                            id: thread.id,
+                            title: 'Pesuni Ajojärjestely & Tuki',
+                            snippet: lastMsg?.content || 'Ei viestejä vielä.',
+                            time: formattedTime,
+                            unreadCount: !thread.is_read && lastMsg?.sender_id !== currentUserId ? 1 : undefined,
+                            status: thread.status === 'closed' ? 'closed' : 'open',
+                            category: 'Kuljettajatuki',
+                        };
+                    })
+                );
+
+                setOpenConversations(enriched.filter(c => c.status === 'open'));
+                setClosedConversations(enriched.filter(c => c.status === 'closed'));
+            } else {
+                setOpenConversations([]);
+                setClosedConversations([]);
+            }
+        } catch (err) {
+            console.error('Virhe keskusteluiden haussa:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchRealConversations();
+        }, [fetchRealConversations])
+    );
+
+    const openChatScreen = (chatId?: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-        router.push('/general/chat');
+        if (chatId) {
+            router.push({
+                pathname: '/general/chatscreen',
+                params: { chatId },
+            });
+        } else {
+            router.push('/general/chatscreen');
+        }
     };
 
-    // Navigoi AINA suoraan takaisin Profiili-sivulle
     const handleBack = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
         router.replace('/driver/profile' as any);
@@ -115,7 +147,7 @@ export default function DriverConversationsScreen() {
         }
     };
 
-    const renderList = (items: ConversationItem[], type: 'open' | 'closed') => (
+    const renderList = (items: RealConversationItem[], type: 'open' | 'closed') => (
         <ScrollView
             key={type}
             style={{ width: SCREEN_WIDTH }}
@@ -127,7 +159,7 @@ export default function DriverConversationsScreen() {
                     <TouchableOpacity
                         key={item.id}
                         style={styles.chatCard}
-                        onPress={() => openChat(item)}
+                        onPress={() => openChatScreen(item.id)}
                         activeOpacity={0.7}
                     >
                         <View style={[
@@ -217,7 +249,7 @@ export default function DriverConversationsScreen() {
 
                 <TouchableOpacity
                     style={styles.newChatBtn}
-                    onPress={() => openChat()}
+                    onPress={() => openChatScreen()}
                     activeOpacity={0.7}
                 >
                     <Feather name="edit" size={18} color="#0284C7" />
@@ -237,7 +269,7 @@ export default function DriverConversationsScreen() {
                         </Text>
                         <View style={[styles.tabBadge, pageIndex === 0 && styles.tabBadgeActive]}>
                             <Text style={[styles.tabBadgeText, pageIndex === 0 && styles.tabBadgeTextActive]}>
-                                {OPEN_CONVERSATIONS.length}
+                                {openConversations.length}
                             </Text>
                         </View>
                     </View>
@@ -254,25 +286,30 @@ export default function DriverConversationsScreen() {
                         </Text>
                         <View style={[styles.tabBadge, pageIndex === 1 && styles.tabBadgeActive]}>
                             <Text style={[styles.tabBadgeText, pageIndex === 1 && styles.tabBadgeTextActive]}>
-                                {CLOSED_CONVERSATIONS.length}
+                                {closedConversations.length}
                             </Text>
                         </View>
                     </View>
                 </TouchableOpacity>
             </View>
 
-            {/* SISÄLTÖ: HORISONTAALINEN SWIPE (AVOIMET <-> SULJETUT) */}
-            <ScrollView
-                ref={scrollRef}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={handleScrollEnd}
-                style={styles.pagerScrollView}
-            >
-                {renderList(OPEN_CONVERSATIONS, 'open')}
-                {renderList(CLOSED_CONVERSATIONS, 'closed')}
-            </ScrollView>
+            {loading ? (
+                <View style={styles.centered}>
+                    <ActivityIndicator size="large" color={COLORS.primaryDark} />
+                </View>
+            ) : (
+                <ScrollView
+                    ref={scrollRef}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onMomentumScrollEnd={handleScrollEnd}
+                    style={styles.pagerScrollView}
+                >
+                    {renderList(openConversations, 'open')}
+                    {renderList(closedConversations, 'closed')}
+                </ScrollView>
+            )}
         </SafeAreaView>
     );
 }
@@ -281,6 +318,11 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#F8FAFC',
+    },
+    centered: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     header: {
         flexDirection: 'row',
@@ -301,27 +343,26 @@ const styles = StyleSheet.create({
         color: '#0F172A',
     },
     newChatBtn: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: '#E0F2FE',
-        justifyContent: 'center',
-        alignItems: 'center',
+        padding: 8,
+        backgroundColor: '#F0F9FF',
+        borderRadius: 20,
     },
     tabBarContainer: {
         flexDirection: 'row',
         backgroundColor: '#FFFFFF',
         borderBottomWidth: 1,
         borderBottomColor: '#F1F5F9',
+        paddingHorizontal: 16,
     },
     tabButton: {
         flex: 1,
-        alignItems: 'center',
         paddingVertical: 14,
+        alignItems: 'center',
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent',
     },
     tabButtonActive: {
-        borderBottomWidth: 3,
-        borderBottomColor: '#0284C7',
+        borderBottomColor: '#00C2FF',
     },
     tabLabelRow: {
         flexDirection: 'row',
@@ -333,15 +374,15 @@ const styles = StyleSheet.create({
         color: '#64748B',
     },
     tabTextActive: {
-        color: '#0284C7',
-        fontWeight: '800',
+        color: '#00C2FF',
+        fontWeight: '700',
     },
     tabBadge: {
-        backgroundColor: '#F1F5F9',
-        paddingHorizontal: 8,
+        marginLeft: 6,
+        paddingHorizontal: 7,
         paddingVertical: 2,
         borderRadius: 10,
-        marginLeft: 8,
+        backgroundColor: '#F1F5F9',
     },
     tabBadgeActive: {
         backgroundColor: '#E0F2FE',
@@ -365,24 +406,24 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#FFFFFF',
-        borderRadius: 20,
-        padding: 16,
+        borderRadius: 16,
+        padding: 14,
         marginBottom: 12,
         borderWidth: 1,
         borderColor: '#F1F5F9',
-        shadowColor: '#000',
+        shadowColor: '#0F172A',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
+        shadowOpacity: 0.04,
         shadowRadius: 6,
         elevation: 2,
     },
     chatAvatar: {
-        width: 46,
-        height: 46,
-        borderRadius: 16,
-        justifyContent: 'center',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
-        marginRight: 14,
+        justifyContent: 'center',
+        marginRight: 12,
     },
     chatInfo: {
         flex: 1,
@@ -391,29 +432,28 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 3,
+        marginBottom: 4,
     },
     chatTitle: {
         fontSize: 15,
-        fontWeight: '800',
+        fontWeight: '700',
         color: '#0F172A',
         flex: 1,
         marginRight: 8,
     },
     chatTitleClosed: {
-        color: '#475569',
-        fontWeight: '700',
+        color: '#64748B',
     },
     chatTime: {
         fontSize: 12,
         color: '#94A3B8',
-        fontWeight: '600',
+        fontWeight: '500',
     },
     chatSnippet: {
         fontSize: 13,
         color: '#64748B',
-        marginBottom: 6,
         lineHeight: 18,
+        marginBottom: 8,
     },
     chatBottomRow: {
         flexDirection: 'row',
@@ -423,48 +463,38 @@ const styles = StyleSheet.create({
     activeTag: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#ECFDF5',
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 8,
     },
     activeDot: {
         width: 6,
         height: 6,
         borderRadius: 3,
         backgroundColor: '#10B981',
-        marginRight: 5,
+        marginRight: 6,
     },
     activeTagText: {
-        fontSize: 11,
-        fontWeight: '700',
-        color: '#10B981',
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#0284C7',
     },
     closedTag: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F1F5F9',
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 8,
     },
     closedTagText: {
-        fontSize: 11,
-        fontWeight: '600',
+        fontSize: 12,
+        fontWeight: '500',
         color: '#64748B',
     },
     unreadBadge: {
-        backgroundColor: '#0284C7',
-        width: 20,
-        height: 20,
+        backgroundColor: '#EF4444',
+        paddingHorizontal: 7,
+        paddingVertical: 2,
         borderRadius: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
     },
     unreadBadgeText: {
-        fontSize: 11,
-        fontWeight: '800',
         color: '#FFFFFF',
+        fontSize: 11,
+        fontWeight: '700',
     },
     emptyContainer: {
         alignItems: 'center',
@@ -473,18 +503,18 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     emptyCircle: {
-        width: 90,
-        height: 90,
-        borderRadius: 45,
-        justifyContent: 'center',
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         alignItems: 'center',
-        marginBottom: 18,
+        justifyContent: 'center',
+        marginBottom: 16,
     },
     emptyTitle: {
         fontSize: 18,
-        fontWeight: '800',
+        fontWeight: '700',
         color: '#0F172A',
-        marginBottom: 6,
+        marginBottom: 8,
     },
     emptySubtitle: {
         fontSize: 14,
