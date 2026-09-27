@@ -380,43 +380,26 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                 </View>
             )}
 
-            {/* 🌟 6. MINIMALISTISET PILL-NAPIT (TUOTTEET & KULJETTAJA) 🌟 */}
+            {/* 🌟 6. MINIMALISTINEN NAPPI (TUOTTEET - KOKO BOKSIN MITTAINEN) 🌟 */}
             <View style={styles.buttonsRow}>
-                {/* TUOTTEET-NAPPI */}
+                {/* TUOTTEET-NAPPI (KOKO BOKSIN LEVEYS) */}
                 <TouchableOpacity
-                    style={styles.pillButton}
+                    style={styles.pillButtonFullWidth}
                     onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
                         setIsItemsModalOpen(true);
                     }}
                     activeOpacity={0.75}
                 >
-                    <Feather name="package" size={15} color="#00C2FF" style={{ marginRight: 6 }} />
+                    <Feather name="package" size={16} color="#00C2FF" style={{ marginRight: 8 }} />
                     <Text style={styles.pillButtonText}>
-                        {itemsCount > 0 ? `${itemsCount} tuotetta • ${finalPrice} €` : `Tilaus • ${finalPrice} €`}
+                        {itemsCount === 1
+                            ? `1 tuote • ${finalPrice} €`
+                            : itemsCount > 1
+                            ? `${itemsCount} tuotetta • ${finalPrice} €`
+                            : `Tilaus • ${finalPrice} €`}
                     </Text>
-                    <Feather name="chevron-right" size={14} color="#94A3B8" style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
-
-                {/* KULJETTAJA-NAPPI */}
-                <TouchableOpacity
-                    style={[styles.pillButton, driverInfo && styles.pillButtonActiveDriver]}
-                    onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                        setIsDriverModalOpen(true);
-                    }}
-                    activeOpacity={0.75}
-                >
-                    <Feather
-                        name="truck"
-                        size={15}
-                        color={driverInfo ? '#10B981' : '#64748B'}
-                        style={{ marginRight: 6 }}
-                    />
-                    <Text style={[styles.pillButtonText, driverInfo && { color: '#0F172A' }]}>
-                        {driverInfo ? driverInfo.name : 'Kuljettaja'}
-                    </Text>
-                    <Feather name="chevron-right" size={14} color="#94A3B8" style={{ marginLeft: 4 }} />
+                    <Feather name="chevron-right" size={15} color="#94A3B8" style={{ marginLeft: 6 }} />
                 </TouchableOpacity>
             </View>
 
