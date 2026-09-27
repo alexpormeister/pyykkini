@@ -253,8 +253,8 @@ const SearchableSelect: React.FC<{
 export const DispatchTaskBoard: React.FC = () => {
   const { toast } = useToast();
 
-  // Taulukon suodattimet
-  const [tabFilter, setTabFilter] = useState<"all" | "unassigned" | "pickup" | "washing" | "delivery">("all");
+  // Taulukon suodattimet (DISPATCH, BOOKED, COMPLETED, CANCELLED, KAIKKI)
+  const [tabFilter, setTabFilter] = useState<"dispatch" | "booked" | "completed" | "cancelled" | "all">("dispatch");
   const [searchQuery, setSearchQuery] = useState("");
   const [cityFilter, setCityFilter] = useState("all");
 
@@ -1054,104 +1054,28 @@ export const DispatchTaskBoard: React.FC = () => {
     }
   };
 
-  const activeTasks = useMemo(() => {
+  // 📅 Tämän päivän päivämäärä ISO-muodossa YYYY-MM-DD
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  // 1. Suodatetaan tilaukset/tehtävät joissa päivämäärä on Tänään -> Tulevaisuus (historiatiedot haetaan OrderSearchPanelista)
+  const dateScopedTasks = useMemo(() => {
     return tasks.filter((t) => {
       if (!t) return false;
-      const taskSt = String(t.status || "").toLowerCase();
-      const orderSt = String(t.orders?.status || "").toLowerCase();
-      const orderTracking = String(t.orders?.tracking_status || "").toUpperCase();
+      const ordObj = Array.isArray(t.orders) ? (t.orders[0] || {}) : (t.orders || {});
+      const taskDate = t.scheduled_date;
+      const pDate = ordObj.pickup_date;
+      const rDate = ordObj.return_date;
 
-      if (["completed", "failed", "cancelled"].includes(taskSt)) return false;
-      if (["delivered", "completed", "rejected", "cancelled"].includes(orderSt)) return false;
-      if (orderTracking === "COMPLETED") return false;
-
+      // Jos kaikki päivämäärät ovat menneisyydessä ennen tätä päivää, ei näytetä välityksen päänäkymässä
+      if (taskDate && taskDate < todayStr && pDate && pDate < todayStr && rDate && rDate < todayStr) {
+        return false;
+      }
       return true;
     });
-  }, [tasks]);
+  }, [tasks, todayStr]);
 
-  const cities = useMemo(() => {
-    const set = new Set<string>();
-    activeTasks.forEach((t) => {
-      const addr = t.task_type === "pickup"
-        ? (t.pickup_address || t.origin_address || t.orders?.address)
-        : (t.delivery_address || t.destination_address || t.orders?.address);
-      set.add(cityFromAddress(addr));
-    });
-    return Array.from(set).sort();
-  }, [activeTasks]);
-
-  const filteredTasks = useMemo(() => {
-    try {
-      const q = String(searchQuery || "").toLowerCase().trim().replace(/^#/, "");
-
-      return activeTasks.filter((t) => {
-        if (!t) return false;
-
-        const addr = t.task_type === "pickup"
-          ? (t.pickup_address || t.origin_address || t.orders?.address)
-          : (t.delivery_address || t.destination_address || t.orders?.address);
-
-        if (cityFilter !== "all" && cityFromAddress(addr) !== cityFilter) {
-          return false;
-        }
-
-        const taskSt = String(t.status || "").toLowerCase();
-        const orderSt = String(t.orders?.status || "").toLowerCase();
-        const isLaundry = orderSt === "washing" || taskSt === "washing" || taskSt === "awaiting_laundry";
-
-        if (tabFilter === "unassigned") {
-          if (isLaundry || t.driver_id || (taskSt !== "unassigned" && taskSt !== "pending")) return false;
-        } else if (tabFilter === "pickup") {
-          if (isLaundry || t.task_type !== "pickup") return false;
-        } else if (tabFilter === "washing") {
-          if (!isLaundry) return false;
-        } else if (tabFilter === "delivery") {
-          if (isLaundry || t.task_type !== "delivery") return false;
-        }
-
-        if (q) {
-          const rawOrderId = String(t.order_id || "").toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
-          const rawTaskId = String(t.id || "").toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
-          const shortIdStr = shortOrderId(t.order_id).toLowerCase();
-          const matchId = rawOrderId.includes(q) || rawTaskId.includes(q) || shortIdStr.includes(q);
-
-          const firstName = String(t.orders?.first_name || t.pickup_name || "").toLowerCase();
-          const lastName = String(t.orders?.last_name || "").toLowerCase();
-          const fullNameStr = `${firstName} ${lastName}`.trim();
-          const matchName = firstName.includes(q) || lastName.includes(q) || fullNameStr.includes(q);
-
-          const phoneStr = String(t.pickup_phone || t.delivery_phone || t.orders?.phone || "").toLowerCase().replace(/\s+/g, "");
-          const cleanQ = q.replace(/\s+/g, "");
-          const matchPhone = phoneStr.includes(cleanQ);
-
-          const fullAddrStr = String(addr || "").toLowerCase();
-          const matchAddr = fullAddrStr.includes(q);
-
-          const driver = findDriver(t.driver_id);
-          const driverNameStr = getDriverFullName(driver).toLowerCase();
-          const matchDriver = driverNameStr.includes(q);
-
-          const laundry = findLaundry(t.laundry_id);
-          const laundryNameStr = (laundry?.name || "").toLowerCase();
-          const matchLaundry = laundryNameStr.includes(q);
-
-          const serviceNameStr = String(t.orders?.service_name || "").toLowerCase();
-          const matchService = serviceNameStr.includes(q);
-
-          if (!matchId && !matchName && !matchPhone && !matchAddr && !matchDriver && !matchLaundry && !matchService) {
-            return false;
-          }
-        }
-
-        return true;
-      });
-    } catch (err) {
-      console.error("Dispatch filtering error:", err);
-      return activeTasks;
-    }
-  }, [activeTasks, searchQuery, cityFilter, tabFilter, drivers, laundries]);
-
-  const groupedOrders = useMemo(() => {
+  // 2. Ryhmitellään tehtävät tilauskohtaisesti (tämän ansiosta noudon suoritus ei poista noutoriviä tilauksen alta!)
+  const allGroupedOrders = useMemo(() => {
     const map = new Map<string, {
       orderId: string;
       order: any;
@@ -1160,12 +1084,13 @@ export const DispatchTaskBoard: React.FC = () => {
       tasks: TaskRow[];
     }>();
 
-    filteredTasks.forEach((task) => {
+    dateScopedTasks.forEach((task) => {
+      const ordObj = Array.isArray(task.orders) ? (task.orders[0] || {}) : (task.orders || {});
       const oId = task.order_id || task.id;
       if (!map.has(oId)) {
         map.set(oId, {
           orderId: oId,
-          order: task.orders || null,
+          order: ordObj,
           tasks: [],
         });
       }
@@ -1176,44 +1101,139 @@ export const DispatchTaskBoard: React.FC = () => {
       } else {
         entry.deliveryTask = task;
       }
-      if (!entry.order && task.orders) {
-        entry.order = task.orders;
+      if (!entry.order && ordObj) {
+        entry.order = ordObj;
       }
     });
 
     return Array.from(map.values());
-  }, [filteredTasks]);
+  }, [dateScopedTasks]);
 
-  const stats = useMemo(() => {
-    let unassigned = 0;
-    let pickingUp = 0;
-    let washing = 0;
-    let returning = 0;
+  // 3. Lasketaan reaaliaikaiset lukumäärät vapaat (DISPATCH), varatut (BOOKED), suoritetut (COMPLETED) ja peruutetut (CANCELLED)
+  const tabCounts = useMemo(() => {
+    let dispatch = 0;
+    let booked = 0;
+    let completed = 0;
+    let cancelled = 0;
 
-    activeTasks.forEach((t) => {
-      const taskSt = String(t.status || "").toLowerCase();
-      const orderSt = String(t.orders?.status || "").toLowerCase();
-      const isLaundry = orderSt === "washing" || taskSt === "washing" || taskSt === "awaiting_laundry";
+    allGroupedOrders.forEach((group) => {
+      const orderSt = String(group.order?.status || "").toLowerCase();
+      const orderTracking = String(group.order?.tracking_status || "").toUpperCase();
+      const isCancelled = orderSt === "cancelled" || orderSt === "rejected" || group.tasks.every(t => String(t.status).toLowerCase() === "cancelled");
+      const isCompleted = orderSt === "delivered" || orderSt === "completed" || orderTracking === "COMPLETED" || (group.tasks.length > 0 && group.tasks.every(t => String(t.status).toLowerCase() === "completed"));
 
-      if (isLaundry) {
-        washing++;
-      } else if (!t.driver_id || taskSt === "unassigned" || taskSt === "pending") {
-        unassigned++;
-      } else if (t.task_type === "pickup") {
-        pickingUp++;
-      } else if (t.task_type === "delivery") {
-        returning++;
+      if (isCancelled) {
+        cancelled++;
+      } else if (isCompleted) {
+        completed++;
+      } else {
+        const hasUnassignedTask = group.tasks.some(
+          (t) => !t.driver_id || ["unassigned", "pending"].includes(String(t.status).toLowerCase())
+        );
+        if (hasUnassignedTask) {
+          dispatch++;
+        } else {
+          booked++;
+        }
       }
     });
 
     return {
-      total: activeTasks.length,
-      unassigned,
-      pickingUp,
-      washing,
-      returning,
+      dispatch,
+      booked,
+      completed,
+      cancelled,
+      all: allGroupedOrders.length,
     };
-  }, [activeTasks]);
+  }, [allGroupedOrders]);
+
+  // 4. Suodatetaan tilausryhmät valitun tab-suodattimen (DISPATCH, BOOKED, COMPLETED, CANCELLED), alueen ja haun perusteella
+  const groupedOrders = useMemo(() => {
+    const q = String(searchQuery || "").toLowerCase().trim().replace(/^#/, "");
+
+    return allGroupedOrders.filter((group) => {
+      const orderSt = String(group.order?.status || "").toLowerCase();
+      const orderTracking = String(group.order?.tracking_status || "").toUpperCase();
+      const isCancelled = orderSt === "cancelled" || orderSt === "rejected" || group.tasks.every(t => String(t.status).toLowerCase() === "cancelled");
+      const isCompleted = orderSt === "delivered" || orderSt === "completed" || orderTracking === "COMPLETED" || (group.tasks.length > 0 && group.tasks.every(t => String(t.status).toLowerCase() === "completed"));
+      const hasUnassignedTask = group.tasks.some(
+        (t) => !t.driver_id || ["unassigned", "pending"].includes(String(t.status).toLowerCase())
+      );
+
+      // Välilehden suodatus
+      if (tabFilter === "dispatch") {
+        if (isCancelled || isCompleted || !hasUnassignedTask) return false;
+      } else if (tabFilter === "booked") {
+        if (isCancelled || isCompleted || hasUnassignedTask) return false;
+      } else if (tabFilter === "completed") {
+        if (!isCompleted) return false;
+      } else if (tabFilter === "cancelled") {
+        if (!isCancelled) return false;
+      }
+
+      // Aluesuodatus
+      if (cityFilter !== "all") {
+        const pAddr = group.pickupTask?.pickup_address || group.order?.address;
+        const dAddr = group.deliveryTask?.delivery_address || group.order?.address;
+        const pCity = cityFromAddress(pAddr);
+        const dCity = cityFromAddress(dAddr);
+        if (pCity !== cityFilter && dCity !== cityFilter) return false;
+      }
+
+      // Hakusanat
+      if (q) {
+        const rawOrderId = String(group.orderId || "").toLowerCase().replace(/[^a-zA-Z0-9]/g, "");
+        const shortIdStr = shortOrderId(group.orderId).toLowerCase();
+        const matchId = rawOrderId.includes(q) || shortIdStr.includes(q);
+
+        const firstName = String(group.order?.first_name || group.pickupTask?.pickup_name || "").toLowerCase();
+        const lastName = String(group.order?.last_name || "").toLowerCase();
+        const fullNameStr = `${firstName} ${lastName}`.trim();
+        const matchName = firstName.includes(q) || lastName.includes(q) || fullNameStr.includes(q);
+
+        const phoneStr = String(group.order?.phone || group.pickupTask?.pickup_phone || group.deliveryTask?.delivery_phone || "").toLowerCase().replace(/\s+/g, "");
+        const matchPhone = phoneStr.includes(q.replace(/\s+/g, ""));
+
+        const addrStr = String(group.order?.address || group.pickupTask?.pickup_address || group.deliveryTask?.delivery_address || "").toLowerCase();
+        const matchAddr = addrStr.includes(q);
+
+        const laundry = laundries.find((l) => l.id === (group.order?.laundry_id || group.pickupTask?.laundry_id));
+        const matchLaundry = (laundry?.name || "").toLowerCase().includes(q);
+
+        const pickupDriver = drivers.find((d) => d.user_id === group.pickupTask?.driver_id);
+        const deliveryDriver = drivers.find((d) => d.user_id === group.deliveryTask?.driver_id);
+        const matchDriver = getDriverFullName(pickupDriver).toLowerCase().includes(q) || getDriverFullName(deliveryDriver).toLowerCase().includes(q);
+
+        if (!matchId && !matchName && !matchPhone && !matchAddr && !matchLaundry && !matchDriver) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [allGroupedOrders, tabFilter, cityFilter, searchQuery, laundries, drivers]);
+
+  const cities = useMemo(() => {
+    const set = new Set<string>();
+    dateScopedTasks.forEach((t) => {
+      const ordObj = Array.isArray(t.orders) ? (t.orders[0] || {}) : (t.orders || {});
+      const addr = t.task_type === "pickup"
+        ? (t.pickup_address || t.origin_address || ordObj.address)
+        : (t.delivery_address || t.destination_address || ordObj.address);
+      set.add(cityFromAddress(addr));
+    });
+    return Array.from(set).sort();
+  }, [dateScopedTasks]);
+
+  const stats = useMemo(() => {
+    return {
+      total: tabCounts.all,
+      unassigned: tabCounts.dispatch,
+      pickingUp: tabCounts.booked,
+      washing: tabCounts.completed,
+      returning: tabCounts.cancelled,
+    };
+  }, [tabCounts]);
 
   // 🔍 Kuljettajan / Pesulan hakuohjeiden ehdotukset (MAX 3)
   const scheduleEntitySuggestions = useMemo(() => {
@@ -1258,55 +1278,63 @@ export const DispatchTaskBoard: React.FC = () => {
   // 📅 Valitun Kuljettajan / Pesulan päiväkohtaiset keikat
   const scheduleEntityTasks = useMemo(() => {
     if (!selectedScheduleEntity) return [];
-    return activeTasks.filter((t) => {
+    return dateScopedTasks.filter((t) => {
+      const ordObj = Array.isArray(t.orders) ? (t.orders[0] || {}) : (t.orders || {});
       const isTargetMatch = selectedScheduleEntity.type === 'driver'
         ? t.driver_id === selectedScheduleEntity.id
         : t.laundry_id === selectedScheduleEntity.id;
 
       if (!isTargetMatch) return false;
 
-      const taskDate = t.scheduled_date || (t.task_type === 'pickup' ? t.orders?.pickup_date : t.orders?.return_date);
+      const taskDate = t.scheduled_date || (t.task_type === 'pickup' ? ordObj.pickup_date : ordObj.return_date);
       return taskDate === scheduleDate;
     }).sort((a, b) => {
-      const timeA = a.scheduled_time_slot || a.orders?.pickup_time || "";
-      const timeB = b.scheduled_time_slot || b.orders?.pickup_time || "";
+      const ordObjA = Array.isArray(a.orders) ? (a.orders[0] || {}) : (a.orders || {});
+      const ordObjB = Array.isArray(b.orders) ? (b.orders[0] || {}) : (b.orders || {});
+      const timeA = a.scheduled_time_slot || ordObjA.pickup_time || "";
+      const timeB = b.scheduled_time_slot || ordObjB.pickup_time || "";
       return timeA.localeCompare(timeB);
     });
-  }, [selectedScheduleEntity, activeTasks, scheduleDate]);
+  }, [selectedScheduleEntity, dateScopedTasks, scheduleDate]);
 
   // Muunnetaan kartan muotoon
   const mapTasks: MapTaskItem[] = useMemo(() => {
-    return filteredTasks.map((t) => {
-      const isPickup = t.task_type === "pickup";
-      const addr = isPickup
-        ? (t.pickup_address || t.origin_address || t.orders?.address || "Helsinki")
-        : (t.delivery_address || t.destination_address || t.orders?.address || "Helsinki");
+    const result: MapTaskItem[] = [];
+    groupedOrders.forEach((group) => {
+      group.tasks.forEach((t) => {
+        const ordObj = Array.isArray(t.orders) ? (t.orders[0] || {}) : (t.orders || group.order || {});
+        const isPickup = t.task_type === "pickup";
+        const addr = isPickup
+          ? (t.pickup_address || t.origin_address || ordObj.address || "Helsinki")
+          : (t.delivery_address || t.destination_address || ordObj.address || "Helsinki");
 
-      const custName = isPickup
-        ? `${t.orders?.first_name || t.pickup_name || "Asiakas"} ${t.orders?.last_name || ""}`.trim()
-        : `${t.orders?.first_name || t.delivery_name || "Asiakas"} ${t.orders?.last_name || ""}`.trim();
+        const custName = isPickup
+          ? `${ordObj.first_name || t.pickup_name || "Asiakas"} ${ordObj.last_name || ""}`.trim()
+          : `${ordObj.first_name || t.delivery_name || "Asiakas"} ${ordObj.last_name || ""}`.trim();
 
-      const phone = t.pickup_phone || t.delivery_phone || t.orders?.phone || "";
-      const driver = findDriver(t.driver_id);
-      const laundry = laundries.find((l) => l.id === t.laundry_id);
+        const phone = t.pickup_phone || t.delivery_phone || ordObj.phone || "";
+        const driver = findDriver(t.driver_id);
+        const laundry = laundries.find((l) => l.id === t.laundry_id);
 
-      return {
-        id: t.id,
-        order_id: t.order_id,
-        task_type: isPickup ? "pickup" : "delivery",
-        status: t.status,
-        customerName: custName,
-        phone,
-        address: addr,
-        city: cityFromAddress(addr),
-        scheduledTime: t.scheduled_time_slot || t.orders?.pickup_time || "10-12",
-        driverName: getDriverFullName(driver),
-        driverId: t.driver_id,
-        laundryName: laundry?.name || "Ei määritetty",
-        price: t.orders?.final_price || t.orders?.price || 35.9,
-      };
+        result.push({
+          id: t.id,
+          order_id: t.order_id,
+          task_type: isPickup ? "pickup" : "delivery",
+          status: t.status,
+          customerName: custName,
+          phone,
+          address: addr,
+          city: cityFromAddress(addr),
+          scheduledTime: t.scheduled_time_slot || ordObj.pickup_time || "10-12",
+          driverName: getDriverFullName(driver),
+          driverId: t.driver_id,
+          laundryName: laundry?.name || "Ei määritetty",
+          price: ordObj.final_price || ordObj.price || 35.9,
+        });
+      });
     });
-  }, [filteredTasks, drivers, laundries]);
+    return result;
+  }, [groupedOrders, drivers, laundries]);
 
   // Dropdown-optiot hakukentällisille valitsimille
   const productOptions: SearchableOption[] = useMemo(() => {
@@ -2298,6 +2326,91 @@ export const DispatchTaskBoard: React.FC = () => {
       {/* ALARIVI: KEIKKATAULUKKO PESULAN JA KUSKIN VALINNALLA     */}
       {/* ======================================================== */}
       <div className="space-y-2.5 pt-2">
+
+        {/* 🏷️ PÄÄVÄLILEHDET (DISPATCH, BOOKED, COMPLETED, CANCELLED) */}
+        <div className="flex flex-wrap items-center justify-between gap-2 p-1.5 rounded-xl border bg-card shadow-xs">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setTabFilter("dispatch")}
+              className={cn(
+                "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2",
+                tabFilter === "dispatch"
+                  ? "bg-amber-500 text-white shadow-sm"
+                  : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <span>DISPATCH</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 text-white font-extrabold">
+                {tabCounts.dispatch}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTabFilter("booked")}
+              className={cn(
+                "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2",
+                tabFilter === "booked"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <span>BOOKED</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 text-white font-extrabold">
+                {tabCounts.booked}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTabFilter("completed")}
+              className={cn(
+                "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2",
+                tabFilter === "completed"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <span>COMPLETED</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 text-white font-extrabold">
+                {tabCounts.completed}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTabFilter("cancelled")}
+              className={cn(
+                "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2",
+                tabFilter === "cancelled"
+                  ? "bg-red-600 text-white shadow-sm"
+                  : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <span>CANCELLED</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 text-white font-extrabold">
+                {tabCounts.cancelled}
+              </span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setTabFilter("all")}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2",
+              tabFilter === "all"
+                ? "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 shadow-sm"
+                : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <span>KAIKKI</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 text-white font-extrabold">
+              {tabCounts.all}
+            </span>
+          </button>
+        </div>
         
         {/* HAKU & SUODATTIMET */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-2.5 rounded-xl border bg-card">

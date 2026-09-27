@@ -227,8 +227,9 @@ export default function DriverSearchScreen() {
                 .order('scheduled_date', { ascending: true });
 
             const validTasks = (taskData || []).filter((t: any) => {
-                const ordStatus = (t.orders?.status || '').toLowerCase();
-                const laundryStatus = (t.orders?.laundry_status || '').toLowerCase();
+                const ordObj = Array.isArray(t.orders) ? (t.orders[0] || {}) : (t.orders || {});
+                const ordStatus = (ordObj.status || '').toLowerCase();
+                const laundryStatus = (ordObj.laundry_status || '').toLowerCase();
                 if (ordStatus === 'cancelled' || ordStatus === 'rejected') return false;
                 
                 // LOGIIKKA:
@@ -242,14 +243,15 @@ export default function DriverSearchScreen() {
 
             if (!taskError && validTasks.length > 0) {
                 const formatted: GigItem[] = validTasks.map((t: any) => {
+                    const ordObj = Array.isArray(t.orders) ? (t.orders[0] || {}) : (t.orders || {});
                     const isPickup = t.task_type === 'pickup';
-                    const orderDate = isPickup ? t.orders?.pickup_date : t.orders?.return_date;
+                    const orderDate = isPickup ? ordObj.pickup_date : ordObj.return_date;
                     const dateKey = formatDatePill(t.scheduled_date || orderDate);
 
                     // Asiakkaan osoite ja kadunnimi
                     const customerRawAddress = isPickup 
-                        ? (t.pickup_address || t.orders?.address || t.address) 
-                        : (t.delivery_address || t.orders?.address || t.address);
+                        ? (t.pickup_address || ordObj.address || t.address) 
+                        : (t.delivery_address || ordObj.address || t.address);
                     const parsedCustomer = parseStructuredAddress(customerRawAddress);
                     const customerStreet = parsedCustomer.streetName || parsedCustomer.streetOnly || 'Asiakasosoite';
                     const customerCity = parsedCustomer.city || 'Espoo';
@@ -267,8 +269,8 @@ export default function DriverSearchScreen() {
 
                     // Asiakkaan valitsema kellonaika
                     const rawTime = isPickup
-                        ? (t.scheduled_time || t.orders?.pickup_time || t.orders?.pickup_slot)
-                        : (t.scheduled_time || t.orders?.return_time || t.orders?.delivery_slot);
+                        ? (t.scheduled_time || ordObj.pickup_time || ordObj.pickup_slot)
+                        : (t.scheduled_time || ordObj.return_time || ordObj.delivery_slot);
                     const startTimeRaw = formatCleanTime(rawTime, isPickup ? '10:00' : '18:00');
                     const arrivalTimeRaw = calculateArrivalTime(startTimeRaw, durationMin);
 
@@ -287,7 +289,7 @@ export default function DriverSearchScreen() {
                         distanceKm,
                         estimatedMinutes: durationMin,
                         payout: Number(t.driver_payout) || 19,
-                        notes: t.notes || t.orders?.special_instructions,
+                        notes: t.notes || ordObj.special_instructions,
                         rawTask: t,
                     };
                 });
