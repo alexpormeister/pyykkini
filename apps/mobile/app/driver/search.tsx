@@ -218,11 +218,11 @@ export default function DriverSearchScreen() {
             const laundryName = laundryData?.name || 'Pesuni Pesulakeskus';
             const laundryCity = laundryData?.city || parsedLaundry.city || 'Espoo';
 
-            // 1. Haetaan delivery_tasks yhdessä orders-taulun kanssa (vain pesulan hyväksymät vapaat keikat)
+            // 1. Haetaan delivery_tasks yhdessä orders-taulun kanssa (kaikki vapaat keikat, kun pesula on hyväksynyt tilauksen)
             const { data: taskData, error: taskError } = await supabase
                 .from('delivery_tasks')
                 .select('*, orders(*)')
-                .or('status.eq.unassigned,and(task_type.eq.delivery,status.eq.pending)')
+                .in('status', ['unassigned', 'pending'])
                 .is('driver_id', null)
                 .order('scheduled_date', { ascending: true });
 
@@ -230,9 +230,13 @@ export default function DriverSearchScreen() {
                 const ordStatus = (t.orders?.status || '').toLowerCase();
                 const laundryStatus = (t.orders?.laundry_status || '').toLowerCase();
                 if (ordStatus === 'cancelled' || ordStatus === 'rejected') return false;
-                // Keikka tulee kuljettajille jakoon kun pesula on hyväksynyt tilauksen
-                const isAccepted = ['accepted', 'washing', 'ready', 'packaging'].includes(laundryStatus) || ['washing', 'returning', 'ready_for_delivery'].includes(ordStatus);
-                if (!isAccepted) return false;
+                
+                // LOGIIKKA:
+                // 1. Jos pesula ei ole kuitannut tilausta (laundryStatus on 'pending' tai tyhjä) -> näkyy VAIN pesulalle.
+                // 2. Jos pesula on kuitannut tilauksen (laundryStatus != 'pending') -> meno- ja palautuskeikka tulevat kuljettajille jaettaviksi erillisinä vapaana keikkoina.
+                const isLaundryConfirmed = Boolean(laundryStatus) && laundryStatus !== 'pending' && laundryStatus !== 'rejected';
+                if (!isLaundryConfirmed) return false;
+
                 return true;
             });
 
