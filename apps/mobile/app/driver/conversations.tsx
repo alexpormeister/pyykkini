@@ -109,6 +109,20 @@ export default function DriverConversationsScreen() {
         }
     }, []);
 
+    useEffect(() => {
+        fetchRealConversations();
+
+        const channel = supabase
+            .channel('driver_conversations_realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'support_chats' }, () => fetchRealConversations())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, () => fetchRealConversations())
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [fetchRealConversations]);
+
     useFocusEffect(
         useCallback(() => {
             fetchRealConversations();

@@ -77,11 +77,11 @@ export default function DriverProfileScreen() {
 
             setTodayCount(countToday || 0);
 
-            // Haetaan viikon tulot
+            // Haetaan viikon tulot (tämän viikon maanantaista lähtien)
             const startOfWeek = new Date();
-            const day = startOfWeek.getDay();
-            const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
-            startOfWeek.setDate(diff);
+            const currentDay = startOfWeek.getDay();
+            const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+            startOfWeek.setDate(startOfWeek.getDate() + distanceToMonday);
             startOfWeek.setHours(0, 0, 0, 0);
             const weekIso = startOfWeek.toISOString();
 
@@ -92,8 +92,8 @@ export default function DriverProfileScreen() {
                 .in('status', ['completed', 'delivered'])
                 .gte('updated_at', weekIso);
 
-            const totalEarned = (weekTasks || []).reduce((sum, t) => sum + (Number(t.driver_payout) || 15), 0);
-            setWeekEarnings(totalEarned);
+            const totalEarned = (weekTasks || []).reduce((sum, t) => sum + (Number(t.driver_payout) || 0), 0);
+            setWeekEarnings(Math.round(totalEarned * 10) / 10);
         }
 
         // Haetaan valitut toimialueet
@@ -203,7 +203,9 @@ export default function DriverProfileScreen() {
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statCard}>
-                        <Text style={[styles.statValue, { color: '#0284C7' }]}>{weekEarnings} €</Text>
+                        <Text style={[styles.statValue, { color: '#0284C7' }]}>
+                            {Number(weekEarnings).toFixed(1).replace('.', ',')} €
+                        </Text>
                         <Text style={styles.statLabel}>Viikon tulot</Text>
                     </View>
                     <View style={styles.statDivider} />

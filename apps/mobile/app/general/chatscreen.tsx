@@ -103,21 +103,24 @@ const ChatScreen = () => {
         realtimeChannel.current = supabase
             .channel(`chat:${id}`)
             .on('postgres_changes', {
-                event: 'INSERT',
+                event: '*',
                 schema: 'public',
                 table: 'chat_messages',
                 filter: `chat_id=eq.${id}`,
             }, (payload) => {
                 const newMsg = payload.new as Message;
+                if (!newMsg || !newMsg.id) return;
 
                 setMessages((prev) => {
                     if (prev.some(m => String(m.id) === String(newMsg.id))) return prev;
-                    return [...prev, newMsg];
+                    const updated = [...prev, newMsg];
+                    setTimeout(() => {
+                        flatListRef.current?.scrollToEnd({ animated: true });
+                    }, 100);
+                    return updated;
                 });
 
-                if (newMsg.is_admin_message) {
-                    markAsRead(id);
-                }
+                markAsRead(id);
             })
             .subscribe();
     }, []);
