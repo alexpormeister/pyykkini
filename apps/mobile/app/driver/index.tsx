@@ -269,13 +269,17 @@ export default function DriverDrivesScreen() {
                     const ordActualReturn = ordObj.actual_return_time;
                     const isCompleted = t.status === 'completed' || t.status === 'delivered' || orderStatus === 'delivered' || orderTracking === 'COMPLETED' || (isPickup && orderStatus === 'washing');
 
+                    const prevDrive = drives.find(d => String(d.id) === String(t.id) || String(d.orderId) === String(orderIdStr));
+                    const wasArrivedPickup = prevDrive?.status === 'arrived_pickup';
+                    const wasArrivedDelivery = prevDrive?.status === 'arrived_delivery';
+
                     let taskStatus = t.status || 'assigned';
                     if (isPickup) {
                         if (t.status === 'completed' || t.status === 'delivered' || orderStatus === 'washing') {
                             taskStatus = 'completed';
                         } else if (orderTracking === 'PICKED_UP' || t.pickup_weight_kg || (t.pickup_photos && t.pickup_photos.length > 0)) {
                             taskStatus = 'in_transit_to_laundry';
-                        } else if (orderTracking === 'ARRIVED_PICKUP' || Boolean(ordActualPickup)) {
+                        } else if (orderTracking === 'ARRIVED_PICKUP' || Boolean(ordActualPickup) || wasArrivedPickup) {
                             taskStatus = 'arrived_pickup';
                         } else if (orderStatus === 'picking_up' || t.status === 'in_progress') {
                             taskStatus = 'picking_up';
@@ -286,7 +290,7 @@ export default function DriverDrivesScreen() {
                         // Palautus/Delivery-tehtävä
                         if (t.status === 'completed' || t.status === 'delivered' || orderStatus === 'delivered' || orderTracking === 'COMPLETED') {
                             taskStatus = 'completed';
-                        } else if (orderTracking === 'ARRIVED_DELIVERY' || Boolean(ordActualReturn)) {
+                        } else if (orderTracking === 'ARRIVED_DELIVERY' || Boolean(ordActualReturn) || wasArrivedDelivery) {
                             taskStatus = 'arrived_delivery';
                         } else if (orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY' || t.status === 'in_progress') {
                             taskStatus = 'in_progress';
@@ -418,16 +422,20 @@ export default function DriverDrivesScreen() {
                     const isDeliveryType = orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY' || orderTracking === 'PACKAGING';
                     const orderDateOnly = normalizeDateStr(isDeliveryType ? (o.return_date || o.pickup_date) : o.pickup_date);
 
+                    const prevDrive = drives.find(d => String(d.id) === String(o.id) || String(d.orderId) === String(o.id));
+                    const wasArrivedPickup = prevDrive?.status === 'arrived_pickup';
+                    const wasArrivedDelivery = prevDrive?.status === 'arrived_delivery';
+
                     let taskStatus = 'assigned';
                     if (isCompleted) {
                         taskStatus = 'completed';
-                    } else if (orderTracking === 'ARRIVED_PICKUP' || (orderStatus === 'picking_up' && o.actual_pickup_time)) {
+                    } else if (orderTracking === 'PICKED_UP' || o.pickup_weight_kg || (o.pickup_photos && o.pickup_photos.length > 0)) {
+                        taskStatus = 'in_transit_to_laundry';
+                    } else if (orderTracking === 'ARRIVED_PICKUP' || Boolean(o.actual_pickup_time) || wasArrivedPickup) {
                         taskStatus = 'arrived_pickup';
                     } else if (orderStatus === 'picking_up') {
                         taskStatus = 'picking_up';
-                    } else if (orderTracking === 'PICKED_UP' || o.pickup_weight_kg || (o.pickup_photos && o.pickup_photos.length > 0)) {
-                        taskStatus = 'in_transit_to_laundry';
-                    } else if (orderTracking === 'ARRIVED_DELIVERY' || ((orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY') && o.actual_return_time)) {
+                    } else if (orderTracking === 'ARRIVED_DELIVERY' || Boolean(o.actual_return_time) || wasArrivedDelivery) {
                         taskStatus = 'arrived_delivery';
                     } else if (orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY') {
                         taskStatus = 'in_progress';
