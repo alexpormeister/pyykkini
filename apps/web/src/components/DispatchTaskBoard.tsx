@@ -133,6 +133,18 @@ function extractStartTime(timeStr?: string | null, fallback: string = "10:00"): 
   return `${hours}:${minutes}:00`;
 }
 
+function formatSlotToISO(dateStr?: string | null, timeStr?: string | null, fallbackTime: string = "10:00"): string | null {
+  if (!dateStr) return null;
+  const time = extractStartTime(timeStr, fallbackTime);
+  try {
+    const d = new Date(`${dateStr}T${time}`);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString();
+  } catch {
+    return null;
+  }
+}
+
 function formatSafeDate(dateStr?: string | null): string {
   if (!dateStr) return "-";
   try {
@@ -903,10 +915,10 @@ export const DispatchTaskBoard: React.FC = () => {
           access_code: formAccessCode.trim() || null,
           pickup_date: formPickupDate,
           pickup_time: extractStartTime(formPickupTime, "10:00"),
-          pickup_slot: formPickupTime,
+          pickup_slot: formatSlotToISO(formPickupDate, formPickupTime, "10:00"),
           return_date: formReturnDate,
           return_time: extractStartTime(formReturnTime, "18:00"),
-          delivery_slot: formReturnTime,
+          delivery_slot: formatSlotToISO(formReturnDate, formReturnTime, "18:00"),
           service_name: summaryServiceName || "Pesupalvelu",
           service_type: formProducts.length > 1 ? "multiple" : "standard",
           price: basePriceNum,
