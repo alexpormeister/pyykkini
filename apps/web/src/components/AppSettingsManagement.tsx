@@ -12,6 +12,7 @@ interface AppSettings {
   vat_rate: number;
   delivery_fee: number;
   min_order_amount: number;
+  min_order_fee: number;
   updated_at?: string;
 }
 
@@ -19,7 +20,8 @@ const DEFAULTS: AppSettings = {
   service_fee: 2,
   vat_rate: 25.5,
   delivery_fee: 0,
-  min_order_amount: 0,
+  min_order_amount: 30,
+  min_order_fee: 7,
 };
 
 export const AppSettingsManagement = () => {
@@ -43,6 +45,7 @@ export const AppSettingsManagement = () => {
           vat_rate: Number(data.vat_rate ?? 0),
           delivery_fee: Number(data.delivery_fee ?? 0),
           min_order_amount: Number(data.min_order_amount ?? 0),
+          min_order_fee: Number((data as any).min_order_fee ?? 0),
         });
         setUpdatedAt(data.updated_at);
       }
@@ -52,7 +55,7 @@ export const AppSettingsManagement = () => {
   }, []);
 
   const handleSave = async () => {
-    if ([form.service_fee, form.vat_rate, form.min_order_amount].some((v) => isNaN(v) || v < 0)) {
+    if ([form.service_fee, form.vat_rate, form.min_order_amount, form.min_order_fee].some((v) => isNaN(v) || v < 0)) {
       toast.error("Kaikkien arvojen tulee olla nollaa suurempia tai nolla");
       return;
     }
@@ -81,7 +84,9 @@ export const AppSettingsManagement = () => {
   }
 
   const exampleBase = 20;
-  const total = exampleBase + form.service_fee;
+  const isBelowMin = form.min_order_amount > 0 && exampleBase < form.min_order_amount;
+  const smallOrderFee = isBelowMin ? form.min_order_fee : 0;
+  const total = exampleBase + form.service_fee + smallOrderFee;
   const vatAmount = form.vat_rate > 0 ? total - total / (1 + form.vat_rate / 100) : 0;
 
   return (
@@ -123,13 +128,27 @@ export const AppSettingsManagement = () => {
                 <ShoppingBag className="h-4 w-4 text-muted-foreground" /> Tilauksen minimisumma (€)
               </Label>
               <Input id="min_order_amount" type="number" step="0.01" min="0" value={form.min_order_amount} onChange={num("min_order_amount")} />
-              <p className="text-xs text-muted-foreground">0 = ei minimisummaa. Estää liian pienet tilaukset.</p>
+              <p className="text-xs text-muted-foreground">Tuottesumman raja (esim. 30,00 €), jonka alittuessa veloitetaan pientilauslisä.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="min_order_fee" className="flex items-center gap-2">
+                <ShoppingBag className="h-4 w-4 text-muted-foreground" /> Pientilauslisä / Minimiveloitus (€)
+              </Label>
+              <Input id="min_order_fee" type="number" step="0.01" min="0" value={form.min_order_fee} onChange={num("min_order_fee")} />
+              <p className="text-xs text-muted-foreground">Veloitus (esim. 7,00 €), joka lisätään tilaukseen automaattisesti, jos tuottesumma jää minimirajan alle.</p>
             </div>
           </div>
 
           <div className="rounded-lg border bg-muted/40 p-4 space-y-1 text-sm">
-            <p className="font-medium">Esimerkkilaskelma (tuotteet 20,00 €)</p>
+            <p className="font-medium">Esimerkkilaskelma (tuotteet {exampleBase.toFixed(2)} €)</p>
             <div className="flex justify-between"><span className="text-muted-foreground">Palvelumaksu</span><span>{form.service_fee.toFixed(2)} €</span></div>
+            {isBelowMin && (
+              <div className="flex justify-between text-amber-600 font-medium">
+                <span>Pientilauslisä (alle {form.min_order_amount.toFixed(2)} €)</span>
+                <span>+{form.min_order_fee.toFixed(2)} €</span>
+              </div>
+            )}
             <div className="flex justify-between font-medium"><span>Yhteensä</span><span>{total.toFixed(2)} €</span></div>
             <div className="flex justify-between text-muted-foreground"><span>sis. ALV {form.vat_rate.toFixed(1)} %</span><span>{vatAmount.toFixed(2)} €</span></div>
           </div>

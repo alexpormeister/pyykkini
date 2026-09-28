@@ -141,6 +141,7 @@ export default function CheckoutScreen() {
             deliveryFee: deliveryFee,
             vatRate: settings.vat_rate,
             minOrderAmount: settings.min_order_amount,
+            minOrderFee: settings.min_order_fee,
             couponDiscount: couponDiscount,
             pointsDiscount: pointsDiscount,
         });
@@ -152,15 +153,6 @@ export default function CheckoutScreen() {
 
     // 🔥 ÄLYKÄS MAKSUKÄSITTELIJÄ 🔥
     const processPaymentAndOrder = async () => {
-        if (!pricing.isMinThresholdMet) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-            Alert.alert(
-                "Minimitilaus ei täyty",
-                `Tilauksen tuotteiden minimisumma on ${pricing.minOrderAmount.toFixed(2).replace('.', ',')} €.\n\nLisää tuotteita koriin vielä ${pricing.minOrderShortfall.toFixed(2).replace('.', ',')} €.`
-            );
-            return;
-        }
-
         if (!termsAccepted) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
             Alert.alert("Hyväksy ehdot", "Ole hyvä ja hyväksy palveluehdot ennen maksun suorittamista.");

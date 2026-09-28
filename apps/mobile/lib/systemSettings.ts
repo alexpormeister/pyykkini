@@ -6,27 +6,28 @@ export interface SystemSettings {
     vat_rate: number;
     delivery_fee: number;
     min_order_amount: number;
+    min_order_fee: number;
 }
 
 export const DEFAULT_SETTINGS: SystemSettings = {
     service_fee: 2.00,
     vat_rate: 25.5,
     delivery_fee: 0.00,
-    min_order_amount: 0.00,
+    min_order_amount: 30.00,
+    min_order_fee: 7.00,
 };
 
 let cachedSettings: SystemSettings = { ...DEFAULT_SETTINGS };
 let hasFetched = false;
 
 /**
- * Hakee järjestelmäasetukset (palvelumaksu, ALV, toimitusmaksu) Supabasesta.
- * Palauttaa oletusarvot (2.00 € / 25.5 %), jos taulua ei vielä löydy tai yhteys katkeaa.
+ * Hakee järjestelmäasetukset (palvelumaksu, ALV, toimitusmaksu, minimisumma & lisämaksu) Supabasesta.
  */
 export async function fetchSystemSettings(): Promise<SystemSettings> {
     try {
         const { data, error } = await supabase
             .from('app_settings')
-            .select('service_fee, vat_rate, delivery_fee, min_order_amount')
+            .select('*')
             .eq('id', 'global')
             .single();
 
@@ -36,6 +37,7 @@ export async function fetchSystemSettings(): Promise<SystemSettings> {
                 vat_rate: typeof data.vat_rate === 'number' ? data.vat_rate : parseFloat(data.vat_rate || '25.5'),
                 delivery_fee: typeof data.delivery_fee === 'number' ? data.delivery_fee : parseFloat(data.delivery_fee || '0.00'),
                 min_order_amount: typeof data.min_order_amount === 'number' ? data.min_order_amount : parseFloat(data.min_order_amount || '0.00'),
+                min_order_fee: typeof (data as any).min_order_fee === 'number' ? (data as any).min_order_fee : parseFloat((data as any).min_order_fee || '0.00'),
             };
             hasFetched = true;
             return cachedSettings;
@@ -73,6 +75,7 @@ export function useSystemSettings(): SystemSettings {
                             vat_rate: parseFloat(payload.new.vat_rate || '25.5'),
                             delivery_fee: parseFloat(payload.new.delivery_fee || '0.00'),
                             min_order_amount: parseFloat(payload.new.min_order_amount || '0.00'),
+                            min_order_fee: parseFloat(payload.new.min_order_fee || '0.00'),
                         };
                         cachedSettings = updated;
                         setSettings(updated);
@@ -92,7 +95,7 @@ export function useSystemSettings(): SystemSettings {
 
 /**
  * Laskee tilauksen tarkan hintarakenteen ja veron:
- * total = itemsTotal + deliveryFee + serviceFee - discounts
+ * total = itemsTotal + deliveryFee + serviceFee + smallOrderFee - discounts
  * vatAmount = total - (total / (1 + (vatRate / 100)))
  */
 export function calculateOrderPricing({
@@ -101,6 +104,7 @@ export function calculateOrderPricing({
     deliveryFee = 0,
     vatRate = 25.5,
     minOrderAmount = 0,
+    minOrderFee = 0,
     couponDiscount = 0,
     pointsDiscount = 0,
 }: {
@@ -109,18 +113,20 @@ export function calculateOrderPricing({
     deliveryFee?: number;
     vatRate?: number;
     minOrderAmount?: number;
+    minOrderFee?: number;
     couponDiscount?: number;
     pointsDiscount?: number;
 }) {
-    const totalBeforeDiscounts = Math.max(0, itemsTotal + deliveryFee + serviceFee);
+    const minAmount = minOrderAmount || 0;
+    const isMinThresholdMet = minAmount <= 0 || itemsTotal >= minAmount;
+    const smallOrderFee = (!isMinThresholdMet && itemsTotal > 0 && minOrderFee > 0) ? minOrderFee : 0;
+    const minOrderShortfall = isMinThresholdMet ? 0 : Math.max(0, minAmount - itemsTotal);
+
+    const totalBeforeDiscounts = Math.max(0, itemsTotal + deliveryFee + serviceFee + smallOrderFee);
     const finalTotal = Math.max(0, totalBeforeDiscounts - couponDiscount - pointsDiscount);
     const vatMultiplier = 1 + (vatRate / 100);
     const vatAmount = finalTotal > 0 ? finalTotal - (finalTotal / vatMultiplier) : 0;
     const netAmount = finalTotal - vatAmount;
-
-    const minAmount = minOrderAmount || 0;
-    const isMinThresholdMet = minAmount <= 0 || itemsTotal >= minAmount;
-    const minOrderShortfall = isMinThresholdMet ? 0 : Math.max(0, minAmount - itemsTotal);
 
     return {
         itemsTotal,
@@ -128,6 +134,8 @@ export function calculateOrderPricing({
         deliveryFee,
         vatRate,
         minOrderAmount: minAmount,
+        minOrderFee,
+        smallOrderFee,
         isMinThresholdMet,
         minOrderShortfall,
         couponDiscount,

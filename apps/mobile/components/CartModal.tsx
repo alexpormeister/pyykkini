@@ -85,20 +85,11 @@ const CartModal: React.FC<CartModalProps> = ({ isVisible, onClose }) => {
         deliveryFee: deliveryFee,
         vatRate: settings.vat_rate,
         minOrderAmount: settings.min_order_amount,
+        minOrderFee: settings.min_order_fee,
     });
 
     const handleCheckout = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-
-        if (!pricing.isMinThresholdMet) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-            Alert.alert(
-                "Minimitilaus ei täyty",
-                `Tilauksen tuotteiden minimisumma on ${pricing.minOrderAmount.toFixed(2).replace('.', ',')} €.\n\nLisää tuotteita koriin vielä ${pricing.minOrderShortfall.toFixed(2).replace('.', ',')} € siirtyäksesi kassalle.`,
-                [{ text: "Selvä", style: "default" }]
-            );
-            return;
-        }
 
         const activeAreas = await fetchActiveServiceAreas();
         const match = matchAddressServiceArea(userProfile?.address, activeAreas);
@@ -230,11 +221,11 @@ const CartModal: React.FC<CartModalProps> = ({ isVisible, onClose }) => {
 
                             {cartItems.length > 0 && (
                                 <View style={styles.footer}>
-                                    {!pricing.isMinThresholdMet && (
+                                    {pricing.smallOrderFee > 0 && (
                                         <View style={styles.minOrderBanner}>
-                                            <Feather name="alert-circle" size={18} color="#D97706" style={{ marginRight: 8 }} />
+                                            <Feather name="info" size={18} color="#D97706" style={{ marginRight: 8 }} />
                                             <Text style={styles.minOrderBannerText}>
-                                                Minimitilaus on {pricing.minOrderAmount.toFixed(2).replace('.', ',')} €. Lisää tuotteita koriin vielä {pricing.minOrderShortfall.toFixed(2).replace('.', ',')} € päästäksesi kassalle.
+                                                Tuotteiden arvo jää alle {pricing.minOrderAmount.toFixed(2).replace('.', ',')} € minimirajan. Tilaukseen lisätään {pricing.smallOrderFee.toFixed(2).replace('.', ',')} € pientilauslisä.
                                             </Text>
                                         </View>
                                     )}
@@ -244,6 +235,12 @@ const CartModal: React.FC<CartModalProps> = ({ isVisible, onClose }) => {
                                             <Text style={styles.breakdownLabel}>Tuotteet</Text>
                                             <Text style={styles.breakdownValue}>{pricing.itemsTotal.toFixed(2)} €</Text>
                                         </View>
+                                        {pricing.smallOrderFee > 0 && (
+                                            <View style={styles.breakdownRow}>
+                                                <Text style={styles.breakdownLabel}>Pientilauslisä (alle {pricing.minOrderAmount.toFixed(2).replace('.', ',')} €)</Text>
+                                                <Text style={[styles.breakdownValue, { color: '#D97706' }]}>+{pricing.smallOrderFee.toFixed(2)} €</Text>
+                                            </View>
+                                        )}
                                         <View style={styles.breakdownRow}>
                                             <Text style={styles.breakdownLabel}>Toimitusmaksu</Text>
                                             <Text style={[styles.breakdownValue, pricing.deliveryFee === 0 && styles.freeText]}>
@@ -267,7 +264,7 @@ const CartModal: React.FC<CartModalProps> = ({ isVisible, onClose }) => {
                                     </View>
 
                                     <TouchableOpacity
-                                        style={[styles.checkoutButton, !pricing.isMinThresholdMet && styles.checkoutButtonDisabled]}
+                                        style={styles.checkoutButton}
                                         onPress={handleCheckout}
                                         activeOpacity={0.85}
                                     >

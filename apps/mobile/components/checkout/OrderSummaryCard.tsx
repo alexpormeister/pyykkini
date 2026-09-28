@@ -54,7 +54,7 @@ const OrderSummaryCard: React.FC<OrderSummaryCardProps> = ({
     const activeDeliveryFee = deliveryFee !== undefined ? deliveryFee : settings.delivery_fee;
     const activeVatRate = vatRate !== undefined ? vatRate : settings.vat_rate;
 
-    const { itemsTotal, finalTotal, vatAmount } = useMemo(() => {
+    const { itemsTotal, smallOrderFee, finalTotal, vatAmount } = useMemo(() => {
         const sub = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const pricing = calculateOrderPricing({
             itemsTotal: sub,
@@ -63,13 +63,16 @@ const OrderSummaryCard: React.FC<OrderSummaryCardProps> = ({
             vatRate: activeVatRate,
             couponDiscount: couponDiscount,
             pointsDiscount: pointsDiscount,
+            minOrderAmount: settings.min_order_amount,
+            minOrderFee: settings.min_order_fee,
         });
         return {
             itemsTotal: sub,
+            smallOrderFee: pricing.smallOrderFee,
             finalTotal: pricing.finalTotal,
             vatAmount: pricing.vatAmount,
         };
-    }, [cartItems, activeServiceFee, activeDeliveryFee, activeVatRate, couponDiscount, pointsDiscount]);
+    }, [cartItems, activeServiceFee, activeDeliveryFee, activeVatRate, couponDiscount, pointsDiscount, settings.min_order_amount, settings.min_order_fee]);
 
     return (
         <View style={[styles.card, style]}>
@@ -119,6 +122,18 @@ const OrderSummaryCard: React.FC<OrderSummaryCardProps> = ({
                     <Text style={styles.summaryLabel}>Pyykkipalvelut</Text>
                     <Text style={styles.summaryValue}>{itemsTotal.toFixed(2)} €</Text>
                 </View>
+
+                {smallOrderFee > 0 && (
+                    <View style={styles.summaryRow}>
+                        <View style={styles.deliveryLabelRow}>
+                            <Feather name="alert-circle" size={13} color="#D97706" style={{ marginRight: 6 }} />
+                            <Text style={[styles.summaryLabel, { color: '#B45309' }]}>Pientilauslisä</Text>
+                        </View>
+                        <Text style={[styles.summaryValue, { color: '#D97706', fontWeight: '700' }]}>
+                            +{smallOrderFee.toFixed(2)} €
+                        </Text>
+                    </View>
+                )}
 
                 <View style={styles.summaryRow}>
                     <View style={styles.deliveryLabelRow}>
