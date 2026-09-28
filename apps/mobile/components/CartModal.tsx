@@ -1,15 +1,17 @@
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
     FlatList,
     Modal,
+    PanResponder,
     Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -53,6 +55,18 @@ const CartModal: React.FC<CartModalProps> = ({ isVisible, onClose }) => {
 
     const [serviceAreas, setServiceAreas] = useState<any[]>([]);
 
+    const panResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 10,
+            onPanResponderRelease: (_, gestureState) => {
+                if (gestureState.dy > 50 || gestureState.vy > 0.5) {
+                    onClose();
+                }
+            },
+        })
+    ).current;
+
     useEffect(() => {
         if (isVisible) {
             fetchActiveServiceAreas().then(setServiceAreas);
@@ -70,10 +84,22 @@ const CartModal: React.FC<CartModalProps> = ({ isVisible, onClose }) => {
         serviceFee: settings.service_fee,
         deliveryFee: deliveryFee,
         vatRate: settings.vat_rate,
+        minOrderAmount: settings.min_order_amount,
     });
 
     const handleCheckout = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+
+        if (!pricing.isMinThresholdMet) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+            Alert.alert(
+                "Minimitilaus ei täyty",
+                `Tilauksen tuotteiden minimisumma on ${pricing.minOrderAmount.toFixed(2).replace('.', ',')} €.\n\nLisää tuotteita koriin vielä ${pricing.minOrderShortfall.toFixed(2).replace('.', ',')} € siirtyäksesi kassalle.`,
+                [{ text: "Selvä", style: "default" }]
+            );
+            return;
+        }
+
         const activeAreas = await fetchActiveServiceAreas();
         const match = matchAddressServiceArea(userProfile?.address, activeAreas);
 
@@ -158,85 +184,102 @@ const CartModal: React.FC<CartModalProps> = ({ isVisible, onClose }) => {
             visible={isVisible}
             onRequestClose={onClose}
         >
-            <View style={styles.overlay}>
+            <TouchableOpacity
+                style={styles.overlay}
+                activeOpacity={1}
+                onPress={onClose}
+            >
                 <SafeAreaView style={styles.modalContainer} edges={['bottom']}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.pullBar} />
-
-                        <View style={styles.header}>
-                            <View>
-                                <Text style={styles.headerTitle}>Ostoskori</Text>
-                                <Text style={styles.headerSubtitle}>
-                                    {cartItems.length} {cartItems.length === 1 ? 'tuote valittuna' : 'tuotetta valittuna'}
-                                </Text>
+                    <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.pullBarArea} {...panResponder.panHandlers}>
+                                <View style={styles.pullBar} />
                             </View>
-                            <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.7}>
-                                <Feather name="x" size={20} color={COLORS.darkText} />
-                            </TouchableOpacity>
-                        </View>
 
-                        <FlatList
-                            data={cartItems}
-                            keyExtractor={(item) => item.id.toString()}
-                            renderItem={renderItem}
-                            contentContainerStyle={styles.listContent}
-                            showsVerticalScrollIndicator={false}
-                            ListEmptyComponent={
-                                <View style={styles.emptyContainer}>
-                                    <View style={styles.emptyIconCircle}>
-                                        <Feather name="shopping-bag" size={36} color={COLORS.primary} />
-                                    </View>
-                                    <Text style={styles.emptyTitle}>Ostoskorisi on tyhjä</Text>
-                                    <Text style={styles.emptyDesc}>Valitse puhtaita palveluita ja lisää ne koriin.</Text>
-                                    <TouchableOpacity style={styles.continueShoppingButton} onPress={onClose} activeOpacity={0.8}>
-                                        <Text style={styles.continueShoppingText}>Selaa palveluita</Text>
-                                    </TouchableOpacity>
+                            <View style={styles.header} {...panResponder.panHandlers}>
+                                <View>
+                                    <Text style={styles.headerTitle}>Ostoskori</Text>
+                                    <Text style={styles.headerSubtitle}>
+                                        {cartItems.length} {cartItems.length === 1 ? 'tuote valittuna' : 'tuotetta valittuna'}
+                                    </Text>
                                 </View>
-                            }
-                        />
-
-                        {cartItems.length > 0 && (
-                            <View style={styles.footer}>
-                                <View style={styles.priceBreakdownBox}>
-                                    <View style={styles.breakdownRow}>
-                                        <Text style={styles.breakdownLabel}>Tuotteet</Text>
-                                        <Text style={styles.breakdownValue}>{pricing.itemsTotal.toFixed(2)} €</Text>
-                                    </View>
-                                    <View style={styles.breakdownRow}>
-                                        <Text style={styles.breakdownLabel}>Toimitusmaksu</Text>
-                                        <Text style={[styles.breakdownValue, pricing.deliveryFee === 0 && styles.freeText]}>
-                                            {pricing.deliveryFee > 0 ? `${pricing.deliveryFee.toFixed(2)} €` : 'Ilmainen'}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.breakdownRow}>
-                                        <Text style={styles.breakdownLabel}>Palvelumaksu</Text>
-                                        <Text style={styles.breakdownValue}>{pricing.serviceFee.toFixed(2)} €</Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.totalRow}>
-                                    <View>
-                                        <Text style={styles.totalLabel}>Yhteensä</Text>
-                                        <Text style={styles.vatText}>
-                                            (josta ALV {pricing.vatRate.toString().replace('.', ',')}%: {pricing.vatAmount.toFixed(2)} €)
-                                        </Text>
-                                    </View>
-                                    <Text style={styles.totalPriceText}>{pricing.finalTotal.toFixed(2)} €</Text>
-                                </View>
-
-                                <TouchableOpacity
-                                    style={styles.checkoutButton}
-                                    onPress={handleCheckout}
-                                    activeOpacity={0.85}
-                                >
-                                    <Text style={styles.checkoutButtonText}>Siirry kassalle</Text>
-                                    <Feather name="arrow-right" size={18} color={COLORS.white} style={{ marginLeft: 8 }} />
+                                <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.7}>
+                                    <Feather name="x" size={20} color={COLORS.darkText} />
                                 </TouchableOpacity>
                             </View>
-                        )}
-                    </View>
+
+                            <FlatList
+                                data={cartItems}
+                                keyExtractor={(item) => item.id.toString()}
+                                renderItem={renderItem}
+                                contentContainerStyle={styles.listContent}
+                                showsVerticalScrollIndicator={false}
+                                ListEmptyComponent={
+                                    <View style={styles.emptyContainer}>
+                                        <View style={styles.emptyIconCircle}>
+                                            <Feather name="shopping-bag" size={36} color={COLORS.primary} />
+                                        </View>
+                                        <Text style={styles.emptyTitle}>Ostoskorisi on tyhjä</Text>
+                                        <Text style={styles.emptyDesc}>Valitse puhtaita palveluita ja lisää ne koriin.</Text>
+                                        <TouchableOpacity style={styles.continueShoppingButton} onPress={onClose} activeOpacity={0.8}>
+                                            <Text style={styles.continueShoppingText}>Selaa palveluita</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                }
+                            />
+
+                            {cartItems.length > 0 && (
+                                <View style={styles.footer}>
+                                    {!pricing.isMinThresholdMet && (
+                                        <View style={styles.minOrderBanner}>
+                                            <Feather name="alert-circle" size={18} color="#D97706" style={{ marginRight: 8 }} />
+                                            <Text style={styles.minOrderBannerText}>
+                                                Minimitilaus on {pricing.minOrderAmount.toFixed(2).replace('.', ',')} €. Lisää tuotteita koriin vielä {pricing.minOrderShortfall.toFixed(2).replace('.', ',')} € päästäksesi kassalle.
+                                            </Text>
+                                        </View>
+                                    )}
+
+                                    <View style={styles.priceBreakdownBox}>
+                                        <View style={styles.breakdownRow}>
+                                            <Text style={styles.breakdownLabel}>Tuotteet</Text>
+                                            <Text style={styles.breakdownValue}>{pricing.itemsTotal.toFixed(2)} €</Text>
+                                        </View>
+                                        <View style={styles.breakdownRow}>
+                                            <Text style={styles.breakdownLabel}>Toimitusmaksu</Text>
+                                            <Text style={[styles.breakdownValue, pricing.deliveryFee === 0 && styles.freeText]}>
+                                                {pricing.deliveryFee > 0 ? `${pricing.deliveryFee.toFixed(2)} €` : 'Ilmainen'}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.breakdownRow}>
+                                            <Text style={styles.breakdownLabel}>Palvelumaksu</Text>
+                                            <Text style={styles.breakdownValue}>{pricing.serviceFee.toFixed(2)} €</Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.totalRow}>
+                                        <View>
+                                            <Text style={styles.totalLabel}>Yhteensä</Text>
+                                            <Text style={styles.vatText}>
+                                                (josta ALV {pricing.vatRate.toString().replace('.', ',')}%: {pricing.vatAmount.toFixed(2)} €)
+                                            </Text>
+                                        </View>
+                                        <Text style={styles.totalPriceText}>{pricing.finalTotal.toFixed(2)} €</Text>
+                                    </View>
+
+                                    <TouchableOpacity
+                                        style={[styles.checkoutButton, !pricing.isMinThresholdMet && styles.checkoutButtonDisabled]}
+                                        onPress={handleCheckout}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Text style={styles.checkoutButtonText}>Siirry kassalle</Text>
+                                        <Feather name="arrow-right" size={18} color={COLORS.white} style={{ marginLeft: 8 }} />
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                        </View>
+                    </TouchableWithoutFeedback>
                 </SafeAreaView>
-            </View>
+            </TouchableOpacity>
         </Modal>
     );
 };
@@ -261,13 +304,35 @@ const styles = StyleSheet.create({
         shadowRadius: 16,
         elevation: 20,
     },
+    pullBarArea: {
+        paddingTop: 12,
+        paddingBottom: 4,
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+    },
     pullBar: {
         width: 36,
         height: 4,
-        backgroundColor: '#E2E8F0',
+        backgroundColor: '#CBD5E1',
         borderRadius: 2,
-        alignSelf: 'center',
-        marginTop: 12,
+    },
+    minOrderBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FEF3C7',
+        borderWidth: 1,
+        borderColor: '#FDE68A',
+        borderRadius: 14,
+        padding: 12,
+        marginBottom: 12,
+    },
+    minOrderBannerText: {
+        flex: 1,
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#92400E',
+        lineHeight: 18,
     },
     header: {
         flexDirection: 'row',
@@ -442,6 +507,11 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.28,
         shadowRadius: 10,
         elevation: 4,
+    },
+    checkoutButtonDisabled: {
+        backgroundColor: '#94A3B8',
+        shadowOpacity: 0,
+        elevation: 0,
     },
     checkoutButtonText: {
         color: COLORS.white,

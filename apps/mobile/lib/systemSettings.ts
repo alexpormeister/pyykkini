@@ -100,6 +100,7 @@ export function calculateOrderPricing({
     serviceFee,
     deliveryFee = 0,
     vatRate = 25.5,
+    minOrderAmount = 0,
     couponDiscount = 0,
     pointsDiscount = 0,
 }: {
@@ -107,6 +108,7 @@ export function calculateOrderPricing({
     serviceFee: number;
     deliveryFee?: number;
     vatRate?: number;
+    minOrderAmount?: number;
     couponDiscount?: number;
     pointsDiscount?: number;
 }) {
@@ -116,11 +118,18 @@ export function calculateOrderPricing({
     const vatAmount = finalTotal > 0 ? finalTotal - (finalTotal / vatMultiplier) : 0;
     const netAmount = finalTotal - vatAmount;
 
+    const minAmount = minOrderAmount || 0;
+    const isMinThresholdMet = minAmount <= 0 || itemsTotal >= minAmount;
+    const minOrderShortfall = isMinThresholdMet ? 0 : Math.max(0, minAmount - itemsTotal);
+
     return {
         itemsTotal,
         serviceFee,
         deliveryFee,
         vatRate,
+        minOrderAmount: minAmount,
+        isMinThresholdMet,
+        minOrderShortfall,
         couponDiscount,
         pointsDiscount,
         totalBeforeDiscounts,
