@@ -60,12 +60,40 @@ export const AppSettingsManagement = () => {
       return;
     }
     setSaving(true);
-    const { error } = await supabase
+    const payload: Record<string, any> = {
+      id: "global",
+      service_fee: form.service_fee,
+      vat_rate: form.vat_rate,
+      delivery_fee: form.delivery_fee,
+      min_order_amount: form.min_order_amount,
+      min_order_fee: form.min_order_fee,
+      updated_at: new Date().toISOString(),
+    };
+
+    let { error } = await supabase
       .from("app_settings")
-      .upsert({ id: "global", ...form, updated_at: new Date().toISOString() }, { onConflict: "id" });
+      .upsert(payload, { onConflict: "id" });
+
+    if (error) {
+      console.warn("Primary upsert failed, retrying fallback without min_order_fee:", error);
+      const fallbackPayload = { ...payload };
+      delete fallbackPayload.min_order_fee;
+
+      const fallbackRes = await supabase
+        .from("app_settings")
+        .upsert(fallbackPayload, { onConflict: "id" });
+
+      if (!fallbackRes.error) {
+        setSaving(false);
+        setUpdatedAt(new Date().toISOString());
+        toast.warning("Muut asetukset tallennettu! Aja SQL-komento Supabasessa lisätäksesi 'min_order_fee'-sarakkeen.");
+        return;
+      }
+    }
+
     setSaving(false);
     if (error) {
-      toast.error("Asetusten tallennus epäonnistui");
+      toast.error(`Asetusten tallennus epäonnistui: ${error.message || "Tietokantavirhe"}`);
       return;
     }
     setUpdatedAt(new Date().toISOString());
