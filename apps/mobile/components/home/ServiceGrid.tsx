@@ -77,6 +77,7 @@ const ProductGridCard: React.FC<{ product: any; onOpenDetail: (p: any) => void }
             name: product.name,
             price: effectivePrice,
             quantity: 1,
+            processing_time_days: product.processing_time_days ?? 1,
         }));
 
         setIsAdded(true);
@@ -327,6 +328,7 @@ const ServiceGrid = forwardRef<FlatList, { ListHeaderComponent?: React.ReactNode
             name: selectedProduct.name,
             price: modalEffectivePrice,
             quantity: modalQuantity,
+            processing_time_days: selectedProduct.processing_time_days ?? 1,
         }));
 
         setModalAdded(true);

@@ -97,7 +97,7 @@ export default function SavedTextilesScreen() {
             // Haetaan myös tuotteet hintojen, linkityksen ja tallennuskonfiguraation mäppäystä varten
             const { data: prodData } = await supabase
                 .from('products')
-                .select('id, product_id, name, description, image_url, base_price, discount_price, allow_customer_save, saved_textile_config')
+                .select('id, product_id, name, description, image_url, base_price, discount_price, processing_time_days, allow_customer_save, saved_textile_config')
                 .eq('is_active', true)
                 .order('sort_order', { ascending: true });
             setProducts(prodData || []);
@@ -219,6 +219,7 @@ export default function SavedTextilesScreen() {
             name: officialProductName,
             price: price,
             quantity: 1,
+            processing_time_days: matchedProduct?.processing_time_days ?? (item.category === 'Matto' ? 5 : 1),
         }));
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});

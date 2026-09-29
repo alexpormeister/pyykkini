@@ -5,6 +5,7 @@ export interface CartItem {
   name: string;
   price: number;
   quantity: number;
+  processing_time_days?: number;
 }
 
 interface CartState {
@@ -20,18 +21,27 @@ const cartSlice = createSlice({
   initialState,
   reducers: {
     // LISÄÄ TUOTE KORIIN
-    addToCart: (state, action: PayloadAction<Omit<CartItem, 'quantity'> & { quantity?: number }>) => {
+    addToCart: (state, action: PayloadAction<Omit<CartItem, 'quantity'> & { quantity?: number; processing_time_days?: number }>) => {
       const productToAdd = action.payload;
       const qtyToAdd = productToAdd.quantity || 1;
+      const procDays = productToAdd.processing_time_days ?? 1;
+
       // Tarkistetaan onko tuote jo korissa
       const existingItem = state.items.find(item => item.id === productToAdd.id);
 
       if (existingItem) {
-        // Jos on, kasvatetaan määrää
+        // Jos on, kasvatetaan määrää ja päivitetään käsittelyaika
         existingItem.quantity += qtyToAdd;
+        existingItem.processing_time_days = procDays;
       } else {
         // Jos ei, lisätään se uutena tuotteena
-        state.items.push({ id: productToAdd.id, name: productToAdd.name, price: productToAdd.price, quantity: qtyToAdd });
+        state.items.push({
+          id: productToAdd.id,
+          name: productToAdd.name,
+          price: productToAdd.price,
+          quantity: qtyToAdd,
+          processing_time_days: procDays,
+        });
       }
     },
     // POISTA TUOTE KOKONAAN KORISTA
