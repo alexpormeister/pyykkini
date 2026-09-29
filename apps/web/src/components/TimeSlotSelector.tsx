@@ -20,6 +20,7 @@ interface TimeSlotSelectorProps {
   onTimeSlotChange: (slot: TimeSlot | null) => void;
   estimatedReturnSlot?: TimeSlot;
   onEstimatedReturnChange: (slot: TimeSlot) => void;
+  processingTimeDays?: number;
 }
 
 export const TimeSlotSelector = ({
@@ -28,7 +29,8 @@ export const TimeSlotSelector = ({
   selectedTimeSlot,
   onTimeSlotChange,
   estimatedReturnSlot,
-  onEstimatedReturnChange
+  onEstimatedReturnChange,
+  processingTimeDays = 1
 }: TimeSlotSelectorProps) => {
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
 
@@ -64,11 +66,11 @@ export const TimeSlotSelector = ({
     return slots;
   };
 
-  // Calculate return time slot based on pickup
+  // Calculate return time slot based on pickup and max processing time
   const calculateReturnSlot = (pickupSlot: TimeSlot, isASAP = false): TimeSlot => {
     const pickupDate = new Date(`${pickupSlot.date}T${pickupSlot.start}`);
-    const hoursToAdd = isASAP ? 7 : 5; // ASAP gets 7 hours, chosen time gets 5 hours
-    let returnDate = addHours(pickupDate, hoursToAdd);
+    const daysToAdd = Math.max(processingTimeDays || 1, 1);
+    let returnDate = addDays(pickupDate, daysToAdd);
     
     // Check if return time is after 20:00
     const returnHour = returnDate.getHours();

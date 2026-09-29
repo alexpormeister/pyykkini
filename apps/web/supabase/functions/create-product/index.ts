@@ -26,6 +26,7 @@ const productSchema = z.object({
   is_featured: z.boolean().optional(),
   sort_order: z.number().int().min(1).max(9999).optional(),
   verification_type: z.enum(['weight', 'photo', 'both']).optional(),
+  processing_time_days: z.number().int().min(1).max(90).optional(),
   allow_customer_save: z.boolean().optional(),
   saved_textile_config: z.record(z.any()).optional(),
   laundry_prices: z.array(z.object({
@@ -146,6 +147,7 @@ Deno.serve(async (req) => {
         is_featured: validated.is_featured ?? false,
         sort_order: validated.sort_order ?? 1,
         verification_type: validated.verification_type ?? 'weight',
+        processing_time_days: validated.processing_time_days ?? 1,
         allow_customer_save: validated.allow_customer_save ?? false,
         saved_textile_config: validated.saved_textile_config ?? {
           requires_dimensions: false,

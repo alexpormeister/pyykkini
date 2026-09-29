@@ -4,6 +4,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
+import { useSelector } from 'react-redux';
+import { selectCartItems } from '../../redux/cartSlice';
+
 const COLORS = {
     white: '#FFFFFF',
     darkText: '#0F172A',
@@ -20,7 +23,6 @@ const COLORS = {
 };
 
 const BUFFER_HOURS = 2;
-const WASH_CYCLE_HOURS = 24;
 
 export interface TimeSlot {
     id: string;
@@ -47,6 +49,16 @@ const DEFAULT_SLOTS: TimeSlot[] = [
 
 const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({ onSelectionChange, style }) => {
     const [slots, setSlots] = useState<TimeSlot[]>(DEFAULT_SLOTS);
+    const cartItems = useSelector(selectCartItems);
+
+    const maxProcessingDays = useMemo(() => {
+        if (!cartItems || cartItems.length === 0) return 1;
+        const days = cartItems.map((item: any) => {
+            const val = item.processing_time_days ?? item.product?.processing_time_days ?? 1;
+            return typeof val === 'number' ? val : (parseFloat(val) || 1);
+        });
+        return Math.max(...days, 1);
+    }, [cartItems]);
 
     // Päivät ja valitut slotit (ei oletusvalintaa heti)
     const [selectedPickupDate, setSelectedPickupDate] = useState<Date>(new Date());
@@ -93,16 +105,16 @@ const TimeSlotPicker: React.FC<TimeSlotPickerProps> = ({ onSelectionChange, styl
         return d;
     }), []);
 
-    // Minimi palautuspäivä laskettuna valitusta noudosta
+    // Minimi palautuspäivä laskettuna valitusta noudosta ja korin hitaimmasta tuotteesta (maxProcessingDays)
     const minDeliveryDate = useMemo(() => {
         const d = new Date(selectedPickupDate);
         const slot = pickupSlots.find(s => s.id === selectedPickupSlotId);
         if (slot) {
             d.setHours(slot.startHour);
         }
-        d.setHours(d.getHours() + WASH_CYCLE_HOURS);
+        d.setDate(d.getDate() + maxProcessingDays);
         return d;
-    }, [selectedPickupDate, selectedPickupSlotId, pickupSlots]);
+    }, [selectedPickupDate, selectedPickupSlotId, pickupSlots, maxProcessingDays]);
 
     // 7 päivää toimitukselle alkaen minimitoimituspäivästä
     const deliveryDates = useMemo(() => Array.from({ length: 7 }, (_, i) => {

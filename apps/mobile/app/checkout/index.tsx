@@ -313,6 +313,8 @@ export default function CheckoutScreen() {
             }
             const combinedInstructions = instructionLines.join('\n');
 
+            const maxProcessingDays = Math.max(1, ...cartItems.map((item: any) => parseFloat(item.processing_time_days ?? item.product?.processing_time_days ?? 1) || 1));
+
             const baseOrderPayload: Record<string, any> = {
                 user_id: user.id,
                 first_name: userProfile.first_name,
@@ -326,6 +328,7 @@ export default function CheckoutScreen() {
                 delivery_fee: deliveryFee,
                 vat_rate: vatRate,
                 vat_amount: vatAmount,
+                processing_time_days: maxProcessingDays,
                 service_type: 'multiple',
                 service_name: allServicesNames || 'Pesupalvelu',
                 pickup_date: pickupDateStr,

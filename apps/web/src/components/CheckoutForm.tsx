@@ -498,6 +498,7 @@ export const CheckoutForm = ({ cartItems, appliedCoupon, onBack, onSuccess, onAp
                     onTimeSlotChange={setSelectedTimeSlot}
                     estimatedReturnSlot={estimatedReturnSlot}
                     onEstimatedReturnChange={setEstimatedReturnSlot}
+                    processingTimeDays={Math.max(1, ...cartItems.map((item: any) => parseFloat(item.processing_time_days ?? item.product?.processing_time_days ?? 1) || 1))}
                   />
 
                   {/* Special Instructions */}

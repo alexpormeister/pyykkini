@@ -44,6 +44,7 @@ interface Product {
   discount_custom_partner_fee?: number | null;
   discount_custom_driver_fee?: number | null;
   verification_type?: "weight" | "photo" | "both" | null;
+  processing_time_days?: number | null;
   allow_customer_save?: boolean | null;
   saved_textile_config?: {
     requires_dimensions?: boolean;
@@ -452,6 +453,7 @@ export const ProductManagement = () => {
     image_url: "",
     base_price: "",
     verification_type: "weight" as "weight" | "photo" | "both",
+    processing_time_days: "1",
     ...emptyFees
   });
   const [editFormData, setEditFormData] = useState({
@@ -461,6 +463,7 @@ export const ProductManagement = () => {
     image_url: "",
     base_price: "",
     verification_type: "weight" as "weight" | "photo" | "both",
+    processing_time_days: "1",
     ...emptyFees,
     is_active: true
   });
@@ -550,6 +553,7 @@ export const ProductManagement = () => {
           badge_text: newPromo.badge_text || undefined,
           is_featured: newPromo.is_featured,
           sort_order: parseInt(newPromo.sort_order || "1", 10) || 1,
+          processing_time_days: parseInt(formData.processing_time_days || "1", 10) || 1,
           allow_customer_save: newAllowSave,
           saved_textile_config: newTextileConfig
         }
@@ -570,6 +574,7 @@ export const ProductManagement = () => {
         image_url: "",
         base_price: "",
         verification_type: "weight",
+        processing_time_days: "1",
         ...emptyFees
       });
       setNewPromo({ badge_text: "", is_featured: false, sort_order: "1" });
@@ -599,6 +604,7 @@ export const ProductManagement = () => {
       image_url: product.image_url || "",
       base_price: product.base_price.toString(),
       verification_type: (product.verification_type as any) || "weight",
+      processing_time_days: String(product.processing_time_days ?? 1),
       platform_fee_type: product.platform_fee_type || "percent",
       platform_fee_value: (product.platform_fee_value ?? product.commission_percent ?? 15).toString(),
       driver_fee_type: "percent",
@@ -651,6 +657,7 @@ export const ProductManagement = () => {
           image_url: editFormData.image_url || null,
           base_price: parseFloat(editFormData.base_price),
           verification_type: editFormData.verification_type,
+          processing_time_days: parseInt(editFormData.processing_time_days || "1", 10) || 1,
           discount_price: editDiscountPrice,
           discount_bearer: editDiscount.discount_bearer,
           discount_custom_partner_fee: editDiscount.discount_custom_partner_fee === "" ? null : parseFloat(editDiscount.discount_custom_partner_fee),
@@ -867,6 +874,23 @@ export const ProductManagement = () => {
               </p>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="processing_time_days">Käsittelyaika / SLA (vrk) *</Label>
+              <Input
+                id="processing_time_days"
+                type="number"
+                min="1"
+                max="90"
+                value={formData.processing_time_days}
+                onChange={(e) => setFormData({ ...formData, processing_time_days: e.target.value })}
+                placeholder="1"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Määrittää pienimmän sallitun päivien määrän noudon ja palautuksen välillä (esim. matoilla 5 vrk).
+              </p>
+            </div>
+
             <FeeFields
               idPrefix="new"
               values={formData}
@@ -957,6 +981,7 @@ export const ProductManagement = () => {
                   <TableHead>Nimi</TableHead>
                   <TableHead>Kategoria</TableHead>
                   <TableHead>Hinta</TableHead>
+                  <TableHead>SLA (vrk)</TableHead>
                   <TableHead>Noutotarkistus</TableHead>
                   <TableHead>Alusta %</TableHead>
                   <TableHead>Kuljettajat %</TableHead>
@@ -985,6 +1010,11 @@ export const ProductManagement = () => {
                       ) : (
                         <span>{product.base_price.toFixed(2)} €</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="text-xs font-semibold">
+                        ⏱️ {product.processing_time_days ?? 1} vrk
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs font-normal">
@@ -1137,6 +1167,23 @@ export const ProductManagement = () => {
                 placeholder="0.00"
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-processing_time_days">Käsittelyaika / SLA (vrk) *</Label>
+              <Input
+                id="edit-processing_time_days"
+                type="number"
+                min="1"
+                max="90"
+                value={editFormData.processing_time_days}
+                onChange={(e) => setEditFormData({ ...editFormData, processing_time_days: e.target.value })}
+                placeholder="1"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Määrittää pienimmän sallitun päivien määrän noudon ja palautuksen välillä (esim. matoilla 5 vrk).
+              </p>
             </div>
 
             <FeeFields
