@@ -731,11 +731,22 @@ export default function DriverDrivesScreen() {
                     ordPayload.actual_return_time = nowIso;
                 }
 
-                const { error: ordErr, data: ordDataRes } = await supabase
+                let { error: ordErr, data: ordDataRes } = await supabase
                     .from('orders')
                     .update(ordPayload)
                     .eq('id', targetOrderId)
                     .select();
+
+                if (ordErr && (ordErr.message?.includes('enum') || ordErr.message?.includes('tracking_status'))) {
+                    console.warn('[DRIVE_ARRIVED] Fallback updating orders without new enum tracking_status:', ordErr.message);
+                    delete ordPayload.tracking_status;
+                    await supabase
+                        .from('orders')
+                        .update(ordPayload)
+                        .eq('id', targetOrderId);
+                } else if (ordErr) {
+                    throw ordErr;
+                }
 
                 console.log('[DRIVE_ARRIVED] orders update res:', { ordErr, ordDataRes });
             }

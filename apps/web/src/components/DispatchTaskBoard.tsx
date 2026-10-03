@@ -89,10 +89,24 @@ function renderTaskStatusBadge(status?: string) {
       </span>
     );
   }
-  if (st === "picked_up" || st === "arrived_pickup" || st === "en_route") {
+  if (st === "arrived_pickup") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
+        📍 Noutopaikalla
+      </span>
+    );
+  }
+  if (st === "arrived_delivery") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300">
+        📍 Toimituspaikalla
+      </span>
+    );
+  }
+  if (st === "picked_up" || st === "en_route" || st === "picking_up") {
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
-        🚗 Noudettu
+        🚗 Matkalla
       </span>
     );
   }

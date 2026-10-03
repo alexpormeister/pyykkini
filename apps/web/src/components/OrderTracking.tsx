@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, Clock, Sparkles, Box, Truck, CheckCircle } from "lucide-react";
+import { Package, Clock, Sparkles, Box, Truck, CheckCircle, MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { fi } from "date-fns/locale";
 
@@ -80,7 +80,7 @@ export const OrderTracking = () => {
       const oldStatusMap: Record<string, string> = {
         'pending': 'PENDING',
         'accepted': 'PICKED_UP',
-        'picking_up': 'PICKED_UP',
+        'picking_up': 'ARRIVED_PICKUP',
         'washing': 'WASHING',
         'returning': 'OUT_FOR_DELIVERY',
         'delivered': 'COMPLETED'
@@ -90,10 +90,12 @@ export const OrderTracking = () => {
     
     const statusMap: Record<string, { label: string; icon: any; color: string }> = {
       PENDING: { label: "Tilaus vastaanotettu", icon: Clock, color: "bg-blue-500" },
+      ARRIVED_PICKUP: { label: "Kuljettaja saapunut noutoon", icon: MapPin, color: "bg-cyan-500" },
       PICKED_UP: { label: "Noudettu – viedään pesulaan", icon: Package, color: "bg-purple-500" },
       WASHING: { label: "Pesussa", icon: Sparkles, color: "bg-cyan-500" },
       PACKAGING: { label: "Pakataan", icon: Box, color: "bg-orange-500" },
       OUT_FOR_DELIVERY: { label: "Matkalla sinulle", icon: Truck, color: "bg-indigo-500" },
+      ARRIVED_DELIVERY: { label: "Kuljettaja saapunut toimitukseen", icon: MapPin, color: "bg-emerald-500" },
       COMPLETED: { label: "Toimitettu", icon: CheckCircle, color: "bg-green-500" }
     };
     return statusMap[status] || statusMap.PENDING;

@@ -1621,10 +1621,12 @@ export type Database = {
         | "cancelled"
       order_tracking_status:
         | "PENDING"
+        | "ARRIVED_PICKUP"
         | "PICKED_UP"
         | "WASHING"
         | "PACKAGING"
         | "OUT_FOR_DELIVERY"
+        | "ARRIVED_DELIVERY"
         | "COMPLETED"
         | "pending"
       pricing_model: "FIXED" | "PER_M2"
@@ -1768,10 +1770,12 @@ export const Constants = {
       ],
       order_tracking_status: [
         "PENDING",
+        "ARRIVED_PICKUP",
         "PICKED_UP",
         "WASHING",
         "PACKAGING",
         "OUT_FOR_DELIVERY",
+        "ARRIVED_DELIVERY",
         "COMPLETED",
         "pending",
       ],
