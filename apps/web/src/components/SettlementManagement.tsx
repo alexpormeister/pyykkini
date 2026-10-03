@@ -9,7 +9,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Car, CheckCircle2, Download, Euro, FileText, Loader2, Receipt, Search, Wallet } from "lucide-react";
+import {
+  Building2,
+  Car,
+  CheckCircle2,
+  Download,
+  Euro,
+  FileText,
+  Loader2,
+  Receipt,
+  Search,
+  Wallet,
+  Filter,
+  Briefcase,
+  Clock,
+  X,
+  Truck,
+  TrendingUp,
+} from "lucide-react";
 
 type PeriodKey = "this_month" | "last_month" | "custom" | "all";
 
@@ -125,7 +142,14 @@ export const SettlementManagement = () => {
   const [period, setPeriod] = useState<PeriodKey>("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+
+  // Common Search & Filters
   const [search, setSearch] = useState("");
+
+  // Overview / Search Tab specific filters
+  const [searchOrderId, setSearchOrderId] = useState("");
+  const [searchStatus, setSearchStatus] = useState<"all" | "pending" | "paid">("all");
+  const [searchPayeeType, setSearchPayeeType] = useState<"all" | "laundry" | "driver" | "platform">("all");
 
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [items, setItems] = useState<OrderItemRow[]>([]);
@@ -265,7 +289,6 @@ export const SettlementManagement = () => {
     return Object.values(map).sort((a, b) => b.net - a.net);
   }, [periodOrders, itemsByOrder, laundries, settledOrderIds]);
 
-  // Kuljettajan palkkiot lasketaan suoritetuista keikoista (nouto ja palautus erikseen)
   const periodDriverTasks = useMemo(() => {
     return driverTasks.filter((t) => {
       if (settledOrderIds.driver.has(`${t.driver_id}|${t.order_id}`)) return false;
@@ -305,7 +328,7 @@ export const SettlementManagement = () => {
       .map(([key, data]) => ({
         key,
         name: data.name,
-        ordersCount: data.tasks.length, // Suoritettujen keikkojen lukumäärä
+        ordersCount: data.tasks.length,
         tasksCount: data.tasks.length,
         gross: data.gross,
         commission: 0,
@@ -325,6 +348,98 @@ export const SettlementManagement = () => {
 
   const totalLaundryPending = laundryGroups.reduce((s, g) => s + g.net, 0);
   const totalDriverPending = driverGroups.reduce((s, g) => s + g.net, 0);
+
+  // Financial Transaction overview for "Etusivu & Haku" and "Alusta"
+  const financialTransactions = useMemo(() => {
+    return periodOrders.map((order) => {
+      const orderItems = itemsByOrder[order.id] || [];
+      const gross = Number(order.final_price || 0);
+      const lndKey = order.laundry_id || "unassigned";
+      const laundryName = laundries[lndKey] || (lndKey === "unassigned" ? "Ei pesulaa" : "Pesula");
+
+      let laundryNet = 0;
+      let platformFee = 0;
+
+      if (orderItems.length > 0) {
+        orderItems.forEach((it) => {
+          laundryNet += Number(it.laundry_price || 0);
+          platformFee += Number(it.platform_fee || 0);
+        });
+      } else {
+        laundryNet = gross * 0.7;
+        platformFee = gross * 0.3;
+      }
+
+      const tasks = driverTasks.filter((t) => t.order_id === order.id);
+      const driverNet = tasks.reduce((sum, t) => sum + Number(t.driver_payout || 0), 0);
+
+      const isLaundryPaid = settledOrderIds.laundry.has(order.id);
+      const isDriverPaid = tasks.length > 0 && tasks.every((t) => settledOrderIds.driver.has(`${t.driver_id}|${t.order_id}`));
+
+      const customerName = [order.first_name, order.last_name].filter(Boolean).join(" ") || "Asiakas";
+
+      return {
+        order,
+        orderId: order.id,
+        shortId: "#" + order.id.slice(0, 8).toUpperCase(),
+        created_at: order.created_at,
+        customerName,
+        laundryName,
+        gross,
+        laundryNet,
+        isLaundryPaid,
+        driverTasks: tasks,
+        driverNet,
+        isDriverPaid,
+        platformFee,
+        platformNet: Math.max(0, gross - laundryNet - driverNet),
+      };
+    });
+  }, [periodOrders, itemsByOrder, laundries, driverTasks, settledOrderIds]);
+
+  // Filtered Financial Transactions for Etusivu & Haku tab
+  const filteredFinancials = useMemo(() => {
+    const qOrder = searchOrderId.toLowerCase().trim().replace("#", "");
+    const qText = search.toLowerCase().trim();
+
+    return financialTransactions.filter((tx) => {
+      // 1. Tilausnumerohaku
+      if (qOrder && !tx.orderId.toLowerCase().includes(qOrder)) {
+        return false;
+      }
+
+      // 2. Yleinen hakukenttä (Asiakas, Pesula, Kuljettaja)
+      if (qText) {
+        const driversList = tx.driverTasks
+          .map((t) => (drivers[t.driver_id] || "").toLowerCase())
+          .join(" ");
+        const matchCust = tx.customerName.toLowerCase().includes(qText);
+        const matchLnd = tx.laundryName.toLowerCase().includes(qText);
+        const matchDrv = driversList.includes(qText);
+        const matchId = tx.shortId.toLowerCase().includes(qText);
+
+        if (!matchCust && !matchLnd && !matchDrv && !matchId) {
+          return false;
+        }
+      }
+
+      // 3. Tilityksen tila suodatus
+      if (searchStatus === "pending") {
+        if (tx.isLaundryPaid && (tx.driverTasks.length === 0 || tx.isDriverPaid)) return false;
+      } else if (searchStatus === "paid") {
+        if (!tx.isLaundryPaid || (tx.driverTasks.length > 0 && !tx.isDriverPaid)) return false;
+      }
+
+      // 4. Saajan tyyppi
+      if (searchPayeeType === "laundry") {
+        if (tx.laundryNet <= 0) return false;
+      } else if (searchPayeeType === "driver") {
+        if (tx.driverTasks.length === 0) return false;
+      }
+
+      return true;
+    });
+  }, [financialTransactions, searchOrderId, search, searchStatus, searchPayeeType, drivers]);
 
   const filterByName = <T extends { name: string }>(rows: T[]) =>
     rows.filter((r) => r.name.toLowerCase().includes(search.trim().toLowerCase()));
@@ -411,7 +526,7 @@ export const SettlementManagement = () => {
 
   const handleShowSettlementDetail = (s: SettlementRow) => {
     const orderIds = Array.isArray(s.order_ids) ? s.order_ids : [];
-    
+
     if (s.payee_type === "driver") {
       const matchedTasks = driverTasks.filter((t) => {
         if (s.payee_id && t.driver_id === s.payee_id) {
@@ -575,12 +690,13 @@ export const SettlementManagement = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Page Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-primary flex items-center gap-2">
             <Receipt className="h-5 w-5" /> Maksuliikenne
           </h2>
-          <p className="text-sm text-muted-foreground">Pesuloiden tilitykset, kuljettajien palkkiot ja alustan tuotot</p>
+          <p className="text-sm text-muted-foreground">Maksuliikenteen haku, alustan tuotot, pesuloiden tilitykset ja kuljettajien palkkiot</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
           <Select value={period} onValueChange={(v) => setPeriod(v as PeriodKey)}>
@@ -603,6 +719,7 @@ export const SettlementManagement = () => {
         </div>
       </div>
 
+      {/* Main Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {summaryCards.map((card) => (
           <Card key={card.label}>
@@ -620,27 +737,249 @@ export const SettlementManagement = () => {
         ))}
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          placeholder="Etsi pesulaa tai kuljettajaa"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      <Tabs defaultValue="laundries" className="space-y-4">
-        <TabsList className="w-full grid grid-cols-3">
-          <TabsTrigger value="laundries">Pesulat</TabsTrigger>
-          <TabsTrigger value="drivers">Kuljettajat</TabsTrigger>
-          <TabsTrigger value="history">Historia</TabsTrigger>
+      {/* Primary Tab Navigation */}
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList className="w-full grid grid-cols-2 sm:grid-cols-5 h-auto p-1 gap-1">
+          <TabsTrigger value="overview" className="text-xs sm:text-sm py-2">
+            🏠 Etusivu & Haku
+          </TabsTrigger>
+          <TabsTrigger value="laundries" className="text-xs sm:text-sm py-2">
+            🧺 Pesulat
+          </TabsTrigger>
+          <TabsTrigger value="drivers" className="text-xs sm:text-sm py-2">
+            🚚 Kuljettajat
+          </TabsTrigger>
+          <TabsTrigger value="platform" className="text-xs sm:text-sm py-2">
+            💼 Alusta
+          </TabsTrigger>
+          <TabsTrigger value="history" className="text-xs sm:text-sm py-2">
+            📜 Historia
+          </TabsTrigger>
         </TabsList>
 
+        {/* 1. ETUSIVU & HAKU TAB */}
+        <TabsContent value="overview" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Search className="h-4 w-4 text-primary" /> Maksuliikenteen Haku & Yhteenveto
+              </CardTitle>
+              <CardDescription>
+                Hae tilausnumerolla, asiakkaalla, pesulalla tai kuljettajalla nähdäksesi kaikki maksutapahtumat ja tilitystilat.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Specialized Search Form */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-muted/40 p-3 rounded-lg border">
+                {/* 1. Tilausnumero */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                    <Receipt className="h-3 w-3 text-blue-500" /> Tilausnumero
+                  </label>
+                  <Input
+                    className="h-8 text-xs font-mono"
+                    placeholder="esim. #8B26BDE5"
+                    value={searchOrderId}
+                    onChange={(e) => setSearchOrderId(e.target.value)}
+                  />
+                </div>
+
+                {/* 2. Tekstihaku (Asiakas / Pesula / Kuski) */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                    <Search className="h-3 w-3 text-purple-500" /> Hakusana / Saaja
+                  </label>
+                  <Input
+                    className="h-8 text-xs"
+                    placeholder="Asiakas, pesula tai kuski"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+
+                {/* 3. Tilityksen tila */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                    <Filter className="h-3 w-3 text-emerald-500" /> Tilityksen tila
+                  </label>
+                  <Select value={searchStatus} onValueChange={(val: any) => setSearchStatus(val)}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Kaikki tilat" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-xs">Kaikki tilat</SelectItem>
+                      <SelectItem value="pending" className="text-xs text-amber-600 font-semibold">🟡 Odottaa tilitystä</SelectItem>
+                      <SelectItem value="paid" className="text-xs text-emerald-600 font-semibold">🟢 Tilitetty / Maksettu</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* 4. Saajan tyyppi */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                    <Briefcase className="h-3 w-3 text-indigo-500" /> Kohde / Tyyppi
+                  </label>
+                  <Select value={searchPayeeType} onValueChange={(val: any) => setSearchPayeeType(val)}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Kaikki kohteet" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-xs">Kaikki kohteet</SelectItem>
+                      <SelectItem value="laundry" className="text-xs">🧺 Pesulat</SelectItem>
+                      <SelectItem value="driver" className="text-xs">🚚 Kuljettajat</SelectItem>
+                      <SelectItem value="platform" className="text-xs">💼 Alusta</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Reset Filters button if active */}
+              {(searchOrderId || search || searchStatus !== "all" || searchPayeeType !== "all") && (
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-muted-foreground"
+                    onClick={() => {
+                      setSearchOrderId("");
+                      setSearch("");
+                      setSearchStatus("all");
+                      setSearchPayeeType("all");
+                    }}
+                  >
+                    <X className="h-3 w-3 mr-1" /> Tyhjennä hakuehdot
+                  </Button>
+                </div>
+              )}
+
+              {/* Transactions Table */}
+              <div className="overflow-x-auto border rounded-lg">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow className="text-xs">
+                      <TableHead className="font-bold">Tilaus</TableHead>
+                      <TableHead className="font-bold">Asiakas</TableHead>
+                      <TableHead className="font-bold">Pesulan tilitys</TableHead>
+                      <TableHead className="font-bold">Kuljettajien tilitys</TableHead>
+                      <TableHead className="text-right font-bold">Alustan komissio</TableHead>
+                      <TableHead className="text-right font-bold">Koko hinta</TableHead>
+                      <TableHead className="text-right font-bold">Toiminnot</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredFinancials.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="h-28 text-center text-sm text-muted-foreground">
+                          Ei hakutuloksia vastaavia maksutapahtumia.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredFinancials.map((tx) => (
+                        <TableRow key={tx.orderId} className="text-xs hover:bg-muted/40">
+                          {/* Tilaus ID & Pvm */}
+                          <TableCell className="whitespace-nowrap">
+                            <div className="font-mono font-bold text-foreground">{tx.shortId}</div>
+                            <div className="text-[10px] text-muted-foreground">{fmtDate(tx.created_at)}</div>
+                          </TableCell>
+
+                          {/* Asiakas */}
+                          <TableCell className="font-medium whitespace-nowrap">
+                            {tx.customerName}
+                          </TableCell>
+
+                          {/* Pesula & Tila */}
+                          <TableCell className="whitespace-nowrap">
+                            <div className="font-semibold text-foreground">{tx.laundryName}</div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="font-bold text-emerald-700">{eur(tx.laundryNet)}</span>
+                              {tx.isLaundryPaid ? (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 bg-emerald-50 text-emerald-700 border-emerald-300">
+                                  ✓ Maksettu
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-50 text-amber-700 border-amber-300">
+                                  Odottaa
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+
+                          {/* Kuljettajat & Palkkiot */}
+                          <TableCell className="whitespace-nowrap">
+                            {tx.driverTasks.length > 0 ? (
+                              <div className="space-y-1">
+                                <div className="font-semibold text-foreground">{eur(tx.driverNet)}</div>
+                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                  <span>{tx.driverTasks.length} keikkaa</span>
+                                  {tx.isDriverPaid ? (
+                                    <Badge variant="outline" className="text-[9px] px-1 py-0 bg-emerald-50 text-emerald-700 border-emerald-300">
+                                      ✓ Maksettu
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-50 text-amber-700 border-amber-300">
+                                      Odottaa
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground italic text-[11px]">Ei keikkoja</span>
+                            )}
+                          </TableCell>
+
+                          {/* Alustan tuotto */}
+                          <TableCell className="text-right font-semibold whitespace-nowrap text-blue-700 dark:text-blue-400">
+                            {eur(tx.platformFee)}
+                          </TableCell>
+
+                          {/* Koko summa */}
+                          <TableCell className="text-right font-bold whitespace-nowrap text-foreground">
+                            {eur(tx.gross)}
+                          </TableCell>
+
+                          {/* Toiminnot */}
+                          <TableCell className="text-right whitespace-nowrap">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => {
+                                const laundryGrp: Group = {
+                                  key: tx.order.laundry_id || "unassigned",
+                                  name: tx.laundryName,
+                                  ordersCount: 1,
+                                  gross: tx.gross,
+                                  commission: tx.platformFee,
+                                  net: tx.laundryNet,
+                                  orderIds: [tx.orderId],
+                                };
+                                setDetail({
+                                  title: `Tilaus ${tx.shortId} – Maksutiedot`,
+                                  type: "laundry",
+                                  group: laundryGrp,
+                                });
+                              }}
+                            >
+                              <FileText className="h-3 w-3 mr-1 text-primary" /> Erittely
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 2. PESULAT TAB */}
         <TabsContent value="laundries">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Pesuloiden tilitykset</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-primary" /> Pesuloiden tilitykset
+              </CardTitle>
               <CardDescription>Valmiiden tilausten pesulaosuudet odottavat tilitystä</CardDescription>
             </CardHeader>
             <CardContent className="overflow-x-auto">
@@ -703,10 +1042,13 @@ export const SettlementManagement = () => {
           </Card>
         </TabsContent>
 
+        {/* 3. KULJETTAJAT TAB */}
         <TabsContent value="drivers">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Kuljettajien palkkiot</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Car className="h-4 w-4 text-primary" /> Kuljettajien palkkiot
+              </CardTitle>
               <CardDescription>Suoritetuista keikoista maksettavat palkkiot</CardDescription>
             </CardHeader>
             <CardContent className="overflow-x-auto">
@@ -762,10 +1104,85 @@ export const SettlementManagement = () => {
           </Card>
         </TabsContent>
 
+        {/* 4. ALUSTA TAB */}
+        <TabsContent value="platform">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Briefcase className="h-4 w-4 text-primary" /> Alustan Tuotot & Komissiot
+              </CardTitle>
+              <CardDescription>
+                Yhteenveto alustan keräämistä komissioista, palvelumaksuista ja nettotuotoista.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 bg-muted/40 rounded-lg border">
+                  <span className="text-xs text-muted-foreground">Kokonaismyynti (Brutto)</span>
+                  <p className="text-lg font-bold text-foreground">
+                    {eur(periodOrders.reduce((sum, o) => sum + Number(o.final_price || 0), 0))}
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <span className="text-xs text-blue-700 dark:text-blue-300 font-semibold">Alustan komissiot yhteensä</span>
+                  <p className="text-lg font-bold text-blue-900 dark:text-blue-100">{eur(platformRevenue)}</p>
+                </div>
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                  <span className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold">Valmiita tilauksia jaksolla</span>
+                  <p className="text-lg font-bold text-emerald-900 dark:text-emerald-100">{periodOrders.length} kpl</p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto border rounded-lg">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow className="text-xs">
+                      <TableHead className="font-bold">Tilaus</TableHead>
+                      <TableHead className="font-bold">Asiakas</TableHead>
+                      <TableHead className="text-right font-bold">Koko hinta</TableHead>
+                      <TableHead className="text-right font-bold">Pesulan osuus</TableHead>
+                      <TableHead className="text-right font-bold">Kuljettajien palkkiot</TableHead>
+                      <TableHead className="text-right font-bold">Alustan kate</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {financialTransactions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-28 text-center text-sm text-muted-foreground">
+                          Ei alustan tuottoja valitulla aikavälillä.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      financialTransactions.map((tx) => (
+                        <TableRow key={tx.orderId} className="text-xs hover:bg-muted/40">
+                          <TableCell className="font-mono font-bold whitespace-nowrap">
+                            {tx.shortId}
+                            <span className="block text-[10px] font-normal text-muted-foreground">{fmtDate(tx.created_at)}</span>
+                          </TableCell>
+                          <TableCell className="font-medium">{tx.customerName}</TableCell>
+                          <TableCell className="text-right font-semibold">{eur(tx.gross)}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">{eur(tx.laundryNet)}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">{eur(tx.driverNet)}</TableCell>
+                          <TableCell className="text-right font-bold text-blue-700 dark:text-blue-400">
+                            {eur(tx.platformFee)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 5. HISTORIA TAB */}
         <TabsContent value="history">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Tilityshistoria</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-primary" /> Tilityshistoria
+              </CardTitle>
               <CardDescription>Kaikki maksetuksi merkityt tilityserät</CardDescription>
             </CardHeader>
             <CardContent className="overflow-x-auto">
@@ -821,6 +1238,7 @@ export const SettlementManagement = () => {
         </TabsContent>
       </Tabs>
 
+      {/* Detail Sheet Modal */}
       <Sheet open={!!detail} onOpenChange={(open) => !open && setDetail(null)}>
         <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
           <SheetHeader>
