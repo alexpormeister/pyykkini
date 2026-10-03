@@ -65,6 +65,14 @@ interface OrderLogEntry {
   } | null;
 }
 
+interface DeliveryTaskRecord {
+  id: string;
+  order_id: string;
+  driver_id: string | null;
+  task_type: "pickup" | "delivery";
+  status: string;
+}
+
 interface OrderRecord {
   id: string;
   user_id: string;
@@ -184,6 +192,7 @@ export const OrderSearchPanel = () => {
   const { toast } = useToast();
 
   const [orders, setOrders] = useState<OrderRecord[]>([]);
+  const [deliveryTasks, setDeliveryTasks] = useState<DeliveryTaskRecord[]>([]);
   const [drivers, setDrivers] = useState<DriverInfo[]>([]);
   const [laundries, setLaundries] = useState<LaundryInfo[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -200,6 +209,20 @@ export const OrderSearchPanel = () => {
   const [filterLaundry, setFilterLaundry] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPaymentMethod, setFilterPaymentMethod] = useState("all");
+
+  const getDriversForOrder = useCallback(
+    (order: OrderRecord) => {
+      const orderTasks = deliveryTasks.filter((t) => t.order_id === order.id);
+      const pickupTask = orderTasks.find((t) => t.task_type === "pickup");
+      const returnTask = orderTasks.find((t) => t.task_type === "delivery");
+
+      const pickupDriverId = pickupTask?.driver_id || order.driver_id;
+      const returnDriverId = returnTask?.driver_id || (returnTask ? null : order.driver_id);
+
+      return { pickupDriverId, returnDriverId, pickupTask, returnTask };
+    },
+    [deliveryTasks]
+  );
 
   // Date Filter States: Oletuksena tämän päivän tilaukset
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
@@ -261,7 +284,7 @@ export const OrderSearchPanel = () => {
   const fetchAll = useCallback(async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
-      const [ordersRes, laundriesRes, rolesRes, shiftsRes] = await Promise.all([
+      const [ordersRes, laundriesRes, rolesRes, shiftsRes, tasksRes] = await Promise.all([
         supabase
           .from("orders")
           .select("*, order_items(*)")
@@ -269,10 +292,13 @@ export const OrderSearchPanel = () => {
         supabase.from("laundries").select("id, name").order("name"),
         supabase.from("user_roles").select("user_id, role").eq("role", "driver"),
         supabase.from("driver_shifts").select("driver_id").eq("is_active", true),
+        supabase.from("delivery_tasks").select("id, order_id, driver_id, task_type, status"),
       ]);
 
       const orderRows = (ordersRes.data || []) as unknown as OrderRecord[];
+      const taskRows = (tasksRes.data || []) as unknown as DeliveryTaskRecord[];
       setOrders(orderRows);
+      setDeliveryTasks(taskRows);
       setLaundries((laundriesRes.data || []) as LaundryInfo[]);
 
       // Collect user profiles
@@ -280,6 +306,9 @@ export const OrderSearchPanel = () => {
       orderRows.forEach((o) => {
         if (o.user_id) userIds.add(o.user_id);
         if (o.driver_id) userIds.add(o.driver_id);
+      });
+      taskRows.forEach((t) => {
+        if (t.driver_id) userIds.add(t.driver_id);
       });
       (rolesRes.data || []).forEach((r: any) => userIds.add(r.user_id));
 
@@ -321,6 +350,9 @@ export const OrderSearchPanel = () => {
     const channel = supabase
       .channel("order_search_realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        fetchAll();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_tasks" }, () => {
         fetchAll();
       })
       .subscribe();
@@ -460,10 +492,14 @@ export const OrderSearchPanel = () => {
           }
         }
 
-        // 6. Kuljettaja
+        // 6. Kuljettaja (Tarkistetaan sekä nouto- että palautuskuljettaja)
         if (filterDriver !== "all") {
-          if (filterDriver === "unassigned" && order.driver_id) return false;
-          if (filterDriver !== "unassigned" && order.driver_id !== filterDriver) return false;
+          const { pickupDriverId, returnDriverId } = getDriversForOrder(order);
+          if (filterDriver === "unassigned") {
+            if (pickupDriverId || returnDriverId) return false;
+          } else {
+            if (pickupDriverId !== filterDriver && returnDriverId !== filterDriver) return false;
+          }
         }
 
         // 7. Pesula
@@ -1125,7 +1161,7 @@ export const OrderSearchPanel = () => {
                 <TableHead className="font-bold">Osoite</TableHead>
                 <TableHead className="font-bold">Palvelu</TableHead>
                 <TableHead className="font-bold">Nouto / Palautus</TableHead>
-                <TableHead className="font-bold">Kuljettaja</TableHead>
+                <TableHead className="font-bold">Kuljettajat (Nouto / Paluu)</TableHead>
                 <TableHead className="font-bold">Pesula</TableHead>
                 <TableHead className="font-bold">Summa</TableHead>
                 <TableHead className="font-bold">Maksutapa</TableHead>
@@ -1143,7 +1179,6 @@ export const OrderSearchPanel = () => {
               ) : (
                 paginatedOrders.map((order) => {
                   const custName = ((order.first_name || "") + " " + (order.last_name || "")).trim() || fullName(profileOf(order.user_id));
-                  const drv = driverOf(order.driver_id);
                   const lnd = laundryOf(order.laundry_id);
                   const statusMeta = STATUS_MAP[(order.status || "pending").toLowerCase()] || {
                     label: order.status,
@@ -1211,15 +1246,38 @@ export const OrderSearchPanel = () => {
                         </div>
                       </TableCell>
 
-                      {/* 7. Kuljettaja */}
-                      <TableCell>
-                        {order.driver_id ? (
-                          <div className="font-medium text-emerald-700 flex items-center gap-1">
-                            <Truck className="h-3 w-3 shrink-0" /> {fullName(drv)}
-                          </div>
-                        ) : (
-                          <span className="text-amber-600 italic">Ei kuskia</span>
-                        )}
+                      {/* 7. Kuljettajat (Nouto ja Palautus eroteltuna) */}
+                      <TableCell className="whitespace-nowrap">
+                        {(() => {
+                          const { pickupDriverId, returnDriverId } = getDriversForOrder(order);
+                          const pDriver = pickupDriverId ? driverOf(pickupDriverId) : null;
+                          const rDriver = returnDriverId ? driverOf(returnDriverId) : null;
+
+                          return (
+                            <div className="space-y-1 text-[11px]">
+                              <div className="flex items-center gap-1.5" title="Noutokuljettaja">
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 flex items-center gap-0.5">
+                                  <Truck className="h-2.5 w-2.5" /> Nouto
+                                </span>
+                                {pDriver ? (
+                                  <span className="font-semibold text-emerald-700">{fullName(pDriver)}</span>
+                                ) : (
+                                  <span className="text-amber-600 italic">Ei kuskia</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5" title="Palautuskuljettaja">
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 flex items-center gap-0.5">
+                                  <Truck className="h-2.5 w-2.5" /> Paluu
+                                </span>
+                                {rDriver ? (
+                                  <span className="font-semibold text-emerald-700">{fullName(rDriver)}</span>
+                                ) : (
+                                  <span className="text-muted-foreground italic">Ei kuskia</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </TableCell>
 
                       {/* 8. Pesula */}
@@ -1361,9 +1419,24 @@ export const OrderSearchPanel = () => {
                     <h4 className="font-bold text-foreground flex items-center gap-1">
                       <Truck className="h-3.5 w-3.5 text-blue-500" /> Käsittely & Kuljetus
                     </h4>
-                    <p className="text-muted-foreground">
-                      <strong className="text-foreground">Kuljettaja:</strong> {selectedOrder.driver_id ? fullName(driverOf(selectedOrder.driver_id)) : "Ei määritetty"}
-                    </p>
+                    {(() => {
+                      const { pickupDriverId, returnDriverId } = getDriversForOrder(selectedOrder);
+                      const pDriver = pickupDriverId ? driverOf(pickupDriverId) : null;
+                      const rDriver = returnDriverId ? driverOf(returnDriverId) : null;
+
+                      return (
+                        <>
+                          <p className="text-muted-foreground">
+                            <strong className="text-foreground">🚚 Noutokuljettaja:</strong>{" "}
+                            {pDriver ? fullName(pDriver) : "Ei määritetty"}
+                          </p>
+                          <p className="text-muted-foreground">
+                            <strong className="text-foreground">🔄 Palautuskuljettaja:</strong>{" "}
+                            {rDriver ? fullName(rDriver) : "Ei määritetty"}
+                          </p>
+                        </>
+                      );
+                    })()}
                     <p className="text-muted-foreground">
                       <strong className="text-foreground">Pesula:</strong> {laundryOf(selectedOrder.laundry_id)?.name || "Ei määritetty"}
                     </p>
