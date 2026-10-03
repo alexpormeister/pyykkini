@@ -119,8 +119,9 @@ export default function WashesScreen() {
             const user = session?.user;
             if (!user) return;
 
+            const channelName = `user-orders-${user.id}-${Math.random().toString(36).substring(7)}`;
             subscription = supabase
-                .channel(`user-orders-${user.id}`)
+                .channel(channelName)
                 .on(
                     'postgres_changes',
                     {

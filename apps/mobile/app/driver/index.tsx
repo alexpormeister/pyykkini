@@ -1002,6 +1002,38 @@ export default function DriverDrivesScreen() {
         const now = Date.now();
         const requiredMinutes = systemSettings.driver_wait_time_minutes || 5;
 
+        const openNoShowFlow = () => {
+            if (drive.customerPhone) {
+                Alert.alert(
+                    'Tavoitellaan asiakasta',
+                    `Oletko jo soittanut asiakkaalle numeroon ${drive.customerPhone}?`,
+                    [
+                        {
+                            text: 'Soita asiakkaalle',
+                            onPress: () => {
+                                Linking.openURL(`tel:${drive.customerPhone}`);
+                            },
+                        },
+                        {
+                            text: 'Kyllä, ei vastausta',
+                            onPress: () => {
+                                setNoShowDrive(drive);
+                                setNoShowPhotoUri(null);
+                                setNoShowNotes('');
+                                setNoShowModalVisible(true);
+                            },
+                        },
+                        { text: 'Peruuta', style: 'cancel' },
+                    ]
+                );
+            } else {
+                setNoShowDrive(drive);
+                setNoShowPhotoUri(null);
+                setNoShowNotes('');
+                setNoShowModalVisible(true);
+            }
+        };
+
         if (arrivalTime) {
             const elapsedMinutes = (now - arrivalTime) / (1000 * 60);
             if (elapsedMinutes < requiredMinutes) {
@@ -1010,42 +1042,21 @@ export default function DriverDrivesScreen() {
                 const remSec = remainingSec % 60;
                 Alert.alert(
                     'Odotusaika kesken',
-                    `Sinun tulee odottaa asiakasta vähintään ${requiredMinutes} minuuttia saapumisen jälkeen.\n\nOdotusaikaa jäljellä: ${remMin} min ${remSec} s.`,
-                    [{ text: 'Selvä' }]
+                    `Odotusaikaa on suositeltu vähintään ${requiredMinutes} min saapumisen jälkeen.\n(Sovelluksen mukaan aikaa jäljellä ${remMin} min ${remSec} s).\n\nHaluatko silti ilmoittaa asiakkaan ei-paikalla olevaksi?`,
+                    [
+                        { text: 'Peruuta', style: 'cancel' },
+                        {
+                            text: 'Kyllä, ilmoita ei-paikalla',
+                            style: 'destructive',
+                            onPress: openNoShowFlow,
+                        },
+                    ]
                 );
                 return;
             }
         }
 
-        if (drive.customerPhone) {
-            Alert.alert(
-                'Tavoitellaan asiakasta',
-                `Oletko jo soittanut asiakkaalle numeroon ${drive.customerPhone}?`,
-                [
-                    {
-                        text: 'Soita asiakkaalle',
-                        onPress: () => {
-                            Linking.openURL(`tel:${drive.customerPhone}`);
-                        },
-                    },
-                    {
-                        text: 'Kyllä, ei vastausta',
-                        onPress: () => {
-                            setNoShowDrive(drive);
-                            setNoShowPhotoUri(null);
-                            setNoShowNotes('');
-                            setNoShowModalVisible(true);
-                        },
-                    },
-                    { text: 'Peruuta', style: 'cancel' },
-                ]
-            );
-        } else {
-            setNoShowDrive(drive);
-            setNoShowPhotoUri(null);
-            setNoShowNotes('');
-            setNoShowModalVisible(true);
-        }
+        openNoShowFlow();
     };
 
     const handleTakeNoShowPhoto = async () => {
@@ -2046,23 +2057,45 @@ export default function DriverDrivesScreen() {
                                 ) : selectedDrive.taskType === 'pickup' ? (
                                     // --- NOUTOKEIKAN TILAPAINIKKEET ---
                                     selectedDrive.status === 'assigned' || selectedDrive.status === 'pending' ? (
-                                        <TouchableOpacity
-                                            style={styles.modalPrimaryBtn}
-                                            onPress={() => handleStartDrive(selectedDrive)}
-                                            activeOpacity={0.85}
-                                        >
-                                            <Feather name="play" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                                            <Text style={styles.modalPrimaryBtnText}>Aloita nouto</Text>
-                                        </TouchableOpacity>
+                                        <View style={{ width: '100%', gap: 10 }}>
+                                            <TouchableOpacity
+                                                style={styles.modalPrimaryBtn}
+                                                onPress={() => handleStartDrive(selectedDrive)}
+                                                activeOpacity={0.85}
+                                            >
+                                                <Feather name="play" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                                                <Text style={styles.modalPrimaryBtnText}>Aloita nouto</Text>
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity
+                                                style={[styles.modalSuccessBtn, { backgroundColor: '#EF4444' }]}
+                                                onPress={() => handleOpenNoShowModal(selectedDrive)}
+                                                activeOpacity={0.85}
+                                            >
+                                                <Feather name="user-x" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                                                <Text style={styles.modalPrimaryBtnText}>Asiakas ei paikalla / Ei vastaa</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     ) : selectedDrive.status === 'picking_up' || selectedDrive.status === 'in_progress' ? (
-                                        <TouchableOpacity
-                                            style={styles.modalPrimaryBtn}
-                                            onPress={() => handleMarkArrived(selectedDrive)}
-                                            activeOpacity={0.85}
-                                        >
-                                            <Feather name="map-pin" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                                            <Text style={styles.modalPrimaryBtnText}>Olen saapunut noutoon</Text>
-                                        </TouchableOpacity>
+                                        <View style={{ width: '100%', gap: 10 }}>
+                                            <TouchableOpacity
+                                                style={styles.modalPrimaryBtn}
+                                                onPress={() => handleMarkArrived(selectedDrive)}
+                                                activeOpacity={0.85}
+                                            >
+                                                <Feather name="map-pin" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                                                <Text style={styles.modalPrimaryBtnText}>Olen saapunut noutoon</Text>
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity
+                                                style={[styles.modalSuccessBtn, { backgroundColor: '#EF4444' }]}
+                                                onPress={() => handleOpenNoShowModal(selectedDrive)}
+                                                activeOpacity={0.85}
+                                            >
+                                                <Feather name="user-x" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                                                <Text style={styles.modalPrimaryBtnText}>Asiakas ei paikalla / Ei vastaa</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     ) : selectedDrive.status === 'arrived_pickup' ? (
                                         <View style={{ width: '100%', gap: 10 }}>
                                             <TouchableOpacity
