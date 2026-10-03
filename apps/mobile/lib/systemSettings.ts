@@ -7,6 +7,8 @@ export interface SystemSettings {
     delivery_fee: number;
     min_order_amount: number;
     min_order_fee: number;
+    driver_wait_time_minutes: number;
+    no_show_fee: number;
 }
 
 export const DEFAULT_SETTINGS: SystemSettings = {
@@ -15,6 +17,8 @@ export const DEFAULT_SETTINGS: SystemSettings = {
     delivery_fee: 0.00,
     min_order_amount: 30.00,
     min_order_fee: 7.00,
+    driver_wait_time_minutes: 5,
+    no_show_fee: 7.90,
 };
 
 let cachedSettings: SystemSettings = { ...DEFAULT_SETTINGS };
@@ -38,6 +42,8 @@ export async function fetchSystemSettings(): Promise<SystemSettings> {
                 delivery_fee: typeof data.delivery_fee === 'number' ? data.delivery_fee : parseFloat(data.delivery_fee || '0.00'),
                 min_order_amount: typeof data.min_order_amount === 'number' ? data.min_order_amount : parseFloat(data.min_order_amount || '0.00'),
                 min_order_fee: typeof (data as any).min_order_fee === 'number' ? (data as any).min_order_fee : parseFloat((data as any).min_order_fee || '0.00'),
+                driver_wait_time_minutes: typeof (data as any).driver_wait_time_minutes === 'number' ? (data as any).driver_wait_time_minutes : parseInt((data as any).driver_wait_time_minutes || '5', 10),
+                no_show_fee: typeof (data as any).no_show_fee === 'number' ? (data as any).no_show_fee : parseFloat((data as any).no_show_fee || '7.90'),
             };
             hasFetched = true;
             return cachedSettings;
@@ -76,6 +82,8 @@ export function useSystemSettings(): SystemSettings {
                             delivery_fee: parseFloat(payload.new.delivery_fee || '0.00'),
                             min_order_amount: parseFloat(payload.new.min_order_amount || '0.00'),
                             min_order_fee: parseFloat(payload.new.min_order_fee || '0.00'),
+                            driver_wait_time_minutes: parseInt(payload.new.driver_wait_time_minutes || '5', 10),
+                            no_show_fee: parseFloat(payload.new.no_show_fee || '7.90'),
                         };
                         cachedSettings = updated;
                         setSettings(updated);

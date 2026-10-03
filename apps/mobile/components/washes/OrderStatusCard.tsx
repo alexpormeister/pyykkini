@@ -42,6 +42,23 @@ const getStatusConfig = (order: any) => {
             icon: 'x-circle',
             image: require("../../assets/images/3dglossy-logo.png"),
             isCancelled: true,
+            isPickupFailed: false,
+        };
+    }
+
+    // 0.5 Nouto epäonnistunut
+    if (status === 'pickup_failed' || tracking === 'PICKUP_FAILED' || pickupTask?.status === 'pickup_failed') {
+        return {
+            title: 'Nouto epäonnistui: Kuljettaja ei tavoittanut sinua',
+            subtitle: 'Kuljettaja saapui nouto-osoitteeseen, mutta ei saanut yhteyttä. Sopi uusi noutoaika veloituksetta.',
+            step: 1,
+            color: '#DC2626',
+            badgeBg: '#FEF2F2',
+            badgeText: 'NOUTO EPÄONNISTUI',
+            icon: 'alert-triangle',
+            image: require("../../assets/images/3dglossy-logo.png"),
+            isCancelled: false,
+            isPickupFailed: true,
         };
     }
 
@@ -211,6 +228,88 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
         phone?: string;
     } | null>(null);
 
+    // Reschedule / Uusi noutoaika state
+    const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+    const [reschedulePickupDate, setReschedulePickupDate] = useState<string>('');
+    const [reschedulePickupTime, setReschedulePickupTime] = useState<string>('08:00 - 10:00');
+    const [rescheduleReturnDate, setRescheduleReturnDate] = useState<string>('');
+    const [rescheduleReturnTime, setRescheduleReturnTime] = useState<string>('08:00 - 10:00');
+    const [isSubmittingReschedule, setIsSubmittingReschedule] = useState(false);
+
+    const getUpcomingDatesList = () => {
+        const list = [];
+        const days = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];
+        for (let i = 1; i <= 7; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() + i);
+            const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const label = `${days[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}.`;
+            list.push({ iso, label });
+        }
+        return list;
+    };
+
+    const handleOpenRescheduleModal = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        const dates = getUpcomingDatesList();
+        setReschedulePickupDate(dates[0].iso);
+        setRescheduleReturnDate(dates[2] ? dates[2].iso : dates[dates.length - 1].iso);
+        setIsRescheduleModalOpen(true);
+    };
+
+    const handleConfirmReschedule = async () => {
+        if (!reschedulePickupDate || !rescheduleReturnDate) return;
+        setIsSubmittingReschedule(true);
+        try {
+            const nowIso = new Date().toISOString();
+
+            await supabase
+                .from('orders')
+                .update({
+                    status: 'pending',
+                    tracking_status: 'pending',
+                    driver_id: null,
+                    pickup_date: reschedulePickupDate,
+                    pickup_time: reschedulePickupTime,
+                    return_date: rescheduleReturnDate,
+                    return_time: rescheduleReturnTime,
+                    updated_at: nowIso,
+                })
+                .eq('id', order.id);
+
+            await supabase
+                .from('delivery_tasks')
+                .update({
+                    status: 'pending',
+                    driver_id: null,
+                    scheduled_date: reschedulePickupDate,
+                    scheduled_time: reschedulePickupTime,
+                    updated_at: nowIso,
+                })
+                .eq('order_id', order.id)
+                .eq('task_type', 'pickup');
+
+            await supabase
+                .from('delivery_tasks')
+                .update({
+                    status: 'pending',
+                    driver_id: null,
+                    scheduled_date: rescheduleReturnDate,
+                    scheduled_time: rescheduleReturnTime,
+                    updated_at: nowIso,
+                })
+                .eq('order_id', order.id)
+                .eq('task_type', 'delivery');
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            setIsRescheduleModalOpen(false);
+        } catch (e) {
+            console.error('Virhe ajan vaihdossa:', e);
+        } finally {
+            setIsSubmittingReschedule(false);
+        }
+    };
+
     // Kuljettajan tietojen haku
     useEffect(() => {
         let isMounted = true;
@@ -327,8 +426,29 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                 </View>
             </View>
 
+            {/* ⚠️ 4.5 NOUTO EPÄONNISTUI BANNERI & SOPI UUSI AIKA ⚠️ */}
+            {config.isPickupFailed && (
+                <View style={styles.pickupFailedBannerBox}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                        <Feather name="alert-triangle" size={18} color="#DC2626" style={{ marginRight: 6 }} />
+                        <Text style={styles.pickupFailedTitle}>Nouto epäonnistui: Kuljettaja ei tavoittanut sinua</Text>
+                    </View>
+                    <Text style={styles.pickupFailedDesc}>
+                        Kuljettaja saapui nouto-osoitteeseen, mutta ei saanut yhteyttä. Sopi uusi sinulle sopiva nouto- ja palautusaika veloituksetta.
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.rescheduleBtn}
+                        onPress={handleOpenRescheduleModal}
+                        activeOpacity={0.85}
+                    >
+                        <Feather name="calendar" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
+                        <Text style={styles.rescheduleBtnText}>Sopi uusi noutoaika</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
             {/* 🛡️ 5. KULJETTAJAN NOUTOKOODI (TURVATARKISTUS OVELLA) 🛡️ */}
-            {!config.isCancelled && config.step <= 2 && (
+            {!config.isCancelled && !config.isPickupFailed && config.step <= 2 && (
                 <View style={styles.pickupCodeBanner}>
                     <View style={styles.pickupCodeHeader}>
                         <View style={styles.pickupCodeIconCircle}>
@@ -512,11 +632,199 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                     </View>
                 </View>
             </Modal>
+
+            {/* 📅 RESCHEDULE MODAALI 📅 */}
+            <Modal visible={isRescheduleModalOpen} transparent animationType="fade">
+                <View style={styles.modalBackdrop}>
+                    <View style={[styles.modalCard, { maxHeight: '85%' }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Sopi uusi noutoaika</Text>
+                            <TouchableOpacity
+                                onPress={() => setIsRescheduleModalOpen(false)}
+                                style={styles.modalCloseBtn}
+                            >
+                                <Feather name="x" size={20} color="#64748B" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView showsVerticalScrollIndicator={false} style={{ marginVertical: 10 }}>
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A', marginBottom: 8 }}>
+                                Uusi noutopäivä
+                            </Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+                                {getUpcomingDatesList().map(d => (
+                                    <TouchableOpacity
+                                        key={d.iso}
+                                        style={[
+                                            styles.slotChip,
+                                            reschedulePickupDate === d.iso && styles.slotChipActive
+                                        ]}
+                                        onPress={() => {
+                                            setReschedulePickupDate(d.iso);
+                                            const nextD = new Date(d.iso);
+                                            nextD.setDate(nextD.getDate() + 2);
+                                            setRescheduleReturnDate(nextD.toISOString().split('T')[0]);
+                                        }}
+                                    >
+                                        <Text style={[styles.slotChipText, reschedulePickupDate === d.iso && styles.slotChipTextActive]}>
+                                            {d.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A', marginBottom: 8 }}>
+                                Noudon kellonaika
+                            </Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+                                {['08:00 - 10:00', '10:00 - 12:00', '12:00 - 14:00', '14:00 - 16:00', '16:00 - 18:00', '18:00 - 20:00'].map(t => (
+                                    <TouchableOpacity
+                                        key={t}
+                                        style={[
+                                            styles.timeChip,
+                                            reschedulePickupTime === t && styles.slotChipActive
+                                        ]}
+                                        onPress={() => setReschedulePickupTime(t)}
+                                    >
+                                        <Text style={[styles.slotChipText, reschedulePickupTime === t && styles.slotChipTextActive]}>
+                                            {t}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A', marginBottom: 8 }}>
+                                Uusi palautuspäivä
+                            </Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+                                {getUpcomingDatesList().map(d => (
+                                    <TouchableOpacity
+                                        key={`ret_${d.iso}`}
+                                        style={[
+                                            styles.slotChip,
+                                            rescheduleReturnDate === d.iso && styles.slotChipActive
+                                        ]}
+                                        onPress={() => setRescheduleReturnDate(d.iso)}
+                                    >
+                                        <Text style={[styles.slotChipText, rescheduleReturnDate === d.iso && styles.slotChipTextActive]}>
+                                            {d.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A', marginBottom: 8 }}>
+                                Palautuksen kellonaika
+                            </Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+                                {['08:00 - 10:00', '10:00 - 12:00', '12:00 - 14:00', '14:00 - 16:00', '16:00 - 18:00', '18:00 - 20:00'].map(t => (
+                                    <TouchableOpacity
+                                        key={`rett_${t}`}
+                                        style={[
+                                            styles.timeChip,
+                                            rescheduleReturnTime === t && styles.slotChipActive
+                                        ]}
+                                        onPress={() => setRescheduleReturnTime(t)}
+                                    >
+                                        <Text style={[styles.slotChipText, rescheduleReturnTime === t && styles.slotChipTextActive]}>
+                                            {t}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </ScrollView>
+
+                        <TouchableOpacity
+                            style={[styles.modalConfirmBtn, { backgroundColor: '#0284C7', marginTop: 10 }]}
+                            onPress={handleConfirmReschedule}
+                            disabled={isSubmittingReschedule}
+                        >
+                            <Text style={styles.modalConfirmBtnText}>Vahvista uusi noutoaika</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
+    pickupFailedBannerBox: {
+        backgroundColor: '#FEF2F2',
+        borderColor: '#FCA5A5',
+        borderWidth: 1.5,
+        borderRadius: 16,
+        padding: 14,
+        marginBottom: 14,
+    },
+    pickupFailedTitle: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: '#DC2626',
+        flex: 1,
+    },
+    pickupFailedDesc: {
+        fontSize: 12,
+        color: '#991B1B',
+        lineHeight: 17,
+        marginBottom: 10,
+    },
+    rescheduleBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#DC2626',
+        borderRadius: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+    },
+    rescheduleBtnText: {
+        color: '#FFFFFF',
+        fontWeight: '800',
+        fontSize: 13,
+    },
+    slotChip: {
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: 12,
+        backgroundColor: '#F1F5F9',
+        marginRight: 8,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    slotChipActive: {
+        backgroundColor: '#E0F2FE',
+        borderColor: '#0284C7',
+    },
+    slotChipText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#475569',
+    },
+    slotChipTextActive: {
+        color: '#0284C7',
+        fontWeight: '800',
+    },
+    timeChip: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 10,
+        backgroundColor: '#F1F5F9',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    modalConfirmBtn: {
+        backgroundColor: '#0284C7',
+        paddingVertical: 13,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modalConfirmBtnText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '800',
+    },
     card: {
         backgroundColor: '#FFFFFF',
         borderRadius: 24,

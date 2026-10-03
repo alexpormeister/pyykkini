@@ -89,6 +89,13 @@ function renderTaskStatusBadge(status?: string) {
       </span>
     );
   }
+  if (st === "pickup_failed") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300">
+        ⚠️ Nouto epäonnistui
+      </span>
+    );
+  }
   if (st === "arrived_pickup") {
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">

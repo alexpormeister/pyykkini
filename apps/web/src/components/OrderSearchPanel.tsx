@@ -128,6 +128,8 @@ const STATUS_MAP: Record<string, { label: string; color: string; badgeClass: str
   picking_up: { label: "Noudossa", color: "blue", badgeClass: "bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950 dark:text-sky-300" },
   arrived_pickup: { label: "Noutopaikalla", color: "cyan", badgeClass: "bg-cyan-100 text-cyan-800 border-cyan-300 dark:bg-cyan-950 dark:text-cyan-300" },
   ARRIVED_PICKUP: { label: "Noutopaikalla", color: "cyan", badgeClass: "bg-cyan-100 text-cyan-800 border-cyan-300 dark:bg-cyan-950 dark:text-cyan-300" },
+  pickup_failed: { label: "Nouto epäonnistui", color: "red", badgeClass: "bg-red-100 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-300" },
+  PICKUP_FAILED: { label: "Nouto epäonnistui", color: "red", badgeClass: "bg-red-100 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-300" },
   washing: { label: "Pesussa", color: "purple", badgeClass: "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-300" },
   returning: { label: "Palautuksessa", color: "emerald", badgeClass: "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-950 dark:text-teal-300" },
   arrived_delivery: { label: "Toimituspaikalla", color: "emerald", badgeClass: "bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950 dark:text-sky-300" },
@@ -952,6 +954,7 @@ export const OrderSearchPanel = () => {
                   <SelectItem value="pending" className="text-xs">🟡 Odottaa</SelectItem>
                   <SelectItem value="accepted" className="text-xs">🔵 Hyväksytty</SelectItem>
                   <SelectItem value="picking_up" className="text-xs">🚚 Noudossa</SelectItem>
+                  <SelectItem value="pickup_failed" className="text-xs">⚠️ Nouto epäonnistui</SelectItem>
                   <SelectItem value="washing" className="text-xs">🟣 Pesussa</SelectItem>
                   <SelectItem value="returning" className="text-xs">🟢 Palautuksessa</SelectItem>
                   <SelectItem value="delivered" className="text-xs">✅ Toimitettu</SelectItem>

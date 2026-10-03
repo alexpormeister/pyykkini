@@ -1491,6 +1491,7 @@ export type Database = {
         | "PACKAGING"
         | "OUT_FOR_DELIVERY"
         | "ARRIVED_DELIVERY"
+        | "PICKUP_FAILED"
         | "COMPLETED"
         | "pending"
       pricing_model: "FIXED" | "PER_M2"
@@ -1640,6 +1641,7 @@ export const Constants = {
         "PACKAGING",
         "OUT_FOR_DELIVERY",
         "ARRIVED_DELIVERY",
+        "PICKUP_FAILED",
         "COMPLETED",
         "pending",
       ],

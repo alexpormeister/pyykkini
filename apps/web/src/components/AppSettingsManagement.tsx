@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Settings, Loader2, Percent, Euro, Truck, ShoppingBag } from "lucide-react";
+import { Settings, Loader2, Percent, Euro, ShoppingBag, Clock, AlertTriangle } from "lucide-react";
 
 interface AppSettings {
   service_fee: number;
@@ -13,6 +13,8 @@ interface AppSettings {
   delivery_fee: number;
   min_order_amount: number;
   min_order_fee: number;
+  driver_wait_time_minutes: number;
+  no_show_fee: number;
   updated_at?: string;
 }
 
@@ -22,6 +24,8 @@ const DEFAULTS: AppSettings = {
   delivery_fee: 0,
   min_order_amount: 30,
   min_order_fee: 7,
+  driver_wait_time_minutes: 5,
+  no_show_fee: 7.90,
 };
 
 export const AppSettingsManagement = () => {
@@ -46,6 +50,8 @@ export const AppSettingsManagement = () => {
           delivery_fee: Number(data.delivery_fee ?? 0),
           min_order_amount: Number(data.min_order_amount ?? 0),
           min_order_fee: Number((data as any).min_order_fee ?? 0),
+          driver_wait_time_minutes: Number((data as any).driver_wait_time_minutes ?? 5),
+          no_show_fee: Number((data as any).no_show_fee ?? 7.90),
         });
         setUpdatedAt(data.updated_at);
       }
@@ -55,7 +61,7 @@ export const AppSettingsManagement = () => {
   }, []);
 
   const handleSave = async () => {
-    if ([form.service_fee, form.vat_rate, form.min_order_amount, form.min_order_fee].some((v) => isNaN(v) || v < 0)) {
+    if ([form.service_fee, form.vat_rate, form.min_order_amount, form.min_order_fee, form.driver_wait_time_minutes, form.no_show_fee].some((v) => isNaN(v) || v < 0)) {
       toast.error("Kaikkien arvojen tulee olla nollaa suurempia tai nolla");
       return;
     }
@@ -67,6 +73,8 @@ export const AppSettingsManagement = () => {
       delivery_fee: form.delivery_fee,
       min_order_amount: form.min_order_amount,
       min_order_fee: form.min_order_fee,
+      driver_wait_time_minutes: form.driver_wait_time_minutes,
+      no_show_fee: form.no_show_fee,
       updated_at: new Date().toISOString(),
     };
 
@@ -75,9 +83,10 @@ export const AppSettingsManagement = () => {
       .upsert(payload, { onConflict: "id" });
 
     if (error) {
-      console.warn("Primary upsert failed, retrying fallback without min_order_fee:", error);
+      console.warn("Primary upsert failed, retrying fallback:", error);
       const fallbackPayload = { ...payload };
-      delete fallbackPayload.min_order_fee;
+      delete fallbackPayload.driver_wait_time_minutes;
+      delete fallbackPayload.no_show_fee;
 
       const fallbackRes = await supabase
         .from("app_settings")
@@ -86,7 +95,7 @@ export const AppSettingsManagement = () => {
       if (!fallbackRes.error) {
         setSaving(false);
         setUpdatedAt(new Date().toISOString());
-        toast.warning("Muut asetukset tallennettu! Aja SQL-komento Supabasessa lisätäksesi 'min_order_fee'-sarakkeen.");
+        toast.warning("Muut asetukset tallennettu! Aja uusimmat tietokantamigraatiot Supabasessa.");
         return;
       }
     }
@@ -126,7 +135,7 @@ export const AppSettingsManagement = () => {
             Hinnoittelu ja verot
           </CardTitle>
           <CardDescription>
-            Nämä asetukset vaikuttavat kaikkiin uusiin tilauksiin sovelluksessa ja verkossa.
+            Nämä asetukset vaikuttavat kaikkiin uusiin tilauksiin ja kuljettajien noutotoimintoihin.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -165,6 +174,22 @@ export const AppSettingsManagement = () => {
               </Label>
               <Input id="min_order_fee" type="number" step="0.01" min="0" value={form.min_order_fee} onChange={num("min_order_fee")} />
               <p className="text-xs text-muted-foreground">Veloitus (esim. 7,00 €), joka lisätään tilaukseen automaattisesti, jos tuottesumma jää minimirajan alle.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="driver_wait_time_minutes" className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" /> Kuljettajan odotusaika (min)
+              </Label>
+              <Input id="driver_wait_time_minutes" type="number" step="1" min="1" value={form.driver_wait_time_minutes} onChange={num("driver_wait_time_minutes")} />
+              <p className="text-xs text-muted-foreground">Odotusaika saapumisen jälkeen ennen kuin kuljettaja voi merkitä noudon epäonnistuneeksi (oletus 5 min).</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="no_show_fee" className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-muted-foreground" /> Turha käynti / No-show -maksu (€)
+              </Label>
+              <Input id="no_show_fee" type="number" step="0.01" min="0" value={form.no_show_fee} onChange={num("no_show_fee")} />
+              <p className="text-xs text-muted-foreground">Veloitus turhasta käynnistä, kun nouto epäonnistuu asiakkaasta johtuvasta syystä (esim. 7,90 €).</p>
             </div>
           </div>
 

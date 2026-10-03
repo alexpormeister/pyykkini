@@ -29,6 +29,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { getPickupCode, parseStructuredAddress, formatTimeWindow } from '../../lib/addressUtils';
+import { useSystemSettings } from '../../lib/systemSettings';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -57,7 +58,7 @@ export interface DriverDrive {
     id: string;
     orderId: string;
     taskType: 'pickup' | 'delivery';
-    status: 'assigned' | 'picking_up' | 'arrived_pickup' | 'in_transit_to_laundry' | 'in_progress' | 'returning' | 'arrived_delivery' | 'completed' | 'pending';
+    status: 'assigned' | 'picking_up' | 'arrived_pickup' | 'in_transit_to_laundry' | 'in_progress' | 'returning' | 'arrived_delivery' | 'completed' | 'pending' | 'pickup_failed';
     customerName?: string;
     customerPhone?: string;
     accessCode?: string;
@@ -68,6 +69,7 @@ export interface DriverDrive {
     pickupLocationName: string;
     pickupScheduled: string;
     pickupStartedAt?: string;
+    actualPickupTime?: string;
     // Palautus
     deliveryCity: string;
     deliveryAddress: string;
@@ -135,6 +137,9 @@ export default function DriverDrivesScreen() {
     const [isCustomerInfoExpanded, setIsCustomerInfoExpanded] = useState<boolean>(false);
     const [isLaundryInfoExpanded, setIsLaundryInfoExpanded] = useState<boolean>(false);
 
+    // Järjestelmäasetukset (esim. kuljettajan odotusaika 5 min)
+    const systemSettings = useSystemSettings();
+
     // Noudon tarkistus-modal (Punnitus & Valokuvaus)
     const [weightModalVisible, setWeightModalVisible] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -142,6 +147,13 @@ export default function DriverDrivesScreen() {
     const [pickupPhotos, setPickupPhotos] = useState<string[]>([]);
     const [selectedDriveVerificationType, setSelectedDriveVerificationType] = useState<'weight' | 'photo' | 'both'>('weight');
     const [isSubmittingWeight, setIsSubmittingWeight] = useState(false);
+
+    // No-Show / Turha käynti state
+    const [noShowModalVisible, setNoShowModalVisible] = useState(false);
+    const [noShowDrive, setNoShowDrive] = useState<DriverDrive | null>(null);
+    const [noShowPhotoUri, setNoShowPhotoUri] = useState<string | null>(null);
+    const [noShowNotes, setNoShowNotes] = useState<string>('');
+    const [isSubmittingNoShow, setIsSubmittingNoShow] = useState(false);
 
     const openNavigation = (address: string) => {
         if (!address) return;
@@ -979,6 +991,153 @@ export default function DriverDrivesScreen() {
             await fetchDrives();
         } finally {
             setIsSubmittingWeight(false);
+        }
+    };
+
+    // 3.5 ASIAKAS EI PAIKALLA / NO-SHOW -KÄSITTELIJÄT
+    const handleOpenNoShowModal = (drive: DriverDrive) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        const arrivalTimeStr = drive.actualPickupTime;
+        const arrivalTime = arrivalTimeStr ? new Date(arrivalTimeStr).getTime() : null;
+        const now = Date.now();
+        const requiredMinutes = systemSettings.driver_wait_time_minutes || 5;
+
+        if (arrivalTime) {
+            const elapsedMinutes = (now - arrivalTime) / (1000 * 60);
+            if (elapsedMinutes < requiredMinutes) {
+                const remainingSec = Math.ceil((requiredMinutes * 60) - ((now - arrivalTime) / 1000));
+                const remMin = Math.floor(remainingSec / 60);
+                const remSec = remainingSec % 60;
+                Alert.alert(
+                    'Odotusaika kesken',
+                    `Sinun tulee odottaa asiakasta vähintään ${requiredMinutes} minuuttia saapumisen jälkeen.\n\nOdotusaikaa jäljellä: ${remMin} min ${remSec} s.`,
+                    [{ text: 'Selvä' }]
+                );
+                return;
+            }
+        }
+
+        if (drive.customerPhone) {
+            Alert.alert(
+                'Tavoitellaan asiakasta',
+                `Oletko jo soittanut asiakkaalle numeroon ${drive.customerPhone}?`,
+                [
+                    {
+                        text: 'Soita asiakkaalle',
+                        onPress: () => {
+                            Linking.openURL(`tel:${drive.customerPhone}`);
+                        },
+                    },
+                    {
+                        text: 'Kyllä, ei vastausta',
+                        onPress: () => {
+                            setNoShowDrive(drive);
+                            setNoShowPhotoUri(null);
+                            setNoShowNotes('');
+                            setNoShowModalVisible(true);
+                        },
+                    },
+                    { text: 'Peruuta', style: 'cancel' },
+                ]
+            );
+        } else {
+            setNoShowDrive(drive);
+            setNoShowPhotoUri(null);
+            setNoShowNotes('');
+            setNoShowModalVisible(true);
+        }
+    };
+
+    const handleTakeNoShowPhoto = async () => {
+        try {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Kameran käyttöoikeus', 'Salli kameran käyttö asetuksista ottaaksesi kuvan asiakkaan ovesta.');
+                return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                quality: 0.7,
+            });
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                setNoShowPhotoUri(result.assets[0].uri);
+            }
+        } catch (err: any) {
+            console.error('Camera error:', err);
+        }
+    };
+
+    const handleConfirmNoShow = async () => {
+        if (!noShowDrive) return;
+        if (!noShowPhotoUri) {
+            Alert.alert('Kuva puuttuu', 'Ota valokuva asiakkaan ovesta tai osoitteesta todisteeksi käynnistä.');
+            return;
+        }
+
+        setIsSubmittingNoShow(true);
+        try {
+            const nowIso = new Date().toISOString();
+            const targetOrderId = noShowDrive.orderId || noShowDrive.id;
+
+            let uploadedPhotoUrl = noShowPhotoUri;
+            if (!noShowPhotoUri.startsWith('http')) {
+                try {
+                    const response = await fetch(noShowPhotoUri);
+                    const blob = await response.blob();
+                    const arrayBuffer = await new Response(blob).arrayBuffer();
+                    const fileName = `${targetOrderId}/no_show_${Date.now()}.jpg`;
+
+                    const { data: uploadData, error: uploadErr } = await supabase.storage
+                        .from('order-pickup-photos')
+                        .upload(fileName, arrayBuffer, { contentType: 'image/jpeg', upsert: true });
+
+                    if (!uploadErr && uploadData) {
+                        const { data: pubData } = supabase.storage
+                            .from('order-pickup-photos')
+                            .getPublicUrl(fileName);
+                        uploadedPhotoUrl = pubData?.publicUrl || noShowPhotoUri;
+                    }
+                } catch (e) {
+                    console.warn('Failed to upload no-show photo:', e);
+                }
+            }
+
+            if (targetOrderId) {
+                await supabase
+                    .from('orders')
+                    .update({
+                        status: 'pickup_failed',
+                        tracking_status: 'PICKUP_FAILED',
+                        pickup_photos: uploadedPhotoUrl ? [uploadedPhotoUrl] : [],
+                        special_instructions: noShowNotes ? `No-Show: ${noShowNotes}` : 'Nouto epäonnistui: Kuljettaja ei tavoittanut sinua',
+                        updated_at: nowIso,
+                    })
+                    .eq('id', targetOrderId);
+            }
+
+            if (noShowDrive.id) {
+                await supabase
+                    .from('delivery_tasks')
+                    .update({
+                        status: 'pickup_failed',
+                        updated_at: nowIso,
+                    })
+                    .eq('id', noShowDrive.id);
+            }
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            setNoShowModalVisible(false);
+            setNoShowDrive(null);
+            setSelectedDrive(null);
+            await fetchDrives();
+            Alert.alert('Ilmoitus lähetetty', 'Nouto merkitty epäonnistuneeksi. Asiakkaalle on ilmoitettu ja hän voi valita uuden noutoajan.');
+        } catch (err: any) {
+            console.error('[CONFIRM_NOSHOW] ERROR:', err);
+            Alert.alert('Virhe', err?.message || 'Noudon keskeytyksen kirjaus epäonnistui.');
+        } finally {
+            setIsSubmittingNoShow(false);
         }
     };
 
@@ -1905,25 +2064,36 @@ export default function DriverDrivesScreen() {
                                             <Text style={styles.modalPrimaryBtnText}>Olen saapunut noutoon</Text>
                                         </TouchableOpacity>
                                     ) : selectedDrive.status === 'arrived_pickup' ? (
-                                        <TouchableOpacity
-                                            style={styles.modalSuccessBtn}
-                                            onPress={() => handleOpenPickupVerification(selectedDrive)}
-                                            activeOpacity={0.85}
-                                        >
-                                            <Feather
-                                                name={selectedDrive.verificationType === 'photo' ? "camera" : "box"}
-                                                size={18}
-                                                color="#FFFFFF"
-                                                style={{ marginRight: 8 }}
-                                            />
-                                            <Text style={styles.modalPrimaryBtnText}>
-                                                {selectedDrive.verificationType === 'photo'
-                                                    ? 'Ota tuotekuvat & Kuljeta pesulaan'
-                                                    : selectedDrive.verificationType === 'both'
-                                                    ? 'Punnitse, Kuvaa & Kuljeta pesulaan'
-                                                    : 'Punnitse pyykki & Kuljeta pesulaan'}
-                                            </Text>
-                                        </TouchableOpacity>
+                                        <View style={{ width: '100%', gap: 10 }}>
+                                            <TouchableOpacity
+                                                style={styles.modalSuccessBtn}
+                                                onPress={() => handleOpenPickupVerification(selectedDrive)}
+                                                activeOpacity={0.85}
+                                            >
+                                                <Feather
+                                                    name={selectedDrive.verificationType === 'photo' ? "camera" : "box"}
+                                                    size={18}
+                                                    color="#FFFFFF"
+                                                    style={{ marginRight: 8 }}
+                                                />
+                                                <Text style={styles.modalPrimaryBtnText}>
+                                                    {selectedDrive.verificationType === 'photo'
+                                                        ? 'Ota tuotekuvat & Kuljeta pesulaan'
+                                                        : selectedDrive.verificationType === 'both'
+                                                        ? 'Punnitse, Kuvaa & Kuljeta pesulaan'
+                                                        : 'Punnitse pyykki & Kuljeta pesulaan'}
+                                                </Text>
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity
+                                                style={[styles.modalSuccessBtn, { backgroundColor: '#EF4444' }]}
+                                                onPress={() => handleOpenNoShowModal(selectedDrive)}
+                                                activeOpacity={0.85}
+                                            >
+                                                <Feather name="user-x" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                                                <Text style={styles.modalPrimaryBtnText}>Asiakas ei paikalla / Ei vastaa</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     ) : selectedDrive.status === 'in_transit_to_laundry' ? (
                                         <TouchableOpacity
                                             style={styles.modalSuccessBtn}
@@ -2127,6 +2297,96 @@ export default function DriverDrivesScreen() {
                                                             <ActivityIndicator size="small" color="#FFFFFF" />
                                                         ) : (
                                                             <Text style={styles.modalConfirmBtnText}>Kuittaa nouto</Text>
+                                                        )}
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        </TouchableWithoutFeedback>
+                                    </KeyboardAvoidingView>
+                                </View>
+                        )}
+
+                        {/* 🌟 ASIAKAS EI PAIKALLA / NO-SHOW OVERLAY 🌟 */}
+                        {noShowModalVisible && (
+                            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                                <View style={styles.inlineModalOverlay}>
+                                    <KeyboardAvoidingView
+                                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                                        style={styles.keyboardAvoidingModalWrapper}
+                                    >
+                                        <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+                                            <View style={styles.modalCard}>
+                                                <View style={[styles.modalIconCircle, { backgroundColor: '#FEF2F2' }]}>
+                                                    <Feather name="user-x" size={28} color="#EF4444" />
+                                                </View>
+                                                <Text style={styles.modalTitle}>Asiakas ei paikalla</Text>
+                                                <Text style={styles.modalDesc}>
+                                                    Ota kuva asiakkaan ovesta tai osoitteesta todisteeksi, että olit paikalla.
+                                                </Text>
+
+                                                <View style={{ width: '100%', marginVertical: 12, alignItems: 'center' }}>
+                                                    {noShowPhotoUri ? (
+                                                        <View style={{ position: 'relative', width: 140, height: 140, borderRadius: 12, overflow: 'hidden' }}>
+                                                            <Image source={{ uri: noShowPhotoUri }} style={{ width: '100%', height: '100%' }} />
+                                                            <TouchableOpacity
+                                                                style={{ position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.6)', padding: 6, borderRadius: 20 }}
+                                                                onPress={() => setNoShowPhotoUri(null)}
+                                                            >
+                                                                <Feather name="x" size={14} color="#FFF" />
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    ) : (
+                                                        <TouchableOpacity
+                                                            style={{
+                                                                width: '100%',
+                                                                height: 90,
+                                                                borderWidth: 2,
+                                                                borderColor: '#FCA5A5',
+                                                                borderStyle: 'dashed',
+                                                                borderRadius: 12,
+                                                                backgroundColor: '#FEF2F2',
+                                                                justifyContent: 'center',
+                                                                alignItems: 'center',
+                                                            }}
+                                                            onPress={handleTakeNoShowPhoto}
+                                                            activeOpacity={0.75}
+                                                        >
+                                                            <Feather name="camera" size={24} color="#EF4444" />
+                                                            <Text style={{ fontSize: 13, fontWeight: '600', color: '#DC2626', marginTop: 6 }}>
+                                                                Ota kuva ovesta *
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    )}
+                                                </View>
+
+                                                <View style={{ width: '100%', marginBottom: 16 }}>
+                                                    <Text style={styles.inputSectionLabel}>Lisätiedot (valinnainen)</Text>
+                                                    <TextInput
+                                                        style={[styles.weightInput, { width: '100%', height: 44, fontSize: 14, textAlign: 'left', paddingHorizontal: 12 }]}
+                                                        placeholder="Esim. Ovisummeri ei toiminut..."
+                                                        value={noShowNotes}
+                                                        onChangeText={setNoShowNotes}
+                                                    />
+                                                </View>
+
+                                                <View style={styles.modalButtonsRow}>
+                                                    <TouchableOpacity
+                                                        style={styles.modalCancelBtn}
+                                                        onPress={() => setNoShowModalVisible(false)}
+                                                        disabled={isSubmittingNoShow}
+                                                    >
+                                                        <Text style={styles.modalCancelBtnText}>Peruuta</Text>
+                                                    </TouchableOpacity>
+
+                                                    <TouchableOpacity
+                                                        style={[styles.modalConfirmBtn, { backgroundColor: '#DC2626' }]}
+                                                        onPress={handleConfirmNoShow}
+                                                        disabled={isSubmittingNoShow}
+                                                    >
+                                                        {isSubmittingNoShow ? (
+                                                            <ActivityIndicator size="small" color="#FFFFFF" />
+                                                        ) : (
+                                                            <Text style={styles.modalConfirmBtnText}>Vahvista turha käynti</Text>
                                                         )}
                                                     </TouchableOpacity>
                                                 </View>
