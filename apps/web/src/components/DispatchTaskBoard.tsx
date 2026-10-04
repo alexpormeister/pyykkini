@@ -354,8 +354,8 @@ const SearchableSelect: React.FC<{
 export const DispatchTaskBoard: React.FC = () => {
   const { toast } = useToast();
 
-  // Taulukon suodattimet (DISPATCH, BOOKED, COMPLETED, CANCELLED, KAIKKI)
-  const [tabFilter, setTabFilter] = useState<"dispatch" | "booked" | "completed" | "cancelled" | "all">("dispatch");
+  // Taulukon suodattimet (DISPATCH, BOOKED, COMPLETED, CANCELLED, NO SHOW, KAIKKI)
+  const [tabFilter, setTabFilter] = useState<"dispatch" | "booked" | "completed" | "cancelled" | "noshow" | "all">("dispatch");
   const [searchQuery, setSearchQuery] = useState("");
   const [cityFilter, setCityFilter] = useState("all");
 
@@ -1216,14 +1216,18 @@ export const DispatchTaskBoard: React.FC = () => {
     let booked = 0;
     let completed = 0;
     let cancelled = 0;
+    let noshow = 0;
 
     allGroupedOrders.forEach((group) => {
       const orderSt = String(group.order?.status || "").toLowerCase();
       const orderTracking = String(group.order?.tracking_status || "").toUpperCase();
-      const isCancelled = orderSt === "cancelled" || orderSt === "rejected" || group.tasks.every(t => String(t.status).toLowerCase() === "cancelled");
-      const isCompleted = orderSt === "delivered" || orderSt === "completed" || orderTracking === "COMPLETED" || (group.tasks.length > 0 && group.tasks.every(t => String(t.status).toLowerCase() === "completed"));
+      const isNoShow = orderSt === "pickup_failed" || orderTracking === "PICKUP_FAILED" || group.tasks.some(t => String(t.status).toLowerCase() === "pickup_failed" || String(t.status).toLowerCase() === "failed");
+      const isCancelled = !isNoShow && (orderSt === "cancelled" || orderSt === "rejected" || (group.tasks.length > 0 && group.tasks.every(t => String(t.status).toLowerCase() === "cancelled")));
+      const isCompleted = !isNoShow && (orderSt === "delivered" || orderSt === "completed" || orderTracking === "COMPLETED" || (group.tasks.length > 0 && group.tasks.every(t => String(t.status).toLowerCase() === "completed")));
 
-      if (isCancelled) {
+      if (isNoShow) {
+        noshow++;
+      } else if (isCancelled) {
         cancelled++;
       } else if (isCompleted) {
         completed++;
@@ -1246,19 +1250,21 @@ export const DispatchTaskBoard: React.FC = () => {
       booked,
       completed,
       cancelled,
+      noshow,
       all: allGroupedOrders.length,
     };
   }, [allGroupedOrders]);
 
-  // 4. Suodatetaan tilausryhmät valitun tab-suodattimen (DISPATCH, BOOKED, COMPLETED, CANCELLED), alueen ja haun perusteella
+  // 4. Suodatetaan tilausryhmät valitun tab-suodattimen (DISPATCH, BOOKED, COMPLETED, CANCELLED, NO SHOW), alueen ja haun perusteella
   const groupedOrders = useMemo(() => {
     const q = String(searchQuery || "").toLowerCase().trim().replace(/^#/, "");
 
     return allGroupedOrders.filter((group) => {
       const orderSt = String(group.order?.status || "").toLowerCase();
       const orderTracking = String(group.order?.tracking_status || "").toUpperCase();
-      const isCancelled = orderSt === "cancelled" || orderSt === "rejected" || group.tasks.every(t => String(t.status).toLowerCase() === "cancelled");
-      const isCompleted = orderSt === "delivered" || orderSt === "completed" || orderTracking === "COMPLETED" || (group.tasks.length > 0 && group.tasks.every(t => String(t.status).toLowerCase() === "completed"));
+      const isNoShow = orderSt === "pickup_failed" || orderTracking === "PICKUP_FAILED" || group.tasks.some(t => String(t.status).toLowerCase() === "pickup_failed" || String(t.status).toLowerCase() === "failed");
+      const isCancelled = !isNoShow && (orderSt === "cancelled" || orderSt === "rejected" || (group.tasks.length > 0 && group.tasks.every(t => String(t.status).toLowerCase() === "cancelled")));
+      const isCompleted = !isNoShow && (orderSt === "delivered" || orderSt === "completed" || orderTracking === "COMPLETED" || (group.tasks.length > 0 && group.tasks.every(t => String(t.status).toLowerCase() === "completed")));
       const hasUnassignedTask = group.tasks.some((t) => {
         const st = String(t.status || "").toLowerCase();
         if (["completed", "delivered", "picked_up"].includes(st)) return false;
@@ -1267,13 +1273,15 @@ export const DispatchTaskBoard: React.FC = () => {
 
       // Välilehden suodatus
       if (tabFilter === "dispatch") {
-        if (isCancelled || isCompleted || !hasUnassignedTask) return false;
+        if (isNoShow || isCancelled || isCompleted || !hasUnassignedTask) return false;
       } else if (tabFilter === "booked") {
-        if (isCancelled || isCompleted || hasUnassignedTask) return false;
+        if (isNoShow || isCancelled || isCompleted || hasUnassignedTask) return false;
       } else if (tabFilter === "completed") {
-        if (!isCompleted) return false;
+        if (!isCompleted || isNoShow) return false;
       } else if (tabFilter === "cancelled") {
-        if (!isCancelled) return false;
+        if (!isCancelled || isNoShow) return false;
+      } else if (tabFilter === "noshow") {
+        if (!isNoShow) return false;
       }
 
       // Aluesuodatus
@@ -2496,6 +2504,22 @@ export const DispatchTaskBoard: React.FC = () => {
               <span>CANCELLED</span>
               <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 text-white font-extrabold">
                 {tabCounts.cancelled}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTabFilter("noshow")}
+              className={cn(
+                "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2",
+                tabFilter === "noshow"
+                  ? "bg-rose-600 text-white shadow-sm"
+                  : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <span>NO SHOW</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 text-white font-extrabold">
+                {tabCounts.noshow}
               </span>
             </button>
           </div>

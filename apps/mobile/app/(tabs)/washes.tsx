@@ -88,6 +88,14 @@ export default function WashesScreen() {
 
             const filtered = (data || []).filter(order => {
                 const isCancelled = order.status === 'rejected' || order.status === 'cancelled';
+                const tracking = (order.tracking_status || '').toUpperCase();
+                const deliveryTasks = Array.isArray(order.delivery_tasks) ? order.delivery_tasks : [];
+                const returnTask = deliveryTasks.find((t: any) => t.task_type === 'delivery');
+                const isDelivered = order.status === 'delivered' || tracking === 'COMPLETED' || tracking === 'DELIVERED' || returnTask?.status === 'completed';
+
+                if (isDelivered) {
+                    return false;
+                }
                 if (isCancelled && dismissed.includes(order.id)) {
                     return false;
                 }
@@ -132,7 +140,8 @@ export default function WashesScreen() {
                     },
                     async (payload) => {
                         if (payload.eventType === 'UPDATE') {
-                            if (payload.new.status === 'delivered') {
+                            const newTracking = (payload.new?.tracking_status || '').toUpperCase();
+                            if (payload.new?.status === 'delivered' || newTracking === 'COMPLETED' || newTracking === 'DELIVERED') {
                                 setActiveOrders(prev => prev.filter(o => o.id !== payload.new.id));
                             } else {
                                 const currentDismissed = await getDismissedOrders();

@@ -308,6 +308,9 @@ export default function DriverDrivesScreen() {
                         Boolean(ordActualReturn);
 
                     let taskStatus = t.status || 'assigned';
+                    if (t.status === 'failed' || t.status === 'pickup_failed' || orderStatus === 'pickup_failed' || orderTracking === 'PICKUP_FAILED') {
+                        return;
+                    }
                     if (isPickup) {
                         if (t.status === 'completed' || t.status === 'delivered' || orderStatus === 'washing' || orderStatus === 'completed') {
                             taskStatus = 'completed';
@@ -460,7 +463,8 @@ export default function DriverDrivesScreen() {
                     if (seenOrderIds.has(orderIdStr)) return;
 
                     const orderStatus = (o.status || '').toLowerCase();
-                    if (orderStatus === 'rejected' || orderStatus === 'cancelled') {
+                    const orderTracking = (o.tracking_status || '').toUpperCase();
+                    if (orderStatus === 'rejected' || orderStatus === 'cancelled' || orderStatus === 'pickup_failed' || orderTracking === 'PICKUP_FAILED') {
                         return;
                     }
 
@@ -1115,27 +1119,44 @@ export default function DriverDrivesScreen() {
                 }
             }
 
+            if (noShowDrive.id) {
+                arrivedStatusesRef.current.delete(String(noShowDrive.id));
+            }
             if (targetOrderId) {
-                await supabase
+                arrivedStatusesRef.current.delete(String(targetOrderId));
+            }
+
+            if (targetOrderId) {
+                const { error: ordErr } = await supabase
                     .from('orders')
                     .update({
-                        status: 'pickup_failed',
+                        status: 'pending',
                         tracking_status: 'PICKUP_FAILED',
                         pickup_photos: uploadedPhotoUrl ? [uploadedPhotoUrl] : [],
                         special_instructions: noShowNotes ? `No-Show: ${noShowNotes}` : 'Nouto epäonnistui: Kuljettaja ei tavoittanut sinua',
+                        driver_id: null,
                         updated_at: nowIso,
                     })
                     .eq('id', targetOrderId);
+
+                if (ordErr) {
+                    console.error('[CONFIRM_NOSHOW] orders update error:', ordErr);
+                }
             }
 
             if (noShowDrive.id) {
-                await supabase
+                const { error: taskErr } = await supabase
                     .from('delivery_tasks')
                     .update({
-                        status: 'pickup_failed',
+                        status: 'failed',
+                        notes: noShowNotes ? `No-Show: ${noShowNotes}` : 'Nouto epäonnistui: Kuljettaja ei tavoittanut sinua',
                         updated_at: nowIso,
                     })
                     .eq('id', noShowDrive.id);
+
+                if (taskErr) {
+                    console.error('[CONFIRM_NOSHOW] delivery_tasks update error:', taskErr);
+                }
             }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -2413,14 +2434,14 @@ export default function DriverDrivesScreen() {
                                                     </TouchableOpacity>
 
                                                     <TouchableOpacity
-                                                        style={[styles.modalConfirmBtn, { backgroundColor: '#DC2626' }]}
+                                                        style={[styles.modalConfirmBtn, { backgroundColor: '#DC2626', justifyContent: 'center', alignItems: 'center' }]}
                                                         onPress={handleConfirmNoShow}
                                                         disabled={isSubmittingNoShow}
                                                     >
                                                         {isSubmittingNoShow ? (
                                                             <ActivityIndicator size="small" color="#FFFFFF" />
                                                         ) : (
-                                                            <Text style={styles.modalConfirmBtnText}>Vahvista turha käynti</Text>
+                                                            <Text style={[styles.modalConfirmBtnText, { textAlign: 'center' }]}>Vahvista</Text>
                                                         )}
                                                     </TouchableOpacity>
                                                 </View>
