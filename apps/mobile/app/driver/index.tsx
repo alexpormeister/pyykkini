@@ -474,7 +474,6 @@ export default function DriverDrivesScreen() {
                         : (o.address || 'Osoite ei saatavilla');
                     const customerCity = parsedCustomer.city || 'Espoo';
 
-                    const orderTracking = (o.tracking_status || '').toUpperCase();
                     const isCompleted = orderStatus === 'delivered' || orderStatus === 'completed' || orderTracking === 'COMPLETED' || orderStatus === 'washing';
                     const isDeliveryType = orderStatus === 'returning' || orderTracking === 'OUT_FOR_DELIVERY' || orderTracking === 'PACKAGING';
                     const orderDateOnly = normalizeDateStr(isDeliveryType ? (o.return_date || o.pickup_date) : o.pickup_date);
