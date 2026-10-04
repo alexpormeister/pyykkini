@@ -216,6 +216,45 @@ const PAYMENT_METHODS = [
   { value: "cash", label: "Käteinen", icon: <Euro className="h-3.5 w-3.5 text-amber-500" /> },
 ];
 
+const ORDER_STATUS_OPTIONS = [
+  { value: "pending", label: "🟡 Jaossa / Odottaa" },
+  { value: "accepted", label: "🔵 Aktiivinen / Vahvistettu" },
+  { value: "pickup_failed", label: "🔴 No Show / Turha käynti" },
+  { value: "washing", label: "🟣 Pesulassa / Pesussa" },
+  { value: "returning", label: "🟠 Palautuksessa / Matkalla" },
+  { value: "delivered", label: "🟢 Valmis / Toimitettu" },
+  { value: "cancelled", label: "❌ Peruutettu" },
+];
+
+const getStatusLabel = (key: string): string => {
+  const found = ORDER_STATUS_OPTIONS.find((o) => o.value === key);
+  return found ? found.label : key;
+};
+
+const getEffectiveOrderStatusKey = (order: any, tasks: any[] = []): string => {
+  const st = String(order?.status || "").toLowerCase();
+  const tr = String(order?.tracking_status || "").toUpperCase();
+  if (st === "pickup_failed" || tr === "PICKUP_FAILED" || (Array.isArray(tasks) && tasks.some(t => String(t?.status).toLowerCase() === "failed" || String(t?.status).toLowerCase() === "pickup_failed"))) {
+    return "pickup_failed";
+  }
+  if (st === "cancelled" || st === "rejected") {
+    return "cancelled";
+  }
+  if (st === "delivered" || st === "completed" || tr === "COMPLETED") {
+    return "delivered";
+  }
+  if (st === "returning" || tr === "OUT_FOR_DELIVERY") {
+    return "returning";
+  }
+  if (st === "washing" || tr === "WASHING" || (Array.isArray(tasks) && tasks.some(t => String(t?.status).toLowerCase() === "washing"))) {
+    return "washing";
+  }
+  if (st === "accepted" || tr === "DRIVER_ASSIGNED" || (Array.isArray(tasks) && tasks.some(t => t?.driver_id))) {
+    return "accepted";
+  }
+  return "pending";
+};
+
 interface SearchableOption {
   value: string;
   label: string;
@@ -1150,6 +1189,111 @@ export const DispatchTaskBoard: React.FC = () => {
       await fetchAll();
     } catch (err: any) {
       toast({ title: "Virhe", description: err.message || "Pesulan määritys epäonnistui", variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 🔄 TILAUKSEN STATUKSEN MANUAALINEN VAIHTO (VÄLITYS / ASIAKASPALVELU)
+  const handleUpdateOrderStatus = async (orderId: string, newStatusKey: string) => {
+    setActionLoading(true);
+    try {
+      const nowIso = new Date().toISOString();
+      let orderStatus = newStatusKey;
+      let trackingStatus: string | null = null;
+      let pickupTaskStatus: string | null = null;
+      let deliveryTaskStatus: string | null = null;
+
+      switch (newStatusKey) {
+        case "pending":
+          orderStatus = "pending";
+          trackingStatus = "PENDING";
+          pickupTaskStatus = "pending";
+          deliveryTaskStatus = "pending";
+          break;
+        case "accepted":
+          orderStatus = "accepted";
+          trackingStatus = "PENDING";
+          break;
+        case "pickup_failed":
+          orderStatus = "pickup_failed";
+          trackingStatus = "PICKUP_FAILED";
+          pickupTaskStatus = "failed";
+          deliveryTaskStatus = "cancelled";
+          break;
+        case "washing":
+          orderStatus = "washing";
+          trackingStatus = "WASHING";
+          pickupTaskStatus = "completed";
+          break;
+        case "returning":
+          orderStatus = "returning";
+          trackingStatus = "OUT_FOR_DELIVERY";
+          pickupTaskStatus = "completed";
+          deliveryTaskStatus = "in_progress";
+          break;
+        case "delivered":
+        case "completed":
+          orderStatus = "delivered";
+          trackingStatus = "COMPLETED";
+          pickupTaskStatus = "completed";
+          deliveryTaskStatus = "completed";
+          break;
+        case "cancelled":
+          orderStatus = "cancelled";
+          trackingStatus = "PENDING";
+          pickupTaskStatus = "cancelled";
+          deliveryTaskStatus = "cancelled";
+          break;
+        default:
+          orderStatus = newStatusKey;
+      }
+
+      const orderPayload: any = {
+        status: orderStatus,
+        updated_at: nowIso,
+      };
+      if (trackingStatus) {
+        orderPayload.tracking_status = trackingStatus;
+      }
+
+      const { error: orderErr } = await supabase
+        .from("orders")
+        .update(orderPayload)
+        .eq("id", orderId);
+
+      if (orderErr) {
+        delete orderPayload.tracking_status;
+        await supabase.from("orders").update(orderPayload).eq("id", orderId);
+      }
+
+      if (pickupTaskStatus) {
+        await supabase
+          .from("delivery_tasks")
+          .update({ status: pickupTaskStatus, updated_at: nowIso })
+          .eq("order_id", orderId)
+          .eq("task_type", "pickup");
+      }
+      if (deliveryTaskStatus) {
+        await supabase
+          .from("delivery_tasks")
+          .update({ status: deliveryTaskStatus, updated_at: nowIso })
+          .eq("order_id", orderId)
+          .eq("task_type", "delivery");
+      }
+
+      toast({
+        title: "Tilauksen tila päivitetty",
+        description: `Tilauksen #${shortOrderId(orderId)} uusi tila: ${getStatusLabel(newStatusKey)}`,
+      });
+
+      if (orderDetailsOrder && orderDetailsOrder.id === orderId) {
+        setOrderDetailsOrder((prev: any) => prev ? { ...prev, status: orderStatus, tracking_status: trackingStatus } : null);
+      }
+
+      await fetchAll();
+    } catch (err: any) {
+      toast({ title: "Virhe", description: err.message || "Tilauksen päivitys epäonnistui", variant: "destructive" });
     } finally {
       setActionLoading(false);
     }
@@ -2690,8 +2834,18 @@ export const DispatchTaskBoard: React.FC = () => {
                             </span>
                           </td>
 
-                          {/* TILA */}
-                          <td className="p-2.5">{statusBadge}</td>
+                          {/* TILA (INTERAKTIIVINEN VALINTA) */}
+                          <td className="p-2.5 w-[160px]">
+                            <SearchableSelect
+                              options={ORDER_STATUS_OPTIONS}
+                              value={getEffectiveOrderStatusKey(order, groupTasks)}
+                              onChange={(val) => handleUpdateOrderStatus(orderId, val)}
+                              placeholder="Vaihda tila"
+                              searchPlaceholder="Hae tilaa..."
+                              triggerClassName="h-6 text-[10px] py-0 w-[155px]"
+                              disabled={actionLoading}
+                            />
+                          </td>
 
                           {/* ASIAKAS */}
                           <td className="p-2.5">
@@ -3015,6 +3169,28 @@ export const DispatchTaskBoard: React.FC = () => {
             </DialogHeader>
 
             <div className="space-y-4 py-2">
+              {/* 0. TILAUKSEN TILA (MUOKATTAVISSA) */}
+              <div className="p-3.5 rounded-xl border bg-muted/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div>
+                  <span className="text-muted-foreground block text-[10px] font-bold uppercase tracking-wider">Tilauksen nykyinen tila:</span>
+                  <span className="font-bold text-foreground text-sm">
+                    {getStatusLabel(getEffectiveOrderStatusKey(orderDetailsOrder, []))}
+                  </span>
+                </div>
+                <div className="w-full sm:w-[220px]">
+                  <span className="text-muted-foreground block text-[10px] mb-1">Vaihda tilauksen tilaa:</span>
+                  <SearchableSelect
+                    options={ORDER_STATUS_OPTIONS}
+                    value={getEffectiveOrderStatusKey(orderDetailsOrder, [])}
+                    onChange={(val) => handleUpdateOrderStatus(orderDetailsOrder.id, val)}
+                    placeholder="Valitse tila..."
+                    searchPlaceholder="Hae tilaa..."
+                    triggerClassName="h-8 text-xs py-0 w-full"
+                    disabled={actionLoading}
+                  />
+                </div>
+              </div>
+
               {/* 1. ASIAKASTIEDOT */}
               <div className="p-3.5 rounded-xl border bg-muted/20 space-y-2 text-xs">
                 <h4 className="font-bold text-foreground flex items-center gap-1.5 uppercase text-[11px] tracking-wider text-muted-foreground">

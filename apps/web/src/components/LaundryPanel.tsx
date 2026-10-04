@@ -235,8 +235,8 @@ export const LaundryPanel = () => {
       !isCancelledOrRejected(o),
   );
 
-  // 5. Historia / Toimituksessa & Valmiit
-  const history = orders.filter((o) => ["OUT_FOR_DELIVERY", "COMPLETED"].includes(track(o)) || o.status === "delivered");
+  // 5. Historia / Toimituksessa & Valmiit & Peruutetut
+  const history = orders.filter((o) => ["OUT_FOR_DELIVERY", "COMPLETED"].includes(track(o)) || o.status === "delivered" || isCancelledOrRejected(o));
 
   const decide = async (order: LaundryOrder, decision: "accepted" | "rejected") => {
     if (!laundryId) return;
@@ -343,12 +343,11 @@ export const LaundryPanel = () => {
   };
 
   const laundryTotal = (o: LaundryOrder) => {
+    if (isCancelledOrRejected(o)) return 0;
+    
     // 1. Jos order_items löytyy, lasketaan tuotekohtaisesti
     if (o.order_items && o.order_items.length > 0) {
       return o.order_items.reduce((sum, it) => {
-        if (it.laundry_price != null && Number(it.laundry_price) > 0) {
-          return sum + Number(it.laundry_price);
-        }
         // Etsitään pesulan oma hinta product_laundry_prices -listasta
         const itName = (it.product_name || it.service_name || o.service_name || "").toLowerCase().trim();
         const itType = ((it as any).service_type || "").toLowerCase().trim();
@@ -366,6 +365,10 @@ export const LaundryPanel = () => {
 
         if (own?.price != null && Number(own.price) > 0) {
           return sum + Number(own.price) * (it.quantity || 1);
+        }
+        
+        if (it.laundry_price != null && Number(it.laundry_price) > 0) {
+          return sum + Number(it.laundry_price);
         }
         return sum + (Number(it.total_price || 0) * 0.7);
       }, 0);
@@ -676,7 +679,7 @@ export const LaundryPanel = () => {
                     <OrderCard
                       order={o}
                       action={() => decide(o, "rejected")}
-                      actionLabel="Kuittaa hylätyksi"
+                      actionLabel="Poista"
                       actionIcon={<XCircle className="mr-2 h-5 w-5 text-red-500" />}
                       extra={
                         <p className="rounded-lg bg-red-500/10 text-red-900 dark:text-red-200 border border-red-500/20 p-2.5 text-xs font-medium">
@@ -829,11 +832,16 @@ export const LaundryPanel = () => {
                 Ei valmistuneita tilauksia
               </div>
             )}
-            {filteredHistory.map((o) => (
-              <Card key={o.id}>
+            {filteredHistory.map((o) => {
+              const isCancelled = isCancelledOrRejected(o);
+              return (
+              <Card key={o.id} className={isCancelled ? "bg-red-50/50 border-red-200" : ""}>
                 <CardContent className="space-y-2 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="font-bold">#{orderRef(o)}</div>
+                    <div className="font-bold flex items-center gap-2">
+                      #{orderRef(o)}
+                      {isCancelled && <Badge variant="destructive" className="ml-2">Peruutettu</Badge>}
+                    </div>
                     <div className="text-sm text-muted-foreground">
                       {new Date(o.created_at).toLocaleDateString("fi-FI")}
                     </div>
@@ -848,7 +856,7 @@ export const LaundryPanel = () => {
                   <div className="text-sm font-semibold">{eur(laundryTotal(o))}</div>
                 </CardContent>
               </Card>
-            ))}
+            )})}
           </div>
         </TabsContent>
 

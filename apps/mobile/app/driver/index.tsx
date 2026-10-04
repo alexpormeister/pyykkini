@@ -58,7 +58,7 @@ export interface DriverDrive {
     id: string;
     orderId: string;
     taskType: 'pickup' | 'delivery';
-    status: 'assigned' | 'picking_up' | 'arrived_pickup' | 'in_transit_to_laundry' | 'in_progress' | 'returning' | 'arrived_delivery' | 'completed' | 'pending' | 'pickup_failed';
+    status: 'assigned' | 'picking_up' | 'arrived_pickup' | 'in_transit_to_laundry' | 'in_progress' | 'returning' | 'arrived_delivery' | 'completed' | 'pending' | 'pickup_failed' | 'failed' | 'cancelled';
     customerName?: string;
     customerPhone?: string;
     accessCode?: string;
@@ -274,7 +274,9 @@ export default function DriverDrivesScreen() {
                     const taskStatusRaw = (t.status || '').toLowerCase();
 
                     // Hylättyjä tai peruutettuja keikkoja ei koskaan näytetä kuljettajan aktiivisissa ajoissa
-                    if (taskStatusRaw === 'cancelled' || orderStatus === 'rejected' || orderStatus === 'cancelled') {
+                    // POIKKEUS: "Turha käynti" (failed) pitää näkyä historiassa vaikka tilaus olisi peruutettu
+                    const isNoShowTaskRaw = taskStatusRaw === 'failed' || taskStatusRaw === 'pickup_failed';
+                    if (!isNoShowTaskRaw && (taskStatusRaw === 'cancelled' || orderStatus === 'rejected' || orderStatus === 'cancelled')) {
                         return;
                     }
 
@@ -315,6 +317,8 @@ export default function DriverDrivesScreen() {
                         } else {
                             return;
                         }
+                    } else if (t.status === 'cancelled' || orderStatus === 'cancelled' || orderStatus === 'rejected') {
+                        taskStatus = 'cancelled';
                     } else if (isPickup) {
                         if (t.status === 'completed' || t.status === 'delivered' || orderStatus === 'washing' || orderStatus === 'completed') {
                             taskStatus = 'completed';
@@ -357,7 +361,7 @@ export default function DriverDrivesScreen() {
                         : (customerRawAddress || ordObj.address || 'Osoite ei saatavilla');
                     
                     const customerCity = parsedCustomer.city || 'Espoo';
-                    const isDone = taskStatus === 'completed' || taskStatus === 'failed' || taskStatus === 'pickup_failed' || isCompleted;
+                    const isDone = taskStatus === 'completed' || taskStatus === 'failed' || taskStatus === 'pickup_failed' || taskStatus === 'cancelled' || isCompleted;
 
                     // 🔒 Yksityisyyssuoja: Suoritetun keikan jälkeen asiakkaan osoitteesta näkyy vain kaupunki
                     const customerDisplayAddress = isDone ? customerCity : customerFullAddress;
@@ -1161,6 +1165,7 @@ export default function DriverDrivesScreen() {
                     status: 'failed',
                     pickup_photos: uploadedPhotoUrl ? [uploadedPhotoUrl] : [],
                     updated_at: nowIso,
+                    driver_payout: systemSettings.no_show_fee || 7.90,
                 };
 
                 const { error: taskErr } = await supabase
@@ -1170,6 +1175,17 @@ export default function DriverDrivesScreen() {
 
                 if (taskErr) {
                     console.error('[CONFIRM_NOSHOW] delivery_tasks update error:', taskErr);
+                }
+            }
+
+            if (noShowDrive.taskType === 'pickup' && targetOrderId) {
+                const { error: cancelErr } = await supabase
+                    .from('delivery_tasks')
+                    .update({ status: 'cancelled', updated_at: nowIso })
+                    .eq('order_id', targetOrderId)
+                    .eq('task_type', 'delivery');
+                if (cancelErr) {
+                    console.error('[CONFIRM_NOSHOW] return delivery cancel error:', cancelErr);
                 }
             }
 
@@ -1333,6 +1349,28 @@ export default function DriverDrivesScreen() {
         const isPickup = drive.taskType === 'pickup';
         const status = drive.status;
 
+        if (status === 'cancelled') {
+            return {
+                text: 'Peruutettu',
+                color: '#DC2626',
+                bg: '#FEF2F2',
+                border: '#FECACA',
+                icon: 'slash',
+                accentColor: '#EF4444',
+                typeLabel: 'Peruutettu keikka'
+            };
+        }
+        if (status === 'failed' || status === 'pickup_failed') {
+            return {
+                text: 'Turha käynti',
+                color: '#DC2626',
+                bg: '#FEF2F2',
+                border: '#FECACA',
+                icon: 'x-circle',
+                accentColor: '#EF4444',
+                typeLabel: 'Turha käynti'
+            };
+        }
         if (isCompleted) {
             return {
                 text: 'Suoritettu',

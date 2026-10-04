@@ -11,6 +11,7 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Alert,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { getPickupCode, formatTimeWindow } from '../../lib/addressUtils';
@@ -49,8 +50,8 @@ const getStatusConfig = (order: any) => {
     // 0.5 Nouto epäonnistunut
     if (status === 'pickup_failed' || tracking === 'PICKUP_FAILED' || pickupTask?.status === 'pickup_failed' || pickupTask?.status === 'failed') {
         return {
-            title: 'Nouto epäonnistui: Kuljettaja ei tavoittanut sinua',
-            subtitle: 'Kuljettaja saapui nouto-osoitteeseen, mutta ei saanut yhteyttä. Sopi uusi noutoaika veloituksetta.',
+            title: 'Nouto epäonnistui: Kuljettaja ei tavoittanut asiakasta',
+            subtitle: 'Kuljettaja saapui nouto-osoitteeseen, mutta ei saanut yhteyttä. Valitse uusi aika veloituksetta.',
             step: 1,
             color: '#DC2626',
             badgeBg: '#FEF2F2',
@@ -236,6 +237,30 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
     const [rescheduleReturnTime, setRescheduleReturnTime] = useState<string>('08:00 - 10:00');
     const [isSubmittingReschedule, setIsSubmittingReschedule] = useState(false);
 
+    const [dbTimeSlots, setDbTimeSlots] = useState<{ id: string, time: string, startHour: number, endHour: number, slotType: string }[]>([]);
+
+    useEffect(() => {
+        const fetchTimeSlots = async () => {
+            const { data } = await supabase.from('time_slots').select('*').eq('is_active', true).order('sort_order', { ascending: true });
+            if (data && data.length > 0) {
+                const mapped = data.map((item: any) => ({
+                    id: item.id,
+                    time: item.label || `${String(item.start_hour).padStart(2, '0')}:00 - ${String(item.end_hour).padStart(2, '0')}:00`,
+                    startHour: item.start_hour ?? 8,
+                    endHour: item.end_hour ?? 10,
+                    slotType: item.slot_type || 'both'
+                }));
+                setDbTimeSlots(mapped);
+                
+                const pickSlots = mapped.filter(m => m.slotType === 'both' || m.slotType === 'pickup');
+                const retSlots = mapped.filter(m => m.slotType === 'both' || m.slotType === 'delivery');
+                if(pickSlots.length > 0) setReschedulePickupTime(pickSlots[0].time);
+                if(retSlots.length > 0) setRescheduleReturnTime(retSlots[0].time);
+            }
+        };
+        fetchTimeSlots();
+    }, []);
+
     const getUpcomingDatesList = () => {
         const list = [];
         const days = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];
@@ -293,7 +318,7 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                     laundry_id: null,
                     driver_id: null,
                     status: 'pending',
-                    tracking_status: 'ORDER_PLACED',
+                    tracking_status: 'PENDING',
                     special_instructions: order.special_instructions
                         ? `${order.special_instructions} (Uudelleenajastettu)`
                         : 'Uudelleenajastettu nouto epäonnistumisen jälkeen',
@@ -360,7 +385,6 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                 .from('orders')
                 .update({
                     status: 'cancelled',
-                    tracking_status: 'CANCELLED',
                     special_instructions: `Korvattu uudella tilauksella #${newOrder.id.slice(0, 8)}`,
                     updated_at: nowIso,
                 })
@@ -370,6 +394,11 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                 .from('delivery_tasks')
                 .update({ status: 'cancelled', updated_at: nowIso })
                 .eq('order_id', order.id);
+
+            // Piilotetaan vanha tilaus asiakkaalta automaattisesti
+            if (onDismiss) {
+                onDismiss();
+            }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             setIsRescheduleModalOpen(false);
@@ -502,10 +531,10 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                 <View style={styles.pickupFailedBannerBox}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                         <Feather name="alert-triangle" size={18} color="#DC2626" style={{ marginRight: 6 }} />
-                        <Text style={styles.pickupFailedTitle}>Nouto epäonnistui: Kuljettaja ei tavoittanut sinua</Text>
+                        <Text style={styles.pickupFailedTitle}>Nouto epäonnistui: Kuljettaja ei tavoittanut asiakasta</Text>
                     </View>
                     <Text style={styles.pickupFailedDesc}>
-                        Kuljettaja saapui nouto-osoitteeseen, mutta ei saanut yhteyttä. Sopi uusi sinulle sopiva nouto- ja palautusaika veloituksetta.
+                        Kuljettaja saapui nouto-osoitteeseen, mutta ei saanut yhteyttä. Valitse uusi sinulle sopiva nouto- ja palautusaika veloituksetta.
                     </Text>
                     <TouchableOpacity
                         style={styles.rescheduleBtn}
@@ -513,7 +542,7 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                         activeOpacity={0.85}
                     >
                         <Feather name="calendar" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
-                        <Text style={styles.rescheduleBtnText}>Sopi uusi noutoaika</Text>
+                        <Text style={styles.rescheduleBtnText}>Valitse uusi aika</Text>
                     </TouchableOpacity>
                 </View>
             )}
@@ -539,35 +568,18 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                 </View>
             )}
 
-            {/* 📸 5b. NOUTOVARMISTUS (PAINO TAI OTETUT KUVAT) 📸 */}
-            {((order.pickup_photos && order.pickup_photos.length > 0) || order.pickup_weight_kg) && (
+            {/* 📸 5b. NOUTOVARMISTUS (PAINO) 📸 */}
+            {!!order.pickup_weight_kg && (
                 <View style={styles.verificationBanner}>
                     <View style={styles.verificationHeader}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             <Feather name="check-circle" size={15} color="#10B981" style={{ marginRight: 6 }} />
                             <Text style={styles.verificationTitle}>Noutotarkistus suoritettu</Text>
                         </View>
-                        {order.pickup_weight_kg ? (
-                            <View style={styles.verificationWeightPill}>
-                                <Text style={styles.verificationWeightText}>{order.pickup_weight_kg} kg</Text>
-                            </View>
-                        ) : null}
-                    </View>
-
-                    {order.pickup_photos && order.pickup_photos.length > 0 && (
-                        <View style={{ marginTop: 8 }}>
-                            <Text style={styles.verificationPhotosLabel}>Kuljettajan ottamat tuotekuvat noudossa:</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
-                                {order.pickup_photos.map((photoUri: string, idx: number) => (
-                                    <Image
-                                        key={idx}
-                                        source={{ uri: photoUri }}
-                                        style={styles.customerPhotoThumb}
-                                    />
-                                ))}
-                            </ScrollView>
+                        <View style={styles.verificationWeightPill}>
+                            <Text style={styles.verificationWeightText}>{order.pickup_weight_kg} kg</Text>
                         </View>
-                    )}
+                    </View>
                 </View>
             )}
 
@@ -709,7 +721,7 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                 <View style={styles.modalBackdrop}>
                     <View style={[styles.modalCard, { maxHeight: '85%' }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Sopi uusi noutoaika</Text>
+                            <Text style={styles.modalTitle}>Valitse uusi aika</Text>
                             <TouchableOpacity
                                 onPress={() => setIsRescheduleModalOpen(false)}
                                 style={styles.modalCloseBtn}
@@ -748,7 +760,7 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                                 Noudon kellonaika
                             </Text>
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-                                {['08:00 - 10:00', '10:00 - 12:00', '12:00 - 14:00', '14:00 - 16:00', '16:00 - 18:00', '18:00 - 20:00'].map(t => (
+                                {(dbTimeSlots.length > 0 ? dbTimeSlots.filter(s => s.slotType === 'both' || s.slotType === 'pickup').map(s => s.time) : ['08:00 - 10:00', '10:00 - 12:00', '12:00 - 14:00', '14:00 - 16:00', '16:00 - 18:00', '18:00 - 20:00']).map(t => (
                                     <TouchableOpacity
                                         key={t}
                                         style={[
@@ -788,7 +800,7 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                                 Palautuksen kellonaika
                             </Text>
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-                                {['08:00 - 10:00', '10:00 - 12:00', '12:00 - 14:00', '14:00 - 16:00', '16:00 - 18:00', '18:00 - 20:00'].map(t => (
+                                {(dbTimeSlots.length > 0 ? dbTimeSlots.filter(s => s.slotType === 'both' || s.slotType === 'delivery').map(s => s.time) : ['08:00 - 10:00', '10:00 - 12:00', '12:00 - 14:00', '14:00 - 16:00', '16:00 - 18:00', '18:00 - 20:00']).map(t => (
                                     <TouchableOpacity
                                         key={`rett_${t}`}
                                         style={[
@@ -810,7 +822,7 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
                             onPress={handleConfirmReschedule}
                             disabled={isSubmittingReschedule}
                         >
-                            <Text style={styles.modalConfirmBtnText}>Vahvista uusi noutoaika</Text>
+                            <Text style={styles.modalConfirmBtnText}>Vahvista uusi aika</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
