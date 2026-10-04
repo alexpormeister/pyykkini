@@ -2337,6 +2337,7 @@ export default function DriverDrivesScreen() {
                                         </TouchableWithoutFeedback>
                                     </KeyboardAvoidingView>
                                 </View>
+                            </TouchableWithoutFeedback>
                         )}
 
                         {/* 🌟 ASIAKAS EI PAIKALLA / NO-SHOW OVERLAY 🌟 */}
