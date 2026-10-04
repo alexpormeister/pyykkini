@@ -23,6 +23,7 @@
     "@supabase/supabase-js": "^2.76.1",
     "expo": "^57.0.22",
     "expo-apple-authentication": "~57.0.2",
+    "expo-asset": "^57.0.18",
     "expo-camera": "~57.0.5",
     "expo-checkbox": "~57.0.0",
     "expo-clipboard": "~57.0.2",
