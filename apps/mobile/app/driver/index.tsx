@@ -1126,31 +1126,42 @@ export default function DriverDrivesScreen() {
             }
 
             if (targetOrderId) {
-                const { error: ordErr } = await supabase
+                const ordPayload: any = {
+                    status: 'pending',
+                    tracking_status: 'PICKUP_FAILED',
+                    pickup_photos: uploadedPhotoUrl ? [uploadedPhotoUrl] : [],
+                    special_instructions: noShowNotes ? `No-Show: ${noShowNotes}` : 'Nouto epäonnistui: Kuljettaja ei tavoittanut sinua',
+                    driver_id: null,
+                    updated_at: nowIso,
+                };
+
+                let { error: ordErr } = await supabase
                     .from('orders')
-                    .update({
-                        status: 'pending',
-                        tracking_status: 'PICKUP_FAILED',
-                        pickup_photos: uploadedPhotoUrl ? [uploadedPhotoUrl] : [],
-                        special_instructions: noShowNotes ? `No-Show: ${noShowNotes}` : 'Nouto epäonnistui: Kuljettaja ei tavoittanut sinua',
-                        driver_id: null,
-                        updated_at: nowIso,
-                    })
+                    .update(ordPayload)
                     .eq('id', targetOrderId);
 
-                if (ordErr) {
+                if (ordErr && (ordErr.code === '22P02' || ordErr.message?.includes('enum') || ordErr.message?.includes('tracking_status'))) {
+                    console.warn('[CONFIRM_NOSHOW] Fallback updating orders without PICKUP_FAILED enum:', ordErr.message);
+                    delete ordPayload.tracking_status;
+                    await supabase
+                        .from('orders')
+                        .update(ordPayload)
+                        .eq('id', targetOrderId);
+                } else if (ordErr) {
                     console.error('[CONFIRM_NOSHOW] orders update error:', ordErr);
                 }
             }
 
             if (noShowDrive.id) {
+                const taskPayload: any = {
+                    status: 'failed',
+                    pickup_photos: uploadedPhotoUrl ? [uploadedPhotoUrl] : [],
+                    updated_at: nowIso,
+                };
+
                 const { error: taskErr } = await supabase
                     .from('delivery_tasks')
-                    .update({
-                        status: 'failed',
-                        notes: noShowNotes ? `No-Show: ${noShowNotes}` : 'Nouto epäonnistui: Kuljettaja ei tavoittanut sinua',
-                        updated_at: nowIso,
-                    })
+                    .update(taskPayload)
                     .eq('id', noShowDrive.id);
 
                 if (taskErr) {
