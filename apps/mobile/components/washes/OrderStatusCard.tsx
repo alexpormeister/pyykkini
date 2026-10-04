@@ -47,7 +47,7 @@ const getStatusConfig = (order: any) => {
     }
 
     // 0.5 Nouto epäonnistunut
-    if (status === 'pickup_failed' || tracking === 'PICKUP_FAILED' || pickupTask?.status === 'pickup_failed') {
+    if (status === 'pickup_failed' || tracking === 'PICKUP_FAILED' || pickupTask?.status === 'pickup_failed' || pickupTask?.status === 'failed') {
         return {
             title: 'Nouto epäonnistui: Kuljettaja ei tavoittanut sinua',
             subtitle: 'Kuljettaja saapui nouto-osoitteeseen, mutta ei saanut yhteyttä. Sopi uusi noutoaika veloituksetta.',
@@ -263,48 +263,119 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
         try {
             const nowIso = new Date().toISOString();
 
+            // 1. Luodaan kokonaan UUSI tilaus uudella ID:llä (ilman kuljettajaa ja pesulaa)
+            const { data: newOrder, error: createErr } = await supabase
+                .from('orders')
+                .insert({
+                    user_id: order.user_id,
+                    first_name: order.first_name || 'Asiakas',
+                    last_name: order.last_name || '',
+                    phone: order.phone,
+                    address: order.address,
+                    access_code: order.access_code || null,
+                    pickup_date: reschedulePickupDate,
+                    pickup_time: reschedulePickupTime.split(' - ')[0] || '08:00',
+                    pickup_slot: `${reschedulePickupDate}T${reschedulePickupTime.split(' - ')[0] || '08:00'}:00`,
+                    return_date: rescheduleReturnDate,
+                    return_time: rescheduleReturnTime.split(' - ')[0] || '18:00',
+                    delivery_slot: `${rescheduleReturnDate}T${rescheduleReturnTime.split(' - ')[0] || '18:00'}:00`,
+                    service_name: order.service_name || 'Pesupalvelu',
+                    service_type: order.service_type || 'standard',
+                    price: order.price || 0,
+                    delivery_fee: order.delivery_fee || 0,
+                    service_fee: order.service_fee || 0,
+                    final_price: order.final_price || order.price || 0,
+                    payment_amount: order.payment_amount || order.final_price || order.price || 0,
+                    payment_status: order.payment_status || 'paid',
+                    payment_method: order.payment_method || 'card',
+                    stripe_payment_intent_id: order.stripe_payment_intent_id || null,
+                    stripe_session_id: order.stripe_session_id || null,
+                    laundry_id: null,
+                    driver_id: null,
+                    status: 'pending',
+                    tracking_status: 'ORDER_PLACED',
+                    special_instructions: order.special_instructions
+                        ? `${order.special_instructions} (Uudelleenajastettu)`
+                        : 'Uudelleenajastettu nouto epäonnistumisen jälkeen',
+                    terms_accepted: true,
+                    created_at: nowIso,
+                    updated_at: nowIso,
+                })
+                .select()
+                .single();
+
+            if (createErr || !newOrder) {
+                throw new Error(createErr?.message || 'Uuden tilauksen luonti epäonnistui');
+            }
+
+            // 2. Kopioidaan tuoterivit uudelle tilaukselle
+            if (Array.isArray(order.order_items) && order.order_items.length > 0) {
+                const newItems = order.order_items.map((item: any) => ({
+                    order_id: newOrder.id,
+                    product_name: item.product_name || item.service_name || 'Tuote',
+                    service_name: item.service_name || item.product_name || 'Tuote',
+                    quantity: item.quantity || 1,
+                    unit_price: item.unit_price || item.price || 0,
+                    total_price: item.total_price || item.price || 0,
+                }));
+                await supabase.from('order_items').insert(newItems);
+            }
+
+            // 3. Luodaan uudet nouto- ja palautustehtävät (delivery_tasks)
+            await supabase.from('delivery_tasks').insert([
+                {
+                    order_id: newOrder.id,
+                    task_type: 'pickup',
+                    driver_id: null,
+                    laundry_id: null,
+                    origin_name: `${order.first_name || ''} ${order.last_name || ''}`.trim() || 'Asiakas',
+                    origin_address: order.address,
+                    origin_phone: order.phone,
+                    destination_name: 'Yleinen jako',
+                    destination_address: 'Yleinen jako',
+                    scheduled_date: reschedulePickupDate,
+                    scheduled_time_slot: reschedulePickupTime,
+                    status: 'unassigned',
+                    driver_payout: 15.0,
+                },
+                {
+                    order_id: newOrder.id,
+                    task_type: 'delivery',
+                    driver_id: null,
+                    laundry_id: null,
+                    origin_name: 'Yleinen jako',
+                    origin_address: 'Yleinen jako',
+                    destination_name: `${order.first_name || ''} ${order.last_name || ''}`.trim() || 'Asiakas',
+                    destination_address: order.address,
+                    destination_phone: order.phone,
+                    scheduled_date: rescheduleReturnDate,
+                    scheduled_time_slot: rescheduleReturnTime,
+                    status: 'pending',
+                    driver_payout: 15.0,
+                },
+            ]);
+
+            // 4. Merkitään vanha tilaus peruutettuksi/korvatuksi
             await supabase
                 .from('orders')
                 .update({
-                    status: 'pending',
-                    tracking_status: 'pending',
-                    driver_id: null,
-                    pickup_date: reschedulePickupDate,
-                    pickup_time: reschedulePickupTime,
-                    return_date: rescheduleReturnDate,
-                    return_time: rescheduleReturnTime,
+                    status: 'cancelled',
+                    tracking_status: 'CANCELLED',
+                    special_instructions: `Korvattu uudella tilauksella #${newOrder.id.slice(0, 8)}`,
                     updated_at: nowIso,
                 })
                 .eq('id', order.id);
 
             await supabase
                 .from('delivery_tasks')
-                .update({
-                    status: 'pending',
-                    driver_id: null,
-                    scheduled_date: reschedulePickupDate,
-                    scheduled_time: reschedulePickupTime,
-                    updated_at: nowIso,
-                })
-                .eq('order_id', order.id)
-                .eq('task_type', 'pickup');
-
-            await supabase
-                .from('delivery_tasks')
-                .update({
-                    status: 'pending',
-                    driver_id: null,
-                    scheduled_date: rescheduleReturnDate,
-                    scheduled_time: rescheduleReturnTime,
-                    updated_at: nowIso,
-                })
-                .eq('order_id', order.id)
-                .eq('task_type', 'delivery');
+                .update({ status: 'cancelled', updated_at: nowIso })
+                .eq('order_id', order.id);
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             setIsRescheduleModalOpen(false);
-        } catch (e) {
-            console.error('Virhe ajan vaihdossa:', e);
+        } catch (e: any) {
+            console.error('Virhe uuden tilauksen luonnissa:', e);
+            Alert.alert('Virhe', e?.message || 'Uuden tilauksen luonti epäonnistui.');
         } finally {
             setIsSubmittingReschedule(false);
         }

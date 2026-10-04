@@ -308,10 +308,14 @@ export default function DriverDrivesScreen() {
                         Boolean(ordActualReturn);
 
                     let taskStatus = t.status || 'assigned';
-                    if (t.status === 'failed' || t.status === 'pickup_failed' || orderStatus === 'pickup_failed' || orderTracking === 'PICKUP_FAILED') {
-                        return;
-                    }
-                    if (isPickup) {
+                    const isNoShowTask = t.status === 'failed' || t.status === 'pickup_failed' || orderStatus === 'pickup_failed' || orderTracking === 'PICKUP_FAILED';
+                    if (isNoShowTask) {
+                        if (t.driver_id === currentUserId) {
+                            taskStatus = 'failed';
+                        } else {
+                            return;
+                        }
+                    } else if (isPickup) {
                         if (t.status === 'completed' || t.status === 'delivered' || orderStatus === 'washing' || orderStatus === 'completed') {
                             taskStatus = 'completed';
                             arrivedStatusesRef.current.delete(driveKey);
@@ -353,7 +357,7 @@ export default function DriverDrivesScreen() {
                         : (customerRawAddress || ordObj.address || 'Osoite ei saatavilla');
                     
                     const customerCity = parsedCustomer.city || 'Espoo';
-                    const isDone = taskStatus === 'completed' || isCompleted;
+                    const isDone = taskStatus === 'completed' || taskStatus === 'failed' || taskStatus === 'pickup_failed' || isCompleted;
 
                     // 🔒 Yksityisyyssuoja: Suoritetun keikan jälkeen asiakkaan osoitteesta näkyy vain kaupunki
                     const customerDisplayAddress = isDone ? customerCity : customerFullAddress;
@@ -1130,7 +1134,7 @@ export default function DriverDrivesScreen() {
                     status: 'pending',
                     tracking_status: 'PICKUP_FAILED',
                     pickup_photos: uploadedPhotoUrl ? [uploadedPhotoUrl] : [],
-                    special_instructions: noShowNotes ? `No-Show: ${noShowNotes}` : 'Nouto epäonnistui: Kuljettaja ei tavoittanut sinua',
+                    special_instructions: noShowNotes ? `No-Show: ${noShowNotes}` : 'Nouto epäonnistui: Kuljettaja ei tavoittanut asiakasta',
                     driver_id: null,
                     updated_at: nowIso,
                 };

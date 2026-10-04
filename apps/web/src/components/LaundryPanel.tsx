@@ -668,7 +668,25 @@ export const LaundryPanel = () => {
               icon={<Truck className="h-5 w-5 text-primary" />}
               items={incoming}
               renderCard={(o) => {
+                const isPickupFailed = track(o) === "PICKUP_FAILED" || o.status === "pickup_failed";
                 const isPickedUp = ["PICKED_UP", "WASHING"].includes(track(o)) || Boolean(o.pickup_weight_kg);
+
+                if (isPickupFailed) {
+                  return (
+                    <OrderCard
+                      order={o}
+                      action={() => decide(o, "rejected")}
+                      actionLabel="Kuittaa hylätyksi"
+                      actionIcon={<XCircle className="mr-2 h-5 w-5 text-red-500" />}
+                      extra={
+                        <p className="rounded-lg bg-red-500/10 text-red-900 dark:text-red-200 border border-red-500/20 p-2.5 text-xs font-medium">
+                          ⚠️ Nouto epäonnistui: Kuljettaja ei tavoittanut asiakasta
+                        </p>
+                      }
+                    />
+                  );
+                }
+
                 return (
                   <OrderCard
                     order={o}
