@@ -86,17 +86,32 @@ export default function WashesScreen() {
 
             if (error) throw error;
 
-            const filtered = (data || []).filter(order => {
+            const filtered = (data || []).filter((order, idx, allOrders) => {
                 const isCancelled = order.status === 'rejected' || order.status === 'cancelled';
                 const tracking = (order.tracking_status || '').toUpperCase();
                 const deliveryTasks = Array.isArray(order.delivery_tasks) ? order.delivery_tasks : [];
                 const returnTask = deliveryTasks.find((t: any) => t.task_type === 'delivery');
                 const isDelivered = order.status === 'delivered' || tracking === 'COMPLETED' || tracking === 'DELIVERED' || returnTask?.status === 'completed';
-                const isReplaced = isCancelled && (order.special_instructions || '').includes('Korvattu');
+                const isPickupFailed = order.status === 'pickup_failed' || tracking === 'PICKUP_FAILED';
 
                 if (isDelivered) {
                     return false;
                 }
+
+                // Tarkistetaan onko käyttäjällä uudempi tilaus (esim. uudelleenajastuksen jälkeen)
+                const hasNewerOrder = allOrders.some(other => {
+                    if (other.id === order.id) return false;
+                    const otherCreated = new Date(other.created_at).getTime();
+                    const thisCreated = new Date(order.created_at).getTime();
+                    return otherCreated > thisCreated;
+                });
+
+                if (isPickupFailed && hasNewerOrder) {
+                    return false;
+                }
+
+                const isReplaced = isCancelled && ((order.special_instructions || '').includes('Korvattu') || hasNewerOrder);
+
                 if (isCancelled && (dismissed.includes(order.id) || isReplaced)) {
                     return false;
                 }

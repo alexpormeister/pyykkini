@@ -454,15 +454,23 @@ export default function OrderStatusCard({ order, onDismiss }: OrderStatusCardPro
         }
     };
 
+    const orderRefNumber = '#' + String(order.id || '').slice(0, 8).toUpperCase();
+
     return (
         <View style={styles.card}>
-            {/* 🌟 1. YLÄOSA: STATUS-BADGE JA MASCOT 🌟 */}
+            {/* 🌟 1. YLÄOSA: TILAUSNUMERO, STATUS-BADGE JA MASCOT 🌟 */}
             <View style={styles.headerRow}>
-                <View style={[styles.statusBadge, { backgroundColor: config.badgeBg }]}>
-                    <View style={[styles.statusDot, { backgroundColor: config.color }]} />
-                    <Text style={[styles.statusBadgeText, { color: config.color }]}>
-                        {config.badgeText}
-                    </Text>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <View style={styles.orderNumberBadge}>
+                        <Text style={styles.orderNumberText}>{orderRefNumber}</Text>
+                    </View>
+
+                    <View style={[styles.statusBadge, { backgroundColor: config.badgeBg }]}>
+                        <View style={[styles.statusDot, { backgroundColor: config.color }]} />
+                        <Text style={[styles.statusBadgeText, { color: config.color }]}>
+                            {config.badgeText}
+                        </Text>
+                    </View>
                 </View>
 
                 <Image source={config.image} style={styles.mascotImage} resizeMode="contain" />
@@ -926,6 +934,21 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 14,
+    },
+    orderNumberBadge: {
+        backgroundColor: '#F1F5F9',
+        paddingVertical: 5,
+        paddingHorizontal: 9,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    orderNumberText: {
+        fontSize: 11,
+        fontWeight: '900',
+        color: '#0F172A',
+        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+        letterSpacing: 0.5,
     },
     statusBadge: {
         flexDirection: 'row',
