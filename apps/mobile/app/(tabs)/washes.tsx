@@ -92,11 +92,12 @@ export default function WashesScreen() {
                 const deliveryTasks = Array.isArray(order.delivery_tasks) ? order.delivery_tasks : [];
                 const returnTask = deliveryTasks.find((t: any) => t.task_type === 'delivery');
                 const isDelivered = order.status === 'delivered' || tracking === 'COMPLETED' || tracking === 'DELIVERED' || returnTask?.status === 'completed';
+                const isReplaced = isCancelled && (order.special_instructions || '').includes('Korvattu');
 
                 if (isDelivered) {
                     return false;
                 }
-                if (isCancelled && dismissed.includes(order.id)) {
+                if (isCancelled && (dismissed.includes(order.id) || isReplaced)) {
                     return false;
                 }
                 return true;
@@ -185,6 +186,7 @@ export default function WashesScreen() {
         setActiveOrders(prev => prev.filter(order => order.id !== orderId));
     };
 
+    const trulyActiveCount = activeOrders.filter(o => o.status !== 'cancelled' && o.status !== 'rejected').length;
     const hasActiveOrders = activeOrders.length > 0;
     const hasCartItems = cartItems.length > 0;
 
@@ -223,12 +225,12 @@ export default function WashesScreen() {
             <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
             {/* AKTIIVISEN TILAUSMÄÄRÄN BADGE (JOS ON TILAUS) */}
-            {hasActiveOrders && (
+            {trulyActiveCount > 0 && (
                 <View style={styles.header}>
                     <View style={styles.activeBadge}>
                         <View style={styles.activeDot} />
                         <Text style={styles.activeBadgeText}>
-                            {activeOrders.length} aktiivinen tilaus
+                            {trulyActiveCount} {trulyActiveCount === 1 ? 'aktiivinen tilaus' : 'aktiivista tilausta'}
                         </Text>
                     </View>
                 </View>
