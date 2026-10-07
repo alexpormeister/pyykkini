@@ -87,12 +87,16 @@ export interface LaundryProductPrice {
 }
 
 export const fetchDispatchData = async (supabase: SupabaseClient) => {
-  const [tasksRes, rolesRes, shiftsRes, laundriesRes, productsRes, slotsRes, settingsRes] = await Promise.all([
+  const [tasksRes, ordersRes, rolesRes, shiftsRes, laundriesRes, productsRes, slotsRes, settingsRes] = await Promise.all([
     supabase
       .from("delivery_tasks")
       .select("*, orders(*)")
       .order("scheduled_date", { ascending: true })
       .order("route_order", { ascending: true, nullsFirst: false }),
+    supabase
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false }),
     supabase.from("user_roles").select("user_id, role").eq("role", "driver"),
     supabase.from("driver_shifts").select("driver_id").eq("is_active", true),
     supabase.from("laundries").select("id, name, address, city, contact_phone").order("name"),
@@ -107,6 +111,47 @@ export const fetchDispatchData = async (supabase: SupabaseClient) => {
   if (laundriesRes.error) throw laundriesRes.error;
   if (productsRes.error) throw productsRes.error;
   if (slotsRes.error) throw slotsRes.error;
+
+  const rawTasks = (tasksRes.data || []) as any[];
+  const existingOrderIds = new Set(rawTasks.map((t) => t.order_id).filter(Boolean));
+
+  const standaloneTasks: TaskRow[] = [];
+  ((ordersRes.data || []) as any[]).forEach((ord) => {
+    if (!existingOrderIds.has(ord.id)) {
+      const isCancelled = ord.status === 'cancelled' || ord.status === 'rejected';
+      const isFailed = ord.status === 'pickup_failed' || (ord.tracking_status || '').toUpperCase() === 'PICKUP_FAILED';
+      const isDone = ord.status === 'delivered' || ord.status === 'completed' || (ord.tracking_status || '').toUpperCase() === 'COMPLETED';
+
+      let taskStatus = 'pending';
+      if (isCancelled) taskStatus = 'cancelled';
+      else if (isFailed) taskStatus = 'failed';
+      else if (isDone) taskStatus = 'completed';
+
+      standaloneTasks.push({
+        id: `standalone_pickup_${ord.id}`,
+        order_id: ord.id,
+        task_type: 'pickup',
+        driver_id: ord.driver_id || null,
+        laundry_id: ord.laundry_id || null,
+        origin_name: ord.first_name ? `${ord.first_name} ${ord.last_name || ''}`.trim() : null,
+        origin_address: ord.address || null,
+        destination_name: null,
+        destination_address: null,
+        pickup_name: ord.first_name ? `${ord.first_name} ${ord.last_name || ''}`.trim() : null,
+        pickup_address: ord.address || null,
+        pickup_phone: ord.phone || null,
+        scheduled_date: ord.pickup_date || ord.created_at?.split('T')[0] || null,
+        scheduled_time_slot: ord.pickup_time || null,
+        status: taskStatus,
+        driver_payout: 0,
+        route_order: null,
+        batch_id: null,
+        orders: ord as OrderEmbedded,
+      });
+    }
+  });
+
+  const allTasks = [...rawTasks, ...standaloneTasks] as TaskRow[];
 
   const driverIds = (rolesRes.data || []).map((r: any) => r.user_id as string);
   const activeIds = new Set((shiftsRes.data || []).map((s: any) => s.driver_id as string));
@@ -133,7 +178,7 @@ export const fetchDispatchData = async (supabase: SupabaseClient) => {
   }
 
   return {
-    tasks: tasksRes.data as unknown as TaskRow[],
+    tasks: allTasks,
     drivers,
     laundries: laundriesRes.data as LaundryInfo[],
     products: productsRes.data as ProductInfo[],
