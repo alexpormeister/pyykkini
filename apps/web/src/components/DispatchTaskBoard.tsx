@@ -1302,7 +1302,7 @@ export const DispatchTaskBoard: React.FC = () => {
   // 📅 Tämän päivän päivämäärä ISO-muodossa YYYY-MM-DD
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  // 1. Suodatetaan tilaukset/tehtävät joissa päivämäärä on Tänään -> Tulevaisuus (historiatiedot haetaan OrderSearchPanelista)
+  // 1. Suodatetaan tilaukset/tehtävät: Menneistä päivämääristä piilotetaan VAIN valmiit tilaukset (kesken olevat / No Show / peruutetut näytetään aina)
   const dateScopedTasks = useMemo(() => {
     return tasks.filter((t) => {
       if (!t) return false;
@@ -1311,8 +1311,11 @@ export const DispatchTaskBoard: React.FC = () => {
       const pDate = ordObj.pickup_date;
       const rDate = ordObj.return_date;
 
-      // Jos kaikki päivämäärät ovat menneisyydessä ennen tätä päivää, ei näytetä välityksen päänäkymässä
-      if (taskDate && taskDate < todayStr && pDate && pDate < todayStr && rDate && rDate < todayStr) {
+      const orderSt = String(ordObj.status || "").toLowerCase();
+      const isDone = orderSt === "delivered" || orderSt === "completed";
+
+      // Vain jos tilaus on jo VALMIS (toimitettu) ja kaikki päivämäärät ovat menneisyydessä, piilotetaan se päänäkymästä
+      if (isDone && taskDate && taskDate < todayStr && pDate && pDate < todayStr && rDate && rDate < todayStr) {
         return false;
       }
       return true;
